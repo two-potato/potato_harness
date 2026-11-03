@@ -1,0 +1,728 @@
+{
+  "version": "0.1.0-demo",
+  "generated_at": "2026-11-03T11:42:10.083901+00:00",
+  "all_expected": true,
+  "scenarios": [
+    {
+      "scenario": "success",
+      "adapter": "offline",
+      "status": "DONE",
+      "verified": true,
+      "reason": "Fresh attested tests and review cover the pinned candidate",
+      "operator": "multiply",
+      "baseline_returncode": 1,
+      "candidate_returncode": 0,
+      "revision": 1,
+      "timeline": [
+        {
+          "state": "NEW",
+          "row_version": 0,
+          "revision": 0
+        },
+        {
+          "state": "CLASSIFIED",
+          "row_version": 1,
+          "revision": 0
+        },
+        {
+          "state": "PLANNED",
+          "row_version": 2,
+          "revision": 0
+        },
+        {
+          "state": "ASSIGNED",
+          "row_version": 3,
+          "revision": 0
+        },
+        {
+          "state": "EXECUTING",
+          "row_version": 4,
+          "revision": 0
+        },
+        {
+          "state": "TARGET_PINNED",
+          "row_version": 5,
+          "revision": 1
+        },
+        {
+          "state": "REVIEWING",
+          "row_version": 6,
+          "revision": 1
+        },
+        {
+          "state": "VERIFYING",
+          "row_version": 7,
+          "revision": 1
+        },
+        {
+          "state": "COMPLETION_AUDITING",
+          "row_version": 8,
+          "revision": 1
+        },
+        {
+          "state": "ACCEPTED",
+          "row_version": 9,
+          "revision": 1
+        },
+        {
+          "state": "DONE",
+          "row_version": 10,
+          "revision": 1
+        }
+      ],
+      "evidence": [
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "relevant_checks",
+          "task_id": "demo-success",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "6a36b6430c20ede6581b9a18a173749d3e5f797c"
+          },
+          "kind": "test",
+          "check_id": "relevant_checks",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:relevant_checks",
+          "run_id": "success:relevant_checks",
+          "result": "PASS",
+          "artifact_digest": "sha256:a169e05057a4761ca3c236e851dc62ac20c415e6044b2e1a7771cdc4adc394b9",
+          "created_at": "2026-11-03T11:42:09.688027+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "basic_review",
+          "task_id": "demo-success",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "6a36b6430c20ede6581b9a18a173749d3e5f797c"
+          },
+          "kind": "basic_review",
+          "check_id": "basic_review",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:basic_review",
+          "run_id": "success:basic_review",
+          "result": "PASS",
+          "artifact_digest": "sha256:377f599a5f70f6f3250a416f01684562dd4fc773d9ac75ca2270a6140720f5a2",
+          "created_at": "2026-11-03T11:42:09.688066+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "acceptance_coverage",
+          "task_id": "demo-success",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "6a36b6430c20ede6581b9a18a173749d3e5f797c"
+          },
+          "kind": "contract_check",
+          "check_id": "acceptance_coverage",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:acceptance_coverage",
+          "run_id": "success:acceptance_coverage",
+          "result": "PASS",
+          "artifact_digest": "sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976",
+          "created_at": "2026-11-03T11:42:09.688085+00:00",
+          "policy_version": "portfolio-demo-v1"
+        }
+      ],
+      "model_requests": 0,
+      "api_cost": null,
+      "base_commit": "ba401fe77a477627c03550e23777c5fa9c4ed8e2",
+      "target_commit": "6a36b6430c20ede6581b9a18a173749d3e5f797c",
+      "baseline_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+      "candidate_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n",
+      "artifacts": {
+        "local:relevant_checks": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n",
+        "local:basic_review": "{\"changed\": [\"calculation.py\"], \"expected_template\": true}",
+        "local:acceptance_coverage": "{\"subtotal\": [\"test_three_items\", \"test_empty_basket\", \"test_single_item\"]}"
+      },
+      "events": [
+        {
+          "type": "created",
+          "revision": 0,
+          "row_version": 0,
+          "payload": "{\"snapshot\":{\"acceptance\":[{\"expected\":\"subtotal equals unit cents times quantity\",\"id\":\"subtotal\",\"requires\":[\"relevant_checks\",\"basic_review\"]}],\"base_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"budget_id\":\"one-local-attempt\",\"depends_on\":[],\"non_goals\":[\"arbitrary code\",\"deployment\"],\"objective\":\"Correct integer-cent subtotal\",\"owner\":\"backend\",\"policy_version\":\"portfolio-demo-v1\",\"repository_id\":\"disposable-demo-repository\",\"required_checks\":[\"acceptance_coverage\",\"relevant_checks\",\"basic_review\"],\"revision\":0,\"risk\":\"LOW\",\"row_version\":0,\"schema_version\":\"3.0.1\",\"scope\":[\"calculation.py\"],\"status\":\"NEW\",\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"task_class\":\"BOUNDED\",\"task_id\":\"demo-success\",\"user_turn_id\":\"local-demo\",\"workflow_id\":\"portfolio\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 1,
+          "payload": "{\"from\":\"NEW\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"CLASSIFIED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 2,
+          "payload": "{\"from\":\"CLASSIFIED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"PLANNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 3,
+          "payload": "{\"from\":\"PLANNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"ASSIGNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 4,
+          "payload": "{\"from\":\"ASSIGNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"EXECUTING\"}"
+        },
+        {
+          "type": "pin_target",
+          "revision": 1,
+          "row_version": 5,
+          "payload": "{\"previous_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"previous_revision\":0,\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"6a36b6430c20ede6581b9a18a173749d3e5f797c\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 6,
+          "payload": "{\"from\":\"EXECUTING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"REVIEWING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 7,
+          "payload": "{\"from\":\"REVIEWING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"VERIFYING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 8,
+          "payload": "{\"from\":\"VERIFYING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"COMPLETION_AUDITING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 9,
+          "payload": "{\"from\":\"COMPLETION_AUDITING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"ACCEPTED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 10,
+          "payload": "{\"from\":\"ACCEPTED\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"DONE\"}"
+        }
+      ],
+      "elapsed_seconds": 0.1543,
+      "expected_outcome": true
+    },
+    {
+      "scenario": "failed-tests",
+      "adapter": "offline",
+      "status": "BLOCKED",
+      "verified": false,
+      "reason": "Required evidence is not PASS; reconciliation required",
+      "operator": "add",
+      "baseline_returncode": 1,
+      "candidate_returncode": 1,
+      "revision": 1,
+      "timeline": [
+        {
+          "state": "NEW",
+          "row_version": 0,
+          "revision": 0
+        },
+        {
+          "state": "CLASSIFIED",
+          "row_version": 1,
+          "revision": 0
+        },
+        {
+          "state": "PLANNED",
+          "row_version": 2,
+          "revision": 0
+        },
+        {
+          "state": "ASSIGNED",
+          "row_version": 3,
+          "revision": 0
+        },
+        {
+          "state": "EXECUTING",
+          "row_version": 4,
+          "revision": 0
+        },
+        {
+          "state": "TARGET_PINNED",
+          "row_version": 5,
+          "revision": 1
+        },
+        {
+          "state": "REVIEWING",
+          "row_version": 6,
+          "revision": 1
+        },
+        {
+          "state": "VERIFYING",
+          "row_version": 7,
+          "revision": 1
+        },
+        {
+          "state": "BLOCKED",
+          "row_version": 8,
+          "revision": 1
+        }
+      ],
+      "evidence": [
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "relevant_checks",
+          "task_id": "demo-failed-tests",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "f0ee2ba85780864de70b1059c23d355aad877fab"
+          },
+          "kind": "test",
+          "check_id": "relevant_checks",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:relevant_checks",
+          "run_id": "failed-tests:relevant_checks",
+          "result": "FAIL",
+          "artifact_digest": "sha256:7bc6ea18cc368a41692a193de306955c16e8184f6020c7f00c1b684eaf597050",
+          "created_at": "2026-11-03T11:42:09.856592+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "basic_review",
+          "task_id": "demo-failed-tests",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "f0ee2ba85780864de70b1059c23d355aad877fab"
+          },
+          "kind": "basic_review",
+          "check_id": "basic_review",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:basic_review",
+          "run_id": "failed-tests:basic_review",
+          "result": "FAIL",
+          "artifact_digest": "sha256:e591830b6c4c9feca07cd8eec4c320eb5f1b35d571fb1dd9af02b6e5caaad97d",
+          "created_at": "2026-11-03T11:42:09.856629+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "acceptance_coverage",
+          "task_id": "demo-failed-tests",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "f0ee2ba85780864de70b1059c23d355aad877fab"
+          },
+          "kind": "contract_check",
+          "check_id": "acceptance_coverage",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:acceptance_coverage",
+          "run_id": "failed-tests:acceptance_coverage",
+          "result": "PASS",
+          "artifact_digest": "sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976",
+          "created_at": "2026-11-03T11:42:09.856674+00:00",
+          "policy_version": "portfolio-demo-v1"
+        }
+      ],
+      "model_requests": 0,
+      "api_cost": null,
+      "base_commit": "ba401fe77a477627c03550e23777c5fa9c4ed8e2",
+      "target_commit": "f0ee2ba85780864de70b1059c23d355aad877fab",
+      "baseline_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+      "candidate_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+      "artifacts": {
+        "local:relevant_checks": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+        "local:basic_review": "{\"changed\": [], \"expected_template\": false}",
+        "local:acceptance_coverage": "{\"subtotal\": [\"test_three_items\", \"test_empty_basket\", \"test_single_item\"]}"
+      },
+      "events": [
+        {
+          "type": "created",
+          "revision": 0,
+          "row_version": 0,
+          "payload": "{\"snapshot\":{\"acceptance\":[{\"expected\":\"subtotal equals unit cents times quantity\",\"id\":\"subtotal\",\"requires\":[\"relevant_checks\",\"basic_review\"]}],\"base_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"budget_id\":\"one-local-attempt\",\"depends_on\":[],\"non_goals\":[\"arbitrary code\",\"deployment\"],\"objective\":\"Correct integer-cent subtotal\",\"owner\":\"backend\",\"policy_version\":\"portfolio-demo-v1\",\"repository_id\":\"disposable-demo-repository\",\"required_checks\":[\"acceptance_coverage\",\"relevant_checks\",\"basic_review\"],\"revision\":0,\"risk\":\"LOW\",\"row_version\":0,\"schema_version\":\"3.0.1\",\"scope\":[\"calculation.py\"],\"status\":\"NEW\",\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"task_class\":\"BOUNDED\",\"task_id\":\"demo-failed-tests\",\"user_turn_id\":\"local-demo\",\"workflow_id\":\"portfolio\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 1,
+          "payload": "{\"from\":\"NEW\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"CLASSIFIED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 2,
+          "payload": "{\"from\":\"CLASSIFIED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"PLANNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 3,
+          "payload": "{\"from\":\"PLANNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"ASSIGNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 4,
+          "payload": "{\"from\":\"ASSIGNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"EXECUTING\"}"
+        },
+        {
+          "type": "pin_target",
+          "revision": 1,
+          "row_version": 5,
+          "payload": "{\"previous_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"previous_revision\":0,\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"f0ee2ba85780864de70b1059c23d355aad877fab\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 6,
+          "payload": "{\"from\":\"EXECUTING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"REVIEWING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 7,
+          "payload": "{\"from\":\"REVIEWING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"VERIFYING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 8,
+          "payload": "{\"from\":\"VERIFYING\",\"previous_revision\":1,\"reference\":\"demo-rejection\",\"revision\":1,\"to\":\"BLOCKED\"}"
+        }
+      ],
+      "elapsed_seconds": 0.1623,
+      "expected_outcome": true
+    },
+    {
+      "scenario": "stale-evidence",
+      "adapter": "offline",
+      "status": "BLOCKED",
+      "verified": false,
+      "reason": "Evidence commit binding mismatch",
+      "operator": "multiply",
+      "baseline_returncode": 1,
+      "candidate_returncode": 0,
+      "revision": 1,
+      "timeline": [
+        {
+          "state": "NEW",
+          "row_version": 0,
+          "revision": 0
+        },
+        {
+          "state": "CLASSIFIED",
+          "row_version": 1,
+          "revision": 0
+        },
+        {
+          "state": "PLANNED",
+          "row_version": 2,
+          "revision": 0
+        },
+        {
+          "state": "ASSIGNED",
+          "row_version": 3,
+          "revision": 0
+        },
+        {
+          "state": "EXECUTING",
+          "row_version": 4,
+          "revision": 0
+        },
+        {
+          "state": "TARGET_PINNED",
+          "row_version": 5,
+          "revision": 1
+        },
+        {
+          "state": "REVIEWING",
+          "row_version": 6,
+          "revision": 1
+        },
+        {
+          "state": "VERIFYING",
+          "row_version": 7,
+          "revision": 1
+        },
+        {
+          "state": "BLOCKED",
+          "row_version": 8,
+          "revision": 1
+        }
+      ],
+      "evidence": [
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "relevant_checks",
+          "task_id": "demo-stale-evidence",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "ba401fe77a477627c03550e23777c5fa9c4ed8e2"
+          },
+          "kind": "test",
+          "check_id": "relevant_checks",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:relevant_checks",
+          "run_id": "stale-evidence:relevant_checks",
+          "result": "PASS",
+          "artifact_digest": "sha256:a169e05057a4761ca3c236e851dc62ac20c415e6044b2e1a7771cdc4adc394b9",
+          "created_at": "2026-11-03T11:42:10.002394+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "basic_review",
+          "task_id": "demo-stale-evidence",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "ba401fe77a477627c03550e23777c5fa9c4ed8e2"
+          },
+          "kind": "basic_review",
+          "check_id": "basic_review",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:basic_review",
+          "run_id": "stale-evidence:basic_review",
+          "result": "PASS",
+          "artifact_digest": "sha256:377f599a5f70f6f3250a416f01684562dd4fc773d9ac75ca2270a6140720f5a2",
+          "created_at": "2026-11-03T11:42:10.002430+00:00",
+          "policy_version": "portfolio-demo-v1"
+        },
+        {
+          "schema_version": "3.0.1",
+          "evidence_id": "acceptance_coverage",
+          "task_id": "demo-stale-evidence",
+          "task_revision": 1,
+          "repository_id": "disposable-demo-repository",
+          "acceptance_ids": [
+            "subtotal"
+          ],
+          "commit": {
+            "hash_algorithm": "sha1",
+            "value": "ba401fe77a477627c03550e23777c5fa9c4ed8e2"
+          },
+          "kind": "contract_check",
+          "check_id": "acceptance_coverage",
+          "source": "trusted-local-demo-collector",
+          "issuer_id": "local-demo-host",
+          "attestation_ref": "local:acceptance_coverage",
+          "run_id": "stale-evidence:acceptance_coverage",
+          "result": "PASS",
+          "artifact_digest": "sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976",
+          "created_at": "2026-11-03T11:42:10.002448+00:00",
+          "policy_version": "portfolio-demo-v1"
+        }
+      ],
+      "model_requests": 0,
+      "api_cost": null,
+      "base_commit": "ba401fe77a477627c03550e23777c5fa9c4ed8e2",
+      "target_commit": "6a36b6430c20ede6581b9a18a173749d3e5f797c",
+      "baseline_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-4xpidtic/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-4xpidtic/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-4xpidtic/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+      "candidate_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n",
+      "artifacts": {
+        "local:relevant_checks": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n",
+        "local:basic_review": "{\"changed\": [\"calculation.py\"], \"expected_template\": true}",
+        "local:acceptance_coverage": "{\"subtotal\": [\"test_three_items\", \"test_empty_basket\", \"test_single_item\"]}"
+      },
+      "events": [
+        {
+          "type": "created",
+          "revision": 0,
+          "row_version": 0,
+          "payload": "{\"snapshot\":{\"acceptance\":[{\"expected\":\"subtotal equals unit cents times quantity\",\"id\":\"subtotal\",\"requires\":[\"relevant_checks\",\"basic_review\"]}],\"base_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"budget_id\":\"one-local-attempt\",\"depends_on\":[],\"non_goals\":[\"arbitrary code\",\"deployment\"],\"objective\":\"Correct integer-cent subtotal\",\"owner\":\"backend\",\"policy_version\":\"portfolio-demo-v1\",\"repository_id\":\"disposable-demo-repository\",\"required_checks\":[\"acceptance_coverage\",\"relevant_checks\",\"basic_review\"],\"revision\":0,\"risk\":\"LOW\",\"row_version\":0,\"schema_version\":\"3.0.1\",\"scope\":[\"calculation.py\"],\"status\":\"NEW\",\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"task_class\":\"BOUNDED\",\"task_id\":\"demo-stale-evidence\",\"user_turn_id\":\"local-demo\",\"workflow_id\":\"portfolio\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 1,
+          "payload": "{\"from\":\"NEW\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"CLASSIFIED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 2,
+          "payload": "{\"from\":\"CLASSIFIED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"PLANNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 3,
+          "payload": "{\"from\":\"PLANNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"ASSIGNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 4,
+          "payload": "{\"from\":\"ASSIGNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"EXECUTING\"}"
+        },
+        {
+          "type": "pin_target",
+          "revision": 1,
+          "row_version": 5,
+          "payload": "{\"previous_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"ba401fe77a477627c03550e23777c5fa9c4ed8e2\"},\"previous_revision\":0,\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"6a36b6430c20ede6581b9a18a173749d3e5f797c\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 6,
+          "payload": "{\"from\":\"EXECUTING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"REVIEWING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 7,
+          "payload": "{\"from\":\"REVIEWING\",\"previous_revision\":1,\"reference\":null,\"revision\":1,\"to\":\"VERIFYING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 1,
+          "row_version": 8,
+          "payload": "{\"from\":\"VERIFYING\",\"previous_revision\":1,\"reference\":\"demo-rejection\",\"revision\":1,\"to\":\"BLOCKED\"}"
+        }
+      ],
+      "elapsed_seconds": 0.1475,
+      "expected_outcome": true
+    },
+    {
+      "scenario": "unauthorized",
+      "adapter": "offline",
+      "status": "BLOCKED",
+      "verified": false,
+      "reason": "Permission denied: only the assigned backend may edit calculation.py",
+      "operator": "multiply",
+      "baseline_returncode": 1,
+      "candidate_returncode": null,
+      "revision": 0,
+      "timeline": [
+        {
+          "state": "NEW",
+          "row_version": 0,
+          "revision": 0
+        },
+        {
+          "state": "CLASSIFIED",
+          "row_version": 1,
+          "revision": 0
+        },
+        {
+          "state": "PLANNED",
+          "row_version": 2,
+          "revision": 0
+        },
+        {
+          "state": "ASSIGNED",
+          "row_version": 3,
+          "revision": 0
+        },
+        {
+          "state": "EXECUTING",
+          "row_version": 4,
+          "revision": 0
+        },
+        {
+          "state": "BLOCKED",
+          "row_version": 5,
+          "revision": 0
+        }
+      ],
+      "evidence": [],
+      "model_requests": 0,
+      "api_cost": null,
+      "base_commit": "8eb9b3a6b0b782d54f2308e7f84f9921f78c5110",
+      "target_commit": "8eb9b3a6b0b782d54f2308e7f84f9921f78c5110",
+      "baseline_log": "test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\", line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\", line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\", line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n",
+      "events": [
+        {
+          "type": "created",
+          "revision": 0,
+          "row_version": 0,
+          "payload": "{\"snapshot\":{\"acceptance\":[{\"expected\":\"subtotal equals unit cents times quantity\",\"id\":\"subtotal\",\"requires\":[\"relevant_checks\",\"basic_review\"]}],\"base_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"8eb9b3a6b0b782d54f2308e7f84f9921f78c5110\"},\"budget_id\":\"one-local-attempt\",\"depends_on\":[],\"non_goals\":[\"arbitrary code\",\"deployment\"],\"objective\":\"Correct integer-cent subtotal\",\"owner\":\"backend\",\"policy_version\":\"portfolio-demo-v1\",\"repository_id\":\"disposable-demo-repository\",\"required_checks\":[\"acceptance_coverage\",\"relevant_checks\",\"basic_review\"],\"revision\":0,\"risk\":\"LOW\",\"row_version\":0,\"schema_version\":\"3.0.1\",\"scope\":[\"calculation.py\"],\"status\":\"NEW\",\"target_commit\":{\"hash_algorithm\":\"sha1\",\"value\":\"8eb9b3a6b0b782d54f2308e7f84f9921f78c5110\"},\"task_class\":\"BOUNDED\",\"task_id\":\"demo-unauthorized\",\"user_turn_id\":\"local-demo\",\"workflow_id\":\"portfolio\"}}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 1,
+          "payload": "{\"from\":\"NEW\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"CLASSIFIED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 2,
+          "payload": "{\"from\":\"CLASSIFIED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"PLANNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 3,
+          "payload": "{\"from\":\"PLANNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"ASSIGNED\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 4,
+          "payload": "{\"from\":\"ASSIGNED\",\"previous_revision\":0,\"reference\":null,\"revision\":0,\"to\":\"EXECUTING\"}"
+        },
+        {
+          "type": "transition",
+          "revision": 0,
+          "row_version": 5,
+          "payload": "{\"from\":\"EXECUTING\",\"previous_revision\":0,\"reference\":\"demo-rejection\",\"revision\":0,\"to\":\"BLOCKED\"}"
+        }
+      ],
+      "elapsed_seconds": 0.0714,
+      "expected_outcome": true
+    }
+  ],
+  "model": {
+    "live_call": false,
+    "model": null,
+    "requests": 0,
+    "elapsed_seconds": null
+  },
+  "limits": "Constrained demo; not OS sandboxing or production authentication. No cost/savings benchmark."
+}

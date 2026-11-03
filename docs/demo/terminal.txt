@@ -1,0 +1,21 @@
+POTATO HARNESS | supervised automation demo
+Offline baseline: deterministic proposals, real Git/tests/SQLite.
+
+[DONE] success  0.154s
+  NEW > CLASSIFIED > PLANNED > ASSIGNED > EXECUTING > TARGET_PINNED > REVIEWING > VERIFYING > COMPLETION_AUDITING > ACCEPTED > DONE
+  Fresh attested tests and review cover the pinned candidate
+
+[BLOCKED] failed-tests  0.162s
+  NEW > CLASSIFIED > PLANNED > ASSIGNED > EXECUTING > TARGET_PINNED > REVIEWING > VERIFYING > BLOCKED
+  Required evidence is not PASS; reconciliation required
+
+[BLOCKED] stale-evidence  0.147s
+  NEW > CLASSIFIED > PLANNED > ASSIGNED > EXECUTING > TARGET_PINNED > REVIEWING > VERIFYING > BLOCKED
+  Evidence commit binding mismatch
+
+[BLOCKED] unauthorized  0.071s
+  NEW > CLASSIFIED > PLANNED > ASSIGNED > EXECUTING > BLOCKED
+  Permission denied: only the assigned backend may edit calculation.py
+
+EXPECTED OUTCOMES: 4/4 PASS
+Not a production sandbox. Model requests: 0

@@ -1,0 +1,712 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Potato Harness demo</title><style>
+body{font:16px system-ui,sans-serif;margin:0;background:#101820;color:#ecf1f4}main{max-width:1080px;margin:auto;padding:48px 24px}h1{font-size:42px;letter-spacing:-1.4px;margin:8px 0}h2{font-size:21px}p{line-height:1.6;color:#bac9d2}.eyebrow{color:#f5b841;letter-spacing:3px;font-size:12px}section{background:#192630;border:1px solid #344653;border-radius:12px;padding:24px;margin:20px 0}b{float:right;font-size:13px;padding:7px 12px;border-radius:6px}.done{background:#174d3e;color:#9df3c2}.blocked{background:#513f1d;color:#ffd88d}.flow{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.flow span{background:#263a48;border-radius:5px;padding:6px 9px;font:11px monospace}.time{font-family:monospace}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#b7d1df}summary{cursor:pointer;color:#f5b841}a{color:#f5b841}</style><main><div class="eyebrow">PORTFOLIO / EXECUTABLE EVIDENCE</div><h1>Potato Harness</h1><p>One accepted repair. Three deliberate failures. Every decision leaves a trace.</p><p>Constrained demo; not OS sandboxing or production authentication. No cost/savings benchmark.</p><section><h2>success <b class="done">DONE</b></h2><p>Fresh attested tests and review cover the pinned candidate</p><p class="time">0.1543 seconds · revision 1</p><div class="flow"><span>NEW</span><span>CLASSIFIED</span><span>PLANNED</span><span>ASSIGNED</span><span>EXECUTING</span><span>TARGET_PINNED</span><span>REVIEWING</span><span>VERIFYING</span><span>COMPLETION_AUDITING</span><span>ACCEPTED</span><span>DONE</span></div><details><summary>Raw evidence and audit events</summary><pre>{
+  &quot;scenario&quot;: &quot;success&quot;,
+  &quot;adapter&quot;: &quot;offline&quot;,
+  &quot;status&quot;: &quot;DONE&quot;,
+  &quot;verified&quot;: true,
+  &quot;reason&quot;: &quot;Fresh attested tests and review cover the pinned candidate&quot;,
+  &quot;operator&quot;: &quot;multiply&quot;,
+  &quot;baseline_returncode&quot;: 1,
+  &quot;candidate_returncode&quot;: 0,
+  &quot;revision&quot;: 1,
+  &quot;timeline&quot;: [
+    {
+      &quot;state&quot;: &quot;NEW&quot;,
+      &quot;row_version&quot;: 0,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;CLASSIFIED&quot;,
+      &quot;row_version&quot;: 1,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;PLANNED&quot;,
+      &quot;row_version&quot;: 2,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;ASSIGNED&quot;,
+      &quot;row_version&quot;: 3,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;EXECUTING&quot;,
+      &quot;row_version&quot;: 4,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;TARGET_PINNED&quot;,
+      &quot;row_version&quot;: 5,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;REVIEWING&quot;,
+      &quot;row_version&quot;: 6,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;VERIFYING&quot;,
+      &quot;row_version&quot;: 7,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;COMPLETION_AUDITING&quot;,
+      &quot;row_version&quot;: 8,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;ACCEPTED&quot;,
+      &quot;row_version&quot;: 9,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;DONE&quot;,
+      &quot;row_version&quot;: 10,
+      &quot;revision&quot;: 1
+    }
+  ],
+  &quot;evidence&quot;: [
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;relevant_checks&quot;,
+      &quot;task_id&quot;: &quot;demo-success&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;6a36b6430c20ede6581b9a18a173749d3e5f797c&quot;
+      },
+      &quot;kind&quot;: &quot;test&quot;,
+      &quot;check_id&quot;: &quot;relevant_checks&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:relevant_checks&quot;,
+      &quot;run_id&quot;: &quot;success:relevant_checks&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:a169e05057a4761ca3c236e851dc62ac20c415e6044b2e1a7771cdc4adc394b9&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.688027+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;basic_review&quot;,
+      &quot;task_id&quot;: &quot;demo-success&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;6a36b6430c20ede6581b9a18a173749d3e5f797c&quot;
+      },
+      &quot;kind&quot;: &quot;basic_review&quot;,
+      &quot;check_id&quot;: &quot;basic_review&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:basic_review&quot;,
+      &quot;run_id&quot;: &quot;success:basic_review&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:377f599a5f70f6f3250a416f01684562dd4fc773d9ac75ca2270a6140720f5a2&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.688066+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;task_id&quot;: &quot;demo-success&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;6a36b6430c20ede6581b9a18a173749d3e5f797c&quot;
+      },
+      &quot;kind&quot;: &quot;contract_check&quot;,
+      &quot;check_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:acceptance_coverage&quot;,
+      &quot;run_id&quot;: &quot;success:acceptance_coverage&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.688085+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    }
+  ],
+  &quot;model_requests&quot;: 0,
+  &quot;api_cost&quot;: null,
+  &quot;base_commit&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;,
+  &quot;target_commit&quot;: &quot;6a36b6430c20ede6581b9a18a173749d3e5f797c&quot;,
+  &quot;baseline_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-_ecsqkrd/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+  &quot;candidate_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n&quot;,
+  &quot;artifacts&quot;: {
+    &quot;local:relevant_checks&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n&quot;,
+    &quot;local:basic_review&quot;: &quot;{\&quot;changed\&quot;: [\&quot;calculation.py\&quot;], \&quot;expected_template\&quot;: true}&quot;,
+    &quot;local:acceptance_coverage&quot;: &quot;{\&quot;subtotal\&quot;: [\&quot;test_three_items\&quot;, \&quot;test_empty_basket\&quot;, \&quot;test_single_item\&quot;]}&quot;
+  },
+  &quot;events&quot;: [
+    {
+      &quot;type&quot;: &quot;created&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 0,
+      &quot;payload&quot;: &quot;{\&quot;snapshot\&quot;:{\&quot;acceptance\&quot;:[{\&quot;expected\&quot;:\&quot;subtotal equals unit cents times quantity\&quot;,\&quot;id\&quot;:\&quot;subtotal\&quot;,\&quot;requires\&quot;:[\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;]}],\&quot;base_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;budget_id\&quot;:\&quot;one-local-attempt\&quot;,\&quot;depends_on\&quot;:[],\&quot;non_goals\&quot;:[\&quot;arbitrary code\&quot;,\&quot;deployment\&quot;],\&quot;objective\&quot;:\&quot;Correct integer-cent subtotal\&quot;,\&quot;owner\&quot;:\&quot;backend\&quot;,\&quot;policy_version\&quot;:\&quot;portfolio-demo-v1\&quot;,\&quot;repository_id\&quot;:\&quot;disposable-demo-repository\&quot;,\&quot;required_checks\&quot;:[\&quot;acceptance_coverage\&quot;,\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;],\&quot;revision\&quot;:0,\&quot;risk\&quot;:\&quot;LOW\&quot;,\&quot;row_version\&quot;:0,\&quot;schema_version\&quot;:\&quot;3.0.1\&quot;,\&quot;scope\&quot;:[\&quot;calculation.py\&quot;],\&quot;status\&quot;:\&quot;NEW\&quot;,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;task_class\&quot;:\&quot;BOUNDED\&quot;,\&quot;task_id\&quot;:\&quot;demo-success\&quot;,\&quot;user_turn_id\&quot;:\&quot;local-demo\&quot;,\&quot;workflow_id\&quot;:\&quot;portfolio\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 1,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;NEW\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;CLASSIFIED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 2,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;CLASSIFIED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;PLANNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 3,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;PLANNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;ASSIGNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 4,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;ASSIGNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;EXECUTING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;pin_target&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 5,
+      &quot;payload&quot;: &quot;{\&quot;previous_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;previous_revision\&quot;:0,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;6a36b6430c20ede6581b9a18a173749d3e5f797c\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 6,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;EXECUTING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;REVIEWING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 7,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;REVIEWING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;VERIFYING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 8,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;VERIFYING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;COMPLETION_AUDITING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 9,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;COMPLETION_AUDITING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;ACCEPTED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 10,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;ACCEPTED\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;DONE\&quot;}&quot;
+    }
+  ],
+  &quot;elapsed_seconds&quot;: 0.1543,
+  &quot;expected_outcome&quot;: true
+}</pre></details></section><section><h2>failed-tests <b class="blocked">BLOCKED</b></h2><p>Required evidence is not PASS; reconciliation required</p><p class="time">0.1623 seconds · revision 1</p><div class="flow"><span>NEW</span><span>CLASSIFIED</span><span>PLANNED</span><span>ASSIGNED</span><span>EXECUTING</span><span>TARGET_PINNED</span><span>REVIEWING</span><span>VERIFYING</span><span>BLOCKED</span></div><details><summary>Raw evidence and audit events</summary><pre>{
+  &quot;scenario&quot;: &quot;failed-tests&quot;,
+  &quot;adapter&quot;: &quot;offline&quot;,
+  &quot;status&quot;: &quot;BLOCKED&quot;,
+  &quot;verified&quot;: false,
+  &quot;reason&quot;: &quot;Required evidence is not PASS; reconciliation required&quot;,
+  &quot;operator&quot;: &quot;add&quot;,
+  &quot;baseline_returncode&quot;: 1,
+  &quot;candidate_returncode&quot;: 1,
+  &quot;revision&quot;: 1,
+  &quot;timeline&quot;: [
+    {
+      &quot;state&quot;: &quot;NEW&quot;,
+      &quot;row_version&quot;: 0,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;CLASSIFIED&quot;,
+      &quot;row_version&quot;: 1,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;PLANNED&quot;,
+      &quot;row_version&quot;: 2,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;ASSIGNED&quot;,
+      &quot;row_version&quot;: 3,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;EXECUTING&quot;,
+      &quot;row_version&quot;: 4,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;TARGET_PINNED&quot;,
+      &quot;row_version&quot;: 5,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;REVIEWING&quot;,
+      &quot;row_version&quot;: 6,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;VERIFYING&quot;,
+      &quot;row_version&quot;: 7,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;BLOCKED&quot;,
+      &quot;row_version&quot;: 8,
+      &quot;revision&quot;: 1
+    }
+  ],
+  &quot;evidence&quot;: [
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;relevant_checks&quot;,
+      &quot;task_id&quot;: &quot;demo-failed-tests&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;f0ee2ba85780864de70b1059c23d355aad877fab&quot;
+      },
+      &quot;kind&quot;: &quot;test&quot;,
+      &quot;check_id&quot;: &quot;relevant_checks&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:relevant_checks&quot;,
+      &quot;run_id&quot;: &quot;failed-tests:relevant_checks&quot;,
+      &quot;result&quot;: &quot;FAIL&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:7bc6ea18cc368a41692a193de306955c16e8184f6020c7f00c1b684eaf597050&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.856592+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;basic_review&quot;,
+      &quot;task_id&quot;: &quot;demo-failed-tests&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;f0ee2ba85780864de70b1059c23d355aad877fab&quot;
+      },
+      &quot;kind&quot;: &quot;basic_review&quot;,
+      &quot;check_id&quot;: &quot;basic_review&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:basic_review&quot;,
+      &quot;run_id&quot;: &quot;failed-tests:basic_review&quot;,
+      &quot;result&quot;: &quot;FAIL&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:e591830b6c4c9feca07cd8eec4c320eb5f1b35d571fb1dd9af02b6e5caaad97d&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.856629+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;task_id&quot;: &quot;demo-failed-tests&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;f0ee2ba85780864de70b1059c23d355aad877fab&quot;
+      },
+      &quot;kind&quot;: &quot;contract_check&quot;,
+      &quot;check_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:acceptance_coverage&quot;,
+      &quot;run_id&quot;: &quot;failed-tests:acceptance_coverage&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:09.856674+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    }
+  ],
+  &quot;model_requests&quot;: 0,
+  &quot;api_cost&quot;: null,
+  &quot;base_commit&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;,
+  &quot;target_commit&quot;: &quot;f0ee2ba85780864de70b1059c23d355aad877fab&quot;,
+  &quot;baseline_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+  &quot;candidate_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+  &quot;artifacts&quot;: {
+    &quot;local:relevant_checks&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-wlnovtyw/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+    &quot;local:basic_review&quot;: &quot;{\&quot;changed\&quot;: [], \&quot;expected_template\&quot;: false}&quot;,
+    &quot;local:acceptance_coverage&quot;: &quot;{\&quot;subtotal\&quot;: [\&quot;test_three_items\&quot;, \&quot;test_empty_basket\&quot;, \&quot;test_single_item\&quot;]}&quot;
+  },
+  &quot;events&quot;: [
+    {
+      &quot;type&quot;: &quot;created&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 0,
+      &quot;payload&quot;: &quot;{\&quot;snapshot\&quot;:{\&quot;acceptance\&quot;:[{\&quot;expected\&quot;:\&quot;subtotal equals unit cents times quantity\&quot;,\&quot;id\&quot;:\&quot;subtotal\&quot;,\&quot;requires\&quot;:[\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;]}],\&quot;base_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;budget_id\&quot;:\&quot;one-local-attempt\&quot;,\&quot;depends_on\&quot;:[],\&quot;non_goals\&quot;:[\&quot;arbitrary code\&quot;,\&quot;deployment\&quot;],\&quot;objective\&quot;:\&quot;Correct integer-cent subtotal\&quot;,\&quot;owner\&quot;:\&quot;backend\&quot;,\&quot;policy_version\&quot;:\&quot;portfolio-demo-v1\&quot;,\&quot;repository_id\&quot;:\&quot;disposable-demo-repository\&quot;,\&quot;required_checks\&quot;:[\&quot;acceptance_coverage\&quot;,\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;],\&quot;revision\&quot;:0,\&quot;risk\&quot;:\&quot;LOW\&quot;,\&quot;row_version\&quot;:0,\&quot;schema_version\&quot;:\&quot;3.0.1\&quot;,\&quot;scope\&quot;:[\&quot;calculation.py\&quot;],\&quot;status\&quot;:\&quot;NEW\&quot;,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;task_class\&quot;:\&quot;BOUNDED\&quot;,\&quot;task_id\&quot;:\&quot;demo-failed-tests\&quot;,\&quot;user_turn_id\&quot;:\&quot;local-demo\&quot;,\&quot;workflow_id\&quot;:\&quot;portfolio\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 1,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;NEW\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;CLASSIFIED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 2,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;CLASSIFIED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;PLANNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 3,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;PLANNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;ASSIGNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 4,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;ASSIGNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;EXECUTING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;pin_target&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 5,
+      &quot;payload&quot;: &quot;{\&quot;previous_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;previous_revision\&quot;:0,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;f0ee2ba85780864de70b1059c23d355aad877fab\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 6,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;EXECUTING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;REVIEWING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 7,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;REVIEWING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;VERIFYING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 8,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;VERIFYING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:\&quot;demo-rejection\&quot;,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;BLOCKED\&quot;}&quot;
+    }
+  ],
+  &quot;elapsed_seconds&quot;: 0.1623,
+  &quot;expected_outcome&quot;: true
+}</pre></details></section><section><h2>stale-evidence <b class="blocked">BLOCKED</b></h2><p>Evidence commit binding mismatch</p><p class="time">0.1475 seconds · revision 1</p><div class="flow"><span>NEW</span><span>CLASSIFIED</span><span>PLANNED</span><span>ASSIGNED</span><span>EXECUTING</span><span>TARGET_PINNED</span><span>REVIEWING</span><span>VERIFYING</span><span>BLOCKED</span></div><details><summary>Raw evidence and audit events</summary><pre>{
+  &quot;scenario&quot;: &quot;stale-evidence&quot;,
+  &quot;adapter&quot;: &quot;offline&quot;,
+  &quot;status&quot;: &quot;BLOCKED&quot;,
+  &quot;verified&quot;: false,
+  &quot;reason&quot;: &quot;Evidence commit binding mismatch&quot;,
+  &quot;operator&quot;: &quot;multiply&quot;,
+  &quot;baseline_returncode&quot;: 1,
+  &quot;candidate_returncode&quot;: 0,
+  &quot;revision&quot;: 1,
+  &quot;timeline&quot;: [
+    {
+      &quot;state&quot;: &quot;NEW&quot;,
+      &quot;row_version&quot;: 0,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;CLASSIFIED&quot;,
+      &quot;row_version&quot;: 1,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;PLANNED&quot;,
+      &quot;row_version&quot;: 2,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;ASSIGNED&quot;,
+      &quot;row_version&quot;: 3,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;EXECUTING&quot;,
+      &quot;row_version&quot;: 4,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;TARGET_PINNED&quot;,
+      &quot;row_version&quot;: 5,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;REVIEWING&quot;,
+      &quot;row_version&quot;: 6,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;VERIFYING&quot;,
+      &quot;row_version&quot;: 7,
+      &quot;revision&quot;: 1
+    },
+    {
+      &quot;state&quot;: &quot;BLOCKED&quot;,
+      &quot;row_version&quot;: 8,
+      &quot;revision&quot;: 1
+    }
+  ],
+  &quot;evidence&quot;: [
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;relevant_checks&quot;,
+      &quot;task_id&quot;: &quot;demo-stale-evidence&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;
+      },
+      &quot;kind&quot;: &quot;test&quot;,
+      &quot;check_id&quot;: &quot;relevant_checks&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:relevant_checks&quot;,
+      &quot;run_id&quot;: &quot;stale-evidence:relevant_checks&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:a169e05057a4761ca3c236e851dc62ac20c415e6044b2e1a7771cdc4adc394b9&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:10.002394+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;basic_review&quot;,
+      &quot;task_id&quot;: &quot;demo-stale-evidence&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;
+      },
+      &quot;kind&quot;: &quot;basic_review&quot;,
+      &quot;check_id&quot;: &quot;basic_review&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:basic_review&quot;,
+      &quot;run_id&quot;: &quot;stale-evidence:basic_review&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:377f599a5f70f6f3250a416f01684562dd4fc773d9ac75ca2270a6140720f5a2&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:10.002430+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    },
+    {
+      &quot;schema_version&quot;: &quot;3.0.1&quot;,
+      &quot;evidence_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;task_id&quot;: &quot;demo-stale-evidence&quot;,
+      &quot;task_revision&quot;: 1,
+      &quot;repository_id&quot;: &quot;disposable-demo-repository&quot;,
+      &quot;acceptance_ids&quot;: [
+        &quot;subtotal&quot;
+      ],
+      &quot;commit&quot;: {
+        &quot;hash_algorithm&quot;: &quot;sha1&quot;,
+        &quot;value&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;
+      },
+      &quot;kind&quot;: &quot;contract_check&quot;,
+      &quot;check_id&quot;: &quot;acceptance_coverage&quot;,
+      &quot;source&quot;: &quot;trusted-local-demo-collector&quot;,
+      &quot;issuer_id&quot;: &quot;local-demo-host&quot;,
+      &quot;attestation_ref&quot;: &quot;local:acceptance_coverage&quot;,
+      &quot;run_id&quot;: &quot;stale-evidence:acceptance_coverage&quot;,
+      &quot;result&quot;: &quot;PASS&quot;,
+      &quot;artifact_digest&quot;: &quot;sha256:bdf88c7a78a5e6ba9c4f60e4cebc55e5a852eb69a9a10dda57e4721a87a8c976&quot;,
+      &quot;created_at&quot;: &quot;2026-11-03T11:42:10.002448+00:00&quot;,
+      &quot;policy_version&quot;: &quot;portfolio-demo-v1&quot;
+    }
+  ],
+  &quot;model_requests&quot;: 0,
+  &quot;api_cost&quot;: null,
+  &quot;base_commit&quot;: &quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2&quot;,
+  &quot;target_commit&quot;: &quot;6a36b6430c20ede6581b9a18a173749d3e5f797c&quot;,
+  &quot;baseline_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-4xpidtic/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-4xpidtic/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-4xpidtic/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+  &quot;candidate_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n&quot;,
+  &quot;artifacts&quot;: {
+    &quot;local:relevant_checks&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... ok\ntest_single_item (__main__.PricingTests.test_single_item) ... ok\ntest_three_items (__main__.PricingTests.test_three_items) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n&quot;,
+    &quot;local:basic_review&quot;: &quot;{\&quot;changed\&quot;: [\&quot;calculation.py\&quot;], \&quot;expected_template\&quot;: true}&quot;,
+    &quot;local:acceptance_coverage&quot;: &quot;{\&quot;subtotal\&quot;: [\&quot;test_three_items\&quot;, \&quot;test_empty_basket\&quot;, \&quot;test_single_item\&quot;]}&quot;
+  },
+  &quot;events&quot;: [
+    {
+      &quot;type&quot;: &quot;created&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 0,
+      &quot;payload&quot;: &quot;{\&quot;snapshot\&quot;:{\&quot;acceptance\&quot;:[{\&quot;expected\&quot;:\&quot;subtotal equals unit cents times quantity\&quot;,\&quot;id\&quot;:\&quot;subtotal\&quot;,\&quot;requires\&quot;:[\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;]}],\&quot;base_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;budget_id\&quot;:\&quot;one-local-attempt\&quot;,\&quot;depends_on\&quot;:[],\&quot;non_goals\&quot;:[\&quot;arbitrary code\&quot;,\&quot;deployment\&quot;],\&quot;objective\&quot;:\&quot;Correct integer-cent subtotal\&quot;,\&quot;owner\&quot;:\&quot;backend\&quot;,\&quot;policy_version\&quot;:\&quot;portfolio-demo-v1\&quot;,\&quot;repository_id\&quot;:\&quot;disposable-demo-repository\&quot;,\&quot;required_checks\&quot;:[\&quot;acceptance_coverage\&quot;,\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;],\&quot;revision\&quot;:0,\&quot;risk\&quot;:\&quot;LOW\&quot;,\&quot;row_version\&quot;:0,\&quot;schema_version\&quot;:\&quot;3.0.1\&quot;,\&quot;scope\&quot;:[\&quot;calculation.py\&quot;],\&quot;status\&quot;:\&quot;NEW\&quot;,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;task_class\&quot;:\&quot;BOUNDED\&quot;,\&quot;task_id\&quot;:\&quot;demo-stale-evidence\&quot;,\&quot;user_turn_id\&quot;:\&quot;local-demo\&quot;,\&quot;workflow_id\&quot;:\&quot;portfolio\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 1,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;NEW\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;CLASSIFIED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 2,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;CLASSIFIED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;PLANNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 3,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;PLANNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;ASSIGNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 4,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;ASSIGNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;EXECUTING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;pin_target&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 5,
+      &quot;payload&quot;: &quot;{\&quot;previous_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;ba401fe77a477627c03550e23777c5fa9c4ed8e2\&quot;},\&quot;previous_revision\&quot;:0,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;6a36b6430c20ede6581b9a18a173749d3e5f797c\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 6,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;EXECUTING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;REVIEWING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 7,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;REVIEWING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:null,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;VERIFYING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 1,
+      &quot;row_version&quot;: 8,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;VERIFYING\&quot;,\&quot;previous_revision\&quot;:1,\&quot;reference\&quot;:\&quot;demo-rejection\&quot;,\&quot;revision\&quot;:1,\&quot;to\&quot;:\&quot;BLOCKED\&quot;}&quot;
+    }
+  ],
+  &quot;elapsed_seconds&quot;: 0.1475,
+  &quot;expected_outcome&quot;: true
+}</pre></details></section><section><h2>unauthorized <b class="blocked">BLOCKED</b></h2><p>Permission denied: only the assigned backend may edit calculation.py</p><p class="time">0.0714 seconds · revision 0</p><div class="flow"><span>NEW</span><span>CLASSIFIED</span><span>PLANNED</span><span>ASSIGNED</span><span>EXECUTING</span><span>BLOCKED</span></div><details><summary>Raw evidence and audit events</summary><pre>{
+  &quot;scenario&quot;: &quot;unauthorized&quot;,
+  &quot;adapter&quot;: &quot;offline&quot;,
+  &quot;status&quot;: &quot;BLOCKED&quot;,
+  &quot;verified&quot;: false,
+  &quot;reason&quot;: &quot;Permission denied: only the assigned backend may edit calculation.py&quot;,
+  &quot;operator&quot;: &quot;multiply&quot;,
+  &quot;baseline_returncode&quot;: 1,
+  &quot;candidate_returncode&quot;: null,
+  &quot;revision&quot;: 0,
+  &quot;timeline&quot;: [
+    {
+      &quot;state&quot;: &quot;NEW&quot;,
+      &quot;row_version&quot;: 0,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;CLASSIFIED&quot;,
+      &quot;row_version&quot;: 1,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;PLANNED&quot;,
+      &quot;row_version&quot;: 2,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;ASSIGNED&quot;,
+      &quot;row_version&quot;: 3,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;EXECUTING&quot;,
+      &quot;row_version&quot;: 4,
+      &quot;revision&quot;: 0
+    },
+    {
+      &quot;state&quot;: &quot;BLOCKED&quot;,
+      &quot;row_version&quot;: 5,
+      &quot;revision&quot;: 0
+    }
+  ],
+  &quot;evidence&quot;: [],
+  &quot;model_requests&quot;: 0,
+  &quot;api_cost&quot;: null,
+  &quot;base_commit&quot;: &quot;8eb9b3a6b0b782d54f2308e7f84f9921f78c5110&quot;,
+  &quot;target_commit&quot;: &quot;8eb9b3a6b0b782d54f2308e7f84f9921f78c5110&quot;,
+  &quot;baseline_log&quot;: &quot;test_empty_basket (__main__.PricingTests.test_empty_basket) ... FAIL\ntest_single_item (__main__.PricingTests.test_single_item) ... FAIL\ntest_three_items (__main__.PricingTests.test_three_items) ... FAIL\n\n======================================================================\nFAIL: test_empty_basket (__main__.PricingTests.test_empty_basket)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\&quot;, line 8, in test_empty_basket\n    self.assertEqual(subtotal(1250, 0), 0)\nAssertionError: 1250 != 0\n\n======================================================================\nFAIL: test_single_item (__main__.PricingTests.test_single_item)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\&quot;, line 10, in test_single_item\n    self.assertEqual(subtotal(1250, 1), 1250)\nAssertionError: 1251 != 1250\n\n======================================================================\nFAIL: test_three_items (__main__.PricingTests.test_three_items)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \&quot;/tmp/potato-demo-rcsfpdr3/repo/test_calculation.py\&quot;, line 6, in test_three_items\n    self.assertEqual(subtotal(1250, 3), 3750)\nAssertionError: 1253 != 3750\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nFAILED (failures=3)\n&quot;,
+  &quot;events&quot;: [
+    {
+      &quot;type&quot;: &quot;created&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 0,
+      &quot;payload&quot;: &quot;{\&quot;snapshot\&quot;:{\&quot;acceptance\&quot;:[{\&quot;expected\&quot;:\&quot;subtotal equals unit cents times quantity\&quot;,\&quot;id\&quot;:\&quot;subtotal\&quot;,\&quot;requires\&quot;:[\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;]}],\&quot;base_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;8eb9b3a6b0b782d54f2308e7f84f9921f78c5110\&quot;},\&quot;budget_id\&quot;:\&quot;one-local-attempt\&quot;,\&quot;depends_on\&quot;:[],\&quot;non_goals\&quot;:[\&quot;arbitrary code\&quot;,\&quot;deployment\&quot;],\&quot;objective\&quot;:\&quot;Correct integer-cent subtotal\&quot;,\&quot;owner\&quot;:\&quot;backend\&quot;,\&quot;policy_version\&quot;:\&quot;portfolio-demo-v1\&quot;,\&quot;repository_id\&quot;:\&quot;disposable-demo-repository\&quot;,\&quot;required_checks\&quot;:[\&quot;acceptance_coverage\&quot;,\&quot;relevant_checks\&quot;,\&quot;basic_review\&quot;],\&quot;revision\&quot;:0,\&quot;risk\&quot;:\&quot;LOW\&quot;,\&quot;row_version\&quot;:0,\&quot;schema_version\&quot;:\&quot;3.0.1\&quot;,\&quot;scope\&quot;:[\&quot;calculation.py\&quot;],\&quot;status\&quot;:\&quot;NEW\&quot;,\&quot;target_commit\&quot;:{\&quot;hash_algorithm\&quot;:\&quot;sha1\&quot;,\&quot;value\&quot;:\&quot;8eb9b3a6b0b782d54f2308e7f84f9921f78c5110\&quot;},\&quot;task_class\&quot;:\&quot;BOUNDED\&quot;,\&quot;task_id\&quot;:\&quot;demo-unauthorized\&quot;,\&quot;user_turn_id\&quot;:\&quot;local-demo\&quot;,\&quot;workflow_id\&quot;:\&quot;portfolio\&quot;}}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 1,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;NEW\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;CLASSIFIED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 2,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;CLASSIFIED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;PLANNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 3,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;PLANNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;ASSIGNED\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 4,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;ASSIGNED\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:null,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;EXECUTING\&quot;}&quot;
+    },
+    {
+      &quot;type&quot;: &quot;transition&quot;,
+      &quot;revision&quot;: 0,
+      &quot;row_version&quot;: 5,
+      &quot;payload&quot;: &quot;{\&quot;from\&quot;:\&quot;EXECUTING\&quot;,\&quot;previous_revision\&quot;:0,\&quot;reference\&quot;:\&quot;demo-rejection\&quot;,\&quot;revision\&quot;:0,\&quot;to\&quot;:\&quot;BLOCKED\&quot;}&quot;
+    }
+  ],
+  &quot;elapsed_seconds&quot;: 0.0714,
+  &quot;expected_outcome&quot;: true
+}</pre></details></section><p><a href="report.json">Download machine-readable evidence</a> · <a href="terminal.txt">Terminal transcript</a></p></main></html>

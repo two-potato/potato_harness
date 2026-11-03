@@ -212,3 +212,35 @@ class Controller:
                          'revision': after['revision'], 'previous_revision': before['revision'],
                          'reference': event.reference}, now)
         return after
+
+    def pin_target(self, task_id: str, expected_row_version: int, commit: dict,
+                   *, event_id: str, idempotency_key: str) -> dict:
+        """Pin an immutable execution artifact; invalidate prior revision bindings.
+
+        The trusted guard must reconcile/revoke existing capabilities before this
+        operation. Default deny remains in effect; this does not revoke OS access.
+        """
+        if type(expected_row_version) is not int or expected_row_version < 0:
+            raise ControllerError('Expected a nonnegative integer row version')
+        with self._connection(write=True) as db:
+            before = self._read(db, task_id)
+            if before['row_version'] != expected_row_version:
+                raise StaleVersion('Task changed; reload before pinning')
+            if before['status'] != 'EXECUTING':
+                raise ControllerError('Artifacts can only be pinned during execution')
+            self._unique_event(db, event_id, idempotency_key)
+            after = deepcopy(before)
+            after.update(target_commit=deepcopy(commit), revision=before['revision'] + 1,
+                         row_version=expected_row_version + 1)
+            self._validate(after)
+            event = Event(event_id, idempotency_key, 'EXECUTING', 'pin_target')
+            if self.guard(GuardContext(deepcopy(before), deepcopy(after), event, None)) is not True:
+                raise ControllerError('Trusted guards did not authorize target pinning')
+            now = _now()
+            changed = db.execute('UPDATE tasks SET revision=?,row_version=?,task_json=?,updated_at=? WHERE task_id=? AND row_version=?',
+                                (after['revision'], after['row_version'], _json(after), now, task_id, expected_row_version))
+            if changed.rowcount != 1:
+                raise StaleVersion('Concurrent update')
+            self._record(db, after, event, {'previous_commit': before['target_commit'],
+                         'target_commit': after['target_commit'], 'previous_revision': before['revision']}, now)
+        return after

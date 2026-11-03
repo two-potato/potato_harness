@@ -25,3 +25,21 @@ Remaining work is implementation, integration and runtime validation as listed i
 - H/M/C integration scenario registry remains NOT_RUN.
 - Independent code review found an integral-float version intake inconsistency;
   reproduced with a failing regression test and fixed by strict integer versions.
+
+## Portfolio preview — 03.11.2026
+
+- `.venv-demo/bin/python -m unittest discover -s tests -q`: 86 tests PASS
+  (30 contracts, 26 controller, 15 verifier, 8 Ollama protocol, 7 demo).
+- First-run `python3 tools/run_demo.py` created a fresh environment, installed
+  dependencies and completed all four expected scenarios. Linux tested; use WSL
+  on Windows until native behavior is validated.
+- `.venv-demo/bin/python tools/validate_pack.py`: PASS.
+- Recorded demo: one DONE and three BLOCKED. Real Git commits, real subprocess
+  test output and artifact bytes are retained in docs/demo/report.json.
+- Independent verifier review found timestamp parsing and JSON coercion issues;
+  both reproduced with failing regressions and fixed. Final demo/controller/Ollama
+  review found no important defects for the documented Linux scope.
+- `git diff --check`: PASS. Video is an illustrated playback of measured output,
+  approximately 120 seconds, not a screen recording or wall-clock benchmark.
+- Live Ollama inference, OpenCode/Jev, production approval issuance, OS sandbox,
+  full policy compiler and H/M/C activation validation remain NOT_RUN/unimplemented.
