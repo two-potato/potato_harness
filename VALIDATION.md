@@ -13,3 +13,15 @@ Not run: real OpenCode/SDK/Jev calls, OS sandbox escape/mediation tests, live CI
 The 10 project skills were inspected for role/policy consistency and metadata; no live agent workflow execution is claimed. Source hashes prove correspondence to the fetched v2 export code blocks, not to an unseen installation.
 
 Remaining work is implementation, integration and runtime validation as listed in IMPLEMENTATION_PLAN.md. This deliverable is EXPORT_READY / STATIC_VALIDATED, not READY_TO_ACTIVATE.
+
+## Initial state-controller implementation — 03.11.2026
+
+- TDD: 22 runtime tests first failed because the controller was absent.
+- `python -m unittest discover -s tests -v`: 54 tests PASS (30 existing + 24 runtime).
+- Runtime tests use actual file-backed SQLite, transactional rollback on event
+  insertion failure, restart, guarded resume and two spawned writer processes.
+- Production guard adapters and activation remain NOT_IMPLEMENTED; permissive
+  test guards establish only state-machine/storage behavior.
+- H/M/C integration scenario registry remains NOT_RUN.
+- Independent code review found an integral-float version intake inconsistency;
+  reproduced with a failing regression test and fixed by strict integer versions.

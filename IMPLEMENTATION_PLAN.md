@@ -27,3 +27,10 @@ For every milestone: write the named failing tests, confirm intended failures, i
 ## Review focus
 
 Cross-process stale writers, unknown provider delivery, changed commit during acceptance, approval revocation during execution, and concurrent budget reservations must be exercised before runtime activation. The corresponding milestones above own these cases.
+
+## Milestone 1 implementation status
+
+Initial Python 3.12/SQLite state controller and runtime tests are implemented.
+See docs/runtime/STATE_CONTROLLER.md for the API and trust boundary. The default
+guard denies all transitions; production destination guards, cleanup and outbox
+integration remain owned by later milestones. This PR does not activate runtime.
