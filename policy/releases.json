@@ -1,0 +1,68 @@
+{
+  "3.0": {
+    "required": [
+      "state",
+      "context",
+      "broker",
+      "sandbox",
+      "leases",
+      "evidence",
+      "approval",
+      "preflight",
+      "outbox",
+      "minimal_recovery",
+      "budget"
+    ],
+    "tests": [
+      "H01-H18",
+      "H21",
+      "C01-C10"
+    ],
+    "disabled": [
+      "completion_network",
+      "halo"
+    ]
+  },
+  "3.1": {
+    "inherits": "3.0",
+    "required": [
+      "completion_network"
+    ],
+    "tests": [
+      "H19-H20"
+    ],
+    "enabled": [
+      "completion_network"
+    ]
+  },
+  "3.2": {
+    "inherits": "3.1",
+    "required": [
+      "extended_handoff",
+      "replay_tooling",
+      "soak"
+    ],
+    "tests": [
+      "recovery_soak"
+    ]
+  },
+  "3.3": {
+    "inherits": "3.2",
+    "required": [
+      "halo"
+    ],
+    "tests": [
+      "M01-M10"
+    ],
+    "enabled": [
+      "halo"
+    ]
+  },
+  "optional_omo": {
+    "tests": [
+      "H22"
+    ],
+    "default": "disabled"
+  },
+  "inheritance_rule": "Union required and tests with ancestors. enabled features remove same-name inherited disabled entries. A feature cannot be both required and disabled after resolution."
+}

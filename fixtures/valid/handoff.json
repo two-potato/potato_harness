@@ -1,0 +1,26 @@
+{
+  "schema_version": "3.0.1",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "owner": "architect",
+  "objective": "fixture",
+  "scope": [
+    "fixture"
+  ],
+  "non_goals": [],
+  "acceptance_ids": [
+    "fixture"
+  ],
+  "required_checks": [
+    "fixture"
+  ],
+  "dependencies": [],
+  "budget_id": "fixture",
+  "target_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "evidence_refs": [],
+  "unresolved_blockers": [],
+  "next_action": "fixture"
+}

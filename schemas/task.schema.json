@@ -1,0 +1,307 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "workflow_id",
+    "user_turn_id",
+    "repository_id",
+    "revision",
+    "row_version",
+    "owner",
+    "status",
+    "task_class",
+    "risk",
+    "objective",
+    "scope",
+    "non_goals",
+    "depends_on",
+    "acceptance",
+    "base_commit",
+    "target_commit",
+    "budget_id",
+    "required_checks",
+    "policy_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0.1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "user_turn_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "owner": {
+      "enum": [
+        "architect",
+        "backend",
+        "frontend",
+        "search",
+        "ml-recommendations",
+        "qa",
+        "devops-sre",
+        "security",
+        "explore"
+      ]
+    },
+    "status": {
+      "enum": [
+        "NEW",
+        "CLASSIFIED",
+        "PLANNED",
+        "ASSIGNED",
+        "EXECUTING",
+        "REVIEWING",
+        "VERIFYING",
+        "COMPLETION_AUDITING",
+        "REREVIEW",
+        "REPAIR",
+        "ACCEPTED",
+        "DONE",
+        "BLOCKED",
+        "NEEDS_HUMAN_APPROVAL",
+        "CANCELLED"
+      ]
+    },
+    "task_class": {
+      "enum": [
+        "SPIKE",
+        "BOUNDED",
+        "ARCHITECTURAL"
+      ]
+    },
+    "risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\*?]).+$"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "expected",
+          "requires"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "base_commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_algorithm",
+        "value"
+      ],
+      "properties": {
+        "hash_algorithm": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "target_commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_algorithm",
+        "value"
+      ],
+      "properties": {
+        "hash_algorithm": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "budget_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resume_state": {
+      "enum": [
+        "NEW",
+        "CLASSIFIED",
+        "PLANNED",
+        "ASSIGNED",
+        "EXECUTING",
+        "REVIEWING",
+        "VERIFYING",
+        "COMPLETION_AUDITING",
+        "REREVIEW",
+        "REPAIR"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.invalid/schemas/task.schema.json",
+  "title": "task"
+}

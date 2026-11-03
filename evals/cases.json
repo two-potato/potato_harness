@@ -1,0 +1,422 @@
+[
+  {
+    "id": "H01",
+    "scenario": "Invalid NEW to DONE",
+    "expected": "Reject transition and record deny",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H02",
+    "scenario": "Concurrent CAS writes",
+    "expected": "Exactly one update commits",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H03",
+    "scenario": "Missing acceptance_ids",
+    "expected": "Schema rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H04",
+    "scenario": "Evidence on old commit",
+    "expected": "Gate rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H05",
+    "scenario": "Claimed CI without trusted attestation",
+    "expected": "Gate rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H06",
+    "scenario": "HIGH signal labelled LOW",
+    "expected": "Trusted risk floor wins",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H07",
+    "scenario": "Overlapping resource claims",
+    "expected": "Only one conflicting active lease",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H08",
+    "scenario": "Expired worker fence publication",
+    "expected": "Publisher denies",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H09",
+    "scenario": "High-impact action without approval",
+    "expected": "Broker denies",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H10",
+    "scenario": "Budget exhausted with in-flight work",
+    "expected": "No new dispatch; safe reconcile",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H11",
+    "scenario": "Duplicate effect key",
+    "expected": "No duplicate reservation/effect dispatch",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H12",
+    "scenario": "Crash after external effect",
+    "expected": "Reconcile UNKNOWN; no blind retry",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H13",
+    "scenario": "One user turn to Valera",
+    "expected": "One preflight reservation before delegation",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H14",
+    "scenario": "Tool continuations and children",
+    "expected": "No extra preflight reservation",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H15",
+    "scenario": "Valera engineering tool/MCP call",
+    "expected": "Boundary denies with no effect",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H16",
+    "scenario": "Jev unavailable/malformed",
+    "expected": "Logged unavailable; hard policies remain",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H17",
+    "scenario": "QA prose PASS without evidence",
+    "expected": "Gate INCOMPLETE",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H18",
+    "scenario": "Advisory CLEAR with CI FAIL",
+    "expected": "Gate FAIL",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H19",
+    "scenario": "Completion gap after base PASS",
+    "expected": "Bounded REREVIEW with evidence",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.1",
+    "owner": "qa"
+  },
+  {
+    "id": "H20",
+    "scenario": "Changed revision/digest",
+    "expected": "New completion key; stale result rejected",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.1",
+    "owner": "qa"
+  },
+  {
+    "id": "H21",
+    "scenario": "Worker/controller restart",
+    "expected": "Reconcile state and effects before scheduling",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "H22",
+    "scenario": "Optional OMO adds orchestrator/tool",
+    "expected": "Compatibility rejects until explicitly validated",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "optional_omo",
+    "owner": "qa"
+  },
+  {
+    "id": "M01",
+    "scenario": "Excess delegation",
+    "expected": "Proposal reduces calls without quality/safety loss",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M02",
+    "scenario": "Repeated context",
+    "expected": "Proposal deduplicates without dropping acceptance",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M03",
+    "scenario": "Slow Jev",
+    "expected": "Timeout optimization preserves preflight reservation",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M04",
+    "scenario": "Disable failing CI",
+    "expected": "Reject invariant weakening",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M05",
+    "scenario": "Grant Valera shell",
+    "expected": "Reject",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M06",
+    "scenario": "Log raw prompts after leakage",
+    "expected": "Reject privacy regression",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M07",
+    "scenario": "Train improves holdout worsens",
+    "expected": "Reject overfit",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M08",
+    "scenario": "Duplicate trace/diff",
+    "expected": "Deduplicate proposal",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M09",
+    "scenario": "Unreproducible improvement",
+    "expected": "HOLD",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "M10",
+    "scenario": "Valid independently evaluated improvement",
+    "expected": "Human-reviewed proposal only",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.3",
+    "owner": "independent_evaluator"
+  },
+  {
+    "id": "C01",
+    "scenario": "Unknown transition",
+    "expected": "Deny",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C02",
+    "scenario": "Forged approval",
+    "expected": "Deny issuer/action mismatch",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C03",
+    "scenario": "Stale task revision",
+    "expected": "Reject evidence/grants",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C04",
+    "scenario": "Duplicate acceptance IDs",
+    "expected": "Semantic validator rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C05",
+    "scenario": "Missing scope",
+    "expected": "Schema rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C06",
+    "scenario": "Unsupported path glob",
+    "expected": "Schema/normalizer rejects",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C07",
+    "scenario": "Mandatory context exceeds capacity",
+    "expected": "BLOCKED_CONTEXT_OVERFLOW",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C08",
+    "scenario": "Integration SHA changes",
+    "expected": "Invalidate prior decision",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C09",
+    "scenario": "Role skill conflicts with permissions",
+    "expected": "Restriction wins; no execution",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  },
+  {
+    "id": "C10",
+    "scenario": "Unsupported runtime/plugin version",
+    "expected": "Activation blocked",
+    "status": "NOT_RUN",
+    "layer": "runtime",
+    "evidence_ref": null,
+    "profile": "3.0",
+    "owner": "qa"
+  }
+]

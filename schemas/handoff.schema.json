@@ -1,0 +1,175 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_revision",
+    "owner",
+    "objective",
+    "scope",
+    "non_goals",
+    "acceptance_ids",
+    "required_checks",
+    "dependencies",
+    "budget_id",
+    "target_commit",
+    "evidence_refs",
+    "unresolved_blockers",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0.1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "owner": {
+      "enum": [
+        "architect",
+        "backend",
+        "frontend",
+        "search",
+        "ml-recommendations",
+        "qa",
+        "devops-sre",
+        "security",
+        "explore"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\*?]).+$"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "acceptance_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "budget_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_algorithm",
+        "value"
+      ],
+      "properties": {
+        "hash_algorithm": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "unresolved_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.invalid/schemas/handoff.schema.json",
+  "title": "handoff"
+}

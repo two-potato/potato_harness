@@ -1,0 +1,11 @@
+{
+  "schema_version": "3.0.1",
+  "workflow_id": "fixture",
+  "nodes": [
+    {
+      "id": "fixture",
+      "task_id": "fixture",
+      "needs": []
+    }
+  ]
+}

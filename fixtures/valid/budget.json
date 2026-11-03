@@ -1,0 +1,16 @@
+{
+  "schema_version": "3.0.1",
+  "budget_id": "fixture",
+  "task_id": "fixture",
+  "revision": 1,
+  "token_soft": 1,
+  "token_hard": 1,
+  "cost_usd_soft": 1,
+  "cost_usd_hard": 1,
+  "wall_time_s_soft": 1,
+  "wall_time_s_hard": 1,
+  "max_parallel_workers": 1,
+  "max_repair_attempts": 1,
+  "max_no_progress_cycles": 1,
+  "status": "ACTIVE"
+}

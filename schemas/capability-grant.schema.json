@@ -1,0 +1,112 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "grant_id",
+    "task_id",
+    "task_revision",
+    "agent_id",
+    "worker_session_id",
+    "workspace_id",
+    "actions",
+    "paths",
+    "network_destinations",
+    "policy_digest",
+    "fencing_token",
+    "expires_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0.1"
+    },
+    "grant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "agent_id": {
+      "enum": [
+        "architect",
+        "backend",
+        "frontend",
+        "search",
+        "ml-recommendations",
+        "qa",
+        "devops-sre",
+        "security",
+        "explore"
+      ]
+    },
+    "worker_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "read",
+          "edit",
+          "test",
+          "publish",
+          "external_effect"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\*?]).+$"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "network_destinations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "REVOKED",
+        "EXPIRED"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.invalid/schemas/capability-grant.schema.json",
+  "title": "capability-grant"
+}

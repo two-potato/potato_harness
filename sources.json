@@ -1,0 +1,56 @@
+[
+  {
+    "path": "agents/valera-ceo.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb81de897dd5371f614b07?pvs=204",
+    "sha256": "0c61b3311cf4fdfe8667ae5fb709563d591ad5279b6483d3c73accc3a4678312",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/architect.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb81de897dd5371f614b07?pvs=204",
+    "sha256": "cec11d4935686f3492d007d609c6e61a69c53e4f2b01685a5b1ff9ba9072944b",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/backend.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb81de897dd5371f614b07?pvs=204",
+    "sha256": "bed54f4eafd3a98299c8a422d46f5bf05c6162b517a0cfd2b21c541ad370a71e",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/frontend.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb81de897dd5371f614b07?pvs=204",
+    "sha256": "356511c7f5868683b3def8255d70786fa641ac7a2c5bcab91a0b99c62ab3b33d",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/search.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb81de897dd5371f614b07?pvs=204",
+    "sha256": "bcf9257e51a6041712ea58e4237e73c58cb3f65e8a37d170b6d653f77d7d9ad6",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/ml-recommendations.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb8142b11acfd59ad566f1?pvs=204",
+    "sha256": "bbd5d9a8822ebb50646b9aa9caeddd17d689736c77ec8b5dbb280d955916d60f",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/qa.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb8142b11acfd59ad566f1?pvs=204",
+    "sha256": "f12f29a0eb6ae300ac0b9d2d791ed09880ced0dfe7cd399efa06a8685eb6c3a5",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/devops-sre.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb8142b11acfd59ad566f1?pvs=204",
+    "sha256": "86b1277098d14d2fac651588abd5d968da7d711ff359a6d6e90b1e0134c923be",
+    "source_block_preserved": true
+  },
+  {
+    "path": "agents/security.md",
+    "source_url": "https://app.notion.com/p/40972a5a5aeb8142b11acfd59ad566f1?pvs=204",
+    "sha256": "0e1b4f81daaeed1d580a41083d366463f40243dab078a02a8937795040f4607e",
+    "source_block_preserved": true
+  }
+]

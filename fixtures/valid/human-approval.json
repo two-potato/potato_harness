@@ -1,0 +1,18 @@
+{
+  "schema_version": "3.0.1",
+  "approval_id": "fixture",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "action_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "target": "fixture",
+  "principal_id": "fixture",
+  "issuer_id": "fixture",
+  "attestation_ref": "fixture",
+  "nonce": "fixture",
+  "scope": [
+    "fixture"
+  ],
+  "issued_at": "2026-11-03T06:00:00Z",
+  "expires_at": "2026-11-03T06:00:00Z",
+  "status": "APPROVED"
+}

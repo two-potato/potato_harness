@@ -1,0 +1,19 @@
+{
+  "schema_version": "3.0.1",
+  "lease_id": "fixture",
+  "repository_id": "fixture",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "worker_session_id": "fixture",
+  "workspace_id": "fixture",
+  "resources": [
+    {
+      "kind": "path",
+      "key": "fixture"
+    }
+  ],
+  "mode": "exclusive_write",
+  "fencing_token": 1,
+  "expires_at": "2026-11-03T06:00:00Z",
+  "status": "ACTIVE"
+}

@@ -1,0 +1,167 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_revision",
+    "source_commit",
+    "recipient_session",
+    "compiler_version",
+    "role_prompt_hash",
+    "policy_digest",
+    "content_hash",
+    "max_tokens",
+    "mandatory_tokens",
+    "optional_tokens",
+    "segments"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0.1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_algorithm",
+        "value"
+      ],
+      "properties": {
+        "hash_algorithm": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hash_algorithm": {
+                "const": "sha256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "recipient_session": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compiler_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role_prompt_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "max_tokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mandatory_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "optional_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "source",
+          "digest",
+          "trust",
+          "mandatory"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "policy",
+              "role",
+              "skill",
+              "task",
+              "code",
+              "contract",
+              "diagnostic",
+              "handoff"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "trust": {
+            "enum": [
+              "trusted",
+              "untrusted"
+            ]
+          },
+          "mandatory": {
+            "type": "boolean"
+          }
+        }
+      },
+      "minItems": 1
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.invalid/schemas/context-pack.schema.json",
+  "title": "context-pack"
+}

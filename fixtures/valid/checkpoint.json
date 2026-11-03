@@ -1,0 +1,17 @@
+{
+  "schema_version": "3.0.1",
+  "task_id": "fixture",
+  "revision": 1,
+  "row_version": 1,
+  "state": "NEW",
+  "last_event_seq": 1,
+  "task_graph_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "target_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "lease_refs": [],
+  "pending_effect_ids": [],
+  "evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "budget_id": "fixture"
+}

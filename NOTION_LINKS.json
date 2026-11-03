@@ -1,0 +1,98 @@
+{
+  "root": "https://app.notion.com/p/40972a5a5aeb81b6b362ea72964bd1be",
+  "extra": [
+    {
+      "id": "40d72a5a-5aeb-811c-8383-c22091977dfb",
+      "url": "https://app.notion.com/p/40d72a5a5aeb811c8383c22091977dfb?pvs=204",
+      "properties": {
+        "title": "14 — AGENTS.md · Правила и роли 3.0.1"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81e4-9c83-f7e82691110c",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81e49c83f7e82691110c?pvs=204",
+      "properties": {
+        "title": "15 — GitHub transfer · README и план реализации"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-812b-b37f-cc305f22b78c",
+      "url": "https://app.notion.com/p/40d72a5a5aeb812bb37fcc305f22b78c?pvs=204",
+      "properties": {
+        "title": "16 — Project Skills · Каталог навыков агентов"
+      }
+    }
+  ],
+  "skills": [
+    {
+      "id": "40d72a5a-5aeb-815d-b11e-f26f6ae59f9e",
+      "url": "https://app.notion.com/p/40d72a5a5aeb815db11ef26f6ae59f9e?pvs=204",
+      "properties": {
+        "title": "harness-contract-design"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-810c-89df-c4ccb043f6c2",
+      "url": "https://app.notion.com/p/40d72a5a5aeb810c89dfc4ccb043f6c2?pvs=204",
+      "properties": {
+        "title": "harness-delegate"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81fd-9c33-cbd81fd69b97",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81fd9c33cbd81fd69b97?pvs=204",
+      "properties": {
+        "title": "harness-domain-checks"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81d1-868a-fcaa0f68e5c6",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81d1868afcaa0f68e5c6?pvs=204",
+      "properties": {
+        "title": "harness-halo-propose"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-8137-8e70-c4ef3e211562",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81378e70c4ef3e211562?pvs=204",
+      "properties": {
+        "title": "harness-implement"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81c5-816f-ece17eb96631",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81c5816fece17eb96631?pvs=204",
+      "properties": {
+        "title": "harness-migrate"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81a1-a5e5-f316eb045cdd",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81a1a5e5f316eb045cdd?pvs=204",
+      "properties": {
+        "title": "harness-recover"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-818c-9fac-c51520acce44",
+      "url": "https://app.notion.com/p/40d72a5a5aeb818c9facc51520acce44?pvs=204",
+      "properties": {
+        "title": "harness-research"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-8170-9484-c306c092483b",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81709484c306c092483b?pvs=204",
+      "properties": {
+        "title": "harness-security-review"
+      }
+    },
+    {
+      "id": "40d72a5a-5aeb-81d8-a8b9-d654f13d984b",
+      "url": "https://app.notion.com/p/40d72a5a5aeb81d8a8b9d654f13d984b?pvs=204",
+      "properties": {
+        "title": "harness-verify"
+      }
+    }
+  ]
+}

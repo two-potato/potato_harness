@@ -1,0 +1,11 @@
+{
+  "schema_version": "3.0.1",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "phase": "PREFLIGHT",
+  "idempotency_key": "fixture",
+  "verdict": "CLEAR",
+  "gaps": [],
+  "authoritative": false,
+  "attempt_state": "RESERVED"
+}

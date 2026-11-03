@@ -1,0 +1,82 @@
+{
+  "schema_version": "3.0.1",
+  "task_class_floor": {
+    "SPIKE": "LOW",
+    "BOUNDED": "LOW",
+    "ARCHITECTURAL": "MEDIUM"
+  },
+  "risk_order": [
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "minimums": {
+    "LOW": [
+      "acceptance_coverage",
+      "basic_review"
+    ],
+    "MEDIUM": [
+      "acceptance_coverage",
+      "relevant_checks",
+      "ci",
+      "independent_qa"
+    ],
+    "HIGH": [
+      "acceptance_coverage",
+      "relevant_checks",
+      "ci",
+      "independent_qa",
+      "specialist_review",
+      "rollback_plan"
+    ],
+    "CRITICAL": [
+      "acceptance_coverage",
+      "relevant_checks",
+      "ci",
+      "independent_qa",
+      "specialist_review",
+      "rollback_plan",
+      "isolation_review"
+    ]
+  },
+  "conditional": {
+    "LOW_SPIKE": [
+      "research_evidence"
+    ],
+    "LOW_BOUNDED": [
+      "relevant_checks"
+    ],
+    "public_contract_changed": [
+      "contract_check"
+    ],
+    "critical_user_journey_changed": [
+      "e2e"
+    ],
+    "high_impact_action": [
+      "human_approval"
+    ]
+  },
+  "completion_network_enabled": {
+    "3.0": false,
+    "3.1": true,
+    "3.2": true,
+    "3.3": true
+  },
+  "preflight_required": true,
+  "change_signal_floor": {
+    "auth": "HIGH",
+    "payments": "HIGH",
+    "secrets": "HIGH",
+    "permissions": "HIGH",
+    "production": "HIGH",
+    "destructive": "HIGH",
+    "privileged": "HIGH",
+    "high_blast_radius": "HIGH",
+    "schema_migration": "HIGH",
+    "data_migration": "HIGH",
+    "public_contract": "MEDIUM",
+    "cross_service": "MEDIUM"
+  },
+  "risk_algorithm": "max(task_declared_risk, task_class_floor, all trusted change_signal_floor matches); unknown signals BLOCKED_CLASSIFICATION; approval independently required for high-impact actions"
+}

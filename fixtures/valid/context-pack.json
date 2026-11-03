@@ -1,0 +1,26 @@
+{
+  "schema_version": "3.0.1",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "source_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "recipient_session": "fixture",
+  "compiler_version": "fixture",
+  "role_prompt_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "max_tokens": 1,
+  "mandatory_tokens": 1,
+  "optional_tokens": 1,
+  "segments": [
+    {
+      "kind": "policy",
+      "source": "fixture",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "trust": "trusted",
+      "mandatory": true
+    }
+  ]
+}

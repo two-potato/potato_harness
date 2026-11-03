@@ -1,0 +1,36 @@
+{
+  "schema_version": "3.0.1",
+  "proposal_id": "fixture",
+  "source_trace_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "baseline_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "policy_version": "fixture",
+  "target_component": "fixture",
+  "hypothesis": "fixture",
+  "candidate_diff_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "evaluator_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "train_split_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "eval_split_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "holdout_split_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "train_eval_run_id": "fixture",
+  "holdout_eval_run_id": "fixture",
+  "metrics_before": [
+    {
+      "name": "fixture",
+      "value": 1,
+      "sample_size": 1
+    }
+  ],
+  "metrics_after": [
+    {
+      "name": "fixture",
+      "value": 1,
+      "sample_size": 1
+    }
+  ],
+  "safety_regressions": 1,
+  "status": "PROPOSED",
+  "rollback_ref": "fixture"
+}

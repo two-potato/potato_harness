@@ -1,0 +1,41 @@
+{
+  "schema_version": "3.0.1",
+  "task_id": "fixture",
+  "workflow_id": "fixture",
+  "user_turn_id": "fixture",
+  "repository_id": "fixture",
+  "revision": 1,
+  "row_version": 1,
+  "owner": "architect",
+  "status": "NEW",
+  "task_class": "SPIKE",
+  "risk": "LOW",
+  "objective": "fixture",
+  "scope": [
+    "fixture"
+  ],
+  "non_goals": [],
+  "depends_on": [],
+  "acceptance": [
+    {
+      "id": "fixture",
+      "expected": "fixture",
+      "requires": [
+        "fixture"
+      ]
+    }
+  ],
+  "base_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "target_commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "budget_id": "fixture",
+  "required_checks": [
+    "fixture"
+  ],
+  "policy_version": "fixture"
+}

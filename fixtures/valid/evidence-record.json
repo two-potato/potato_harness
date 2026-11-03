@@ -1,0 +1,24 @@
+{
+  "schema_version": "3.0.1",
+  "evidence_id": "fixture",
+  "task_id": "fixture",
+  "task_revision": 1,
+  "repository_id": "fixture",
+  "acceptance_ids": [
+    "fixture"
+  ],
+  "commit": {
+    "hash_algorithm": "sha1",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "kind": "test",
+  "check_id": "fixture",
+  "source": "fixture",
+  "issuer_id": "fixture",
+  "attestation_ref": "fixture",
+  "run_id": "fixture",
+  "result": "PASS",
+  "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "created_at": "2026-11-03T06:00:00Z",
+  "policy_version": "fixture"
+}

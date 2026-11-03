@@ -1,0 +1,17 @@
+name: Harness static validation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate contracts and package
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install -r requirements-validation.txt
+          .venv/bin/python tools/validate_pack.py
+          .venv/bin/python -m unittest discover -s tests -v

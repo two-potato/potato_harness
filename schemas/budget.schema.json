@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "budget_id",
+    "task_id",
+    "revision",
+    "token_soft",
+    "token_hard",
+    "cost_usd_soft",
+    "cost_usd_hard",
+    "wall_time_s_soft",
+    "wall_time_s_hard",
+    "max_parallel_workers",
+    "max_repair_attempts",
+    "max_no_progress_cycles",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0.1"
+    },
+    "budget_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "token_soft": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "token_hard": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cost_usd_soft": {
+      "type": "number",
+      "minimum": 0
+    },
+    "cost_usd_hard": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "wall_time_s_soft": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "wall_time_s_hard": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_parallel_workers": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_repair_attempts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_no_progress_cycles": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "PAUSED",
+        "EXHAUSTED"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness.invalid/schemas/budget.schema.json",
+  "title": "budget"
+}
