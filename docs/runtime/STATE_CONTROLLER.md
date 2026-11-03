@@ -105,3 +105,13 @@ or mark the H/M/C integration registry as executed.
 
 Next: milestone 2, trusted evidence and approval verification. This change is
 submitted as a reviewed PR; runtime activation stays disabled.
+
+## Portfolio extension: pinning the candidate
+
+`Controller.pin_target(task_id, expected_row_version, commit, *, event_id,
+idempotency_key)` is a guarded EXECUTING-only operation. It atomically updates
+an actual immutable Git commit target, increments both semantic revision and row
+version, and appends a pin_target event. Existing evidence/grants bound to an older
+revision do not match the new snapshot. This operation does not revoke OS access;
+a production guard must reconcile existing capabilities before returning True.
+The default guard denies pinning. General task amendment remains out of scope.

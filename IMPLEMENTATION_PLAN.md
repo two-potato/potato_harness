@@ -34,3 +34,13 @@ Initial Python 3.12/SQLite state controller and runtime tests are implemented.
 See docs/runtime/STATE_CONTROLLER.md for the API and trust boundary. The default
 guard denies all transitions; production destination guards, cleanup and outbox
 integration remain owned by later milestones. This PR does not activate runtime.
+
+## Portfolio preview status
+
+The portfolio branch adds evidence/approval verification primitives and an
+end-to-end constrained demo (docs/PORTFOLIO.md). Milestone 2 has library-level
+coverage; authenticated collector/issuer services, persisted gate decisions and
+nonce consumption still require integration. The demo's tiny operator allowlist
+is not milestone 3's general broker/sandbox. Live OpenCode/Jev and full H/M/C
+activation coverage remain unimplemented/unrun. Demo version is 0.1.0-demo;
+contract version remains 3.0.1.

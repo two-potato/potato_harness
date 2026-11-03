@@ -241,3 +241,24 @@ class ControllerTests(unittest.TestCase):
         self.move('BLOCKED', reference='b')
         task = self.move('REPAIR', kind='resume', reference='b')
         self.assertEqual((task['revision'], task['row_version']), (1, 9))
+
+    def test_pin_target_advances_revision_with_atomic_event(self):
+        self.walk('EXECUTING')
+        commit = {'hash_algorithm': 'sha1', 'value': 'b' * 40}
+        self.assertTrue(hasattr(self.c, 'pin_target'), 'Target pinning is not implemented')
+        task = self.c.pin_target('fixture', 4, commit, event_id='pin', idempotency_key='pin')
+        self.assertEqual((task['status'], task['revision'], task['row_version']), ('EXECUTING', 1, 5))
+        self.assertEqual(task['target_commit'], commit)
+        self.assertEqual(self.count_events(), 6)
+        with self.assertRaises(self.Error):
+            self.c.pin_target('fixture', 4, commit, event_id='stale-pin', idempotency_key='stale-pin')
+
+    def test_pin_target_cannot_bypass_guard_or_phase(self):
+        self.assertTrue(hasattr(self.c, 'pin_target'), 'Target pinning is not implemented')
+        commit = {'hash_algorithm': 'sha1', 'value': 'b' * 40}
+        with self.assertRaises(self.Error):
+            self.c.pin_target('fixture', 0, commit, event_id='pin', idempotency_key='pin')
+        self.walk('EXECUTING')
+        with self.assertRaises(self.Error):
+            self.Controller(self.db).pin_target('fixture', 4, commit, event_id='pin', idempotency_key='pin')
+        self.assertEqual(self.c.get_task('fixture')['revision'], 0)
