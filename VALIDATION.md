@@ -66,3 +66,17 @@ artifact publication or external effects; production activation remains blocked.
 
 Independent review reproduced a hard-link alias to a protected secret; a failing
 regression was added and existing multiply-linked regular files are now rejected.
+
+## Leases, trusted publisher and Bubblewrap — 04.11.2026
+
+Atomic resource leases and trusted byte-artifact publication are implemented and
+integrated into the bounded demo. Tests include two-process conflicts, stale lease
+bindings, task revisions, corrupt objects and expiry during fsync. Independent
+review found expiry during storage; a failing regression was added and fixed.
+Bubblewrap 0.9.0 is installed, but real probe fails opening /proc/<pid>/ns/ns.
+Live sandbox tests are explicitly SKIPPED; no sandbox activation is claimed.
+The runner has no unsandboxed fallback. General scheduler, broker-mediated arbitrary
+IO, Git integration and production lifecycle cleanup still require implementation.
+
+Final suite: 167 tests, 161 passed and 6 explicit skips (5 live namespace tests,
+1 Unix socket setup forbidden by host). Skips are not runtime safety evidence.
