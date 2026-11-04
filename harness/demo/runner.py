@@ -99,14 +99,21 @@ def run_scenario(scenario, *, proposal=None, adapter='offline', jev_provider=Non
                 'operator':'add' if scenario == 'failed-tests' else 'multiply'}
             report['operator'] = candidate.get('operator') if isinstance(candidate, dict) else None
             from harness.policy import authorize
+            from harness.leases import LeaseManager
+            from harness.publisher import Publisher
+            manager=LeaseManager(db)
+            lease=manager.acquire(task['task_id'],task['row_version'],'demo-worker','demo-workspace',[{'kind':'path','key':'calculation.py'}])
             grant = json.loads((ROOT / 'fixtures/valid/capability-grant.json').read_text())
             policy_digest = digest_bytes((ROOT / 'policy/checks.json').read_bytes())
-            grant.update(grant_id='demo-edit', task_id=task['task_id'], task_revision=task['revision'], agent_id='backend', worker_session_id='demo-worker', workspace_id='demo-workspace', actions=['edit'], paths=['calculation.py'], policy_digest=policy_digest, expires_at=(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat())
+            grant.update(grant_id='demo-edit', task_id=task['task_id'], task_revision=task['revision'], agent_id='backend', worker_session_id='demo-worker', workspace_id='demo-workspace', actions=['edit'], paths=['calculation.py'], policy_digest=policy_digest, fencing_token=lease['fencing_token'], expires_at=(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat())
             context = {key:grant[key] for key in ('task_id','task_revision','agent_id','worker_session_id','workspace_id','policy_digest','fencing_token')}
             context['workspace_root'] = str(repo)
             def authorize_write():
                 authorize('demo-edit', {'action':'edit','path':'calculation.py'}, context, lambda identity:deepcopy(grant), lambda:datetime.now(timezone.utc))
             commit = apply_proposal(repo, candidate, actor='valera' if scenario == 'unauthorized' else 'backend', permitted=True, authorize_write=authorize_write)
+            content=(repo/'calculation.py').read_bytes()
+            report['publication']=Publisher(db,root/'objects').publish(lease_id=lease['lease_id'],worker_session_id='demo-worker',workspace_id='demo-workspace',fencing_token=lease['fencing_token'],path='calculation.py',artifact=content,expected_digest=digest_bytes(content))
+            manager.release(lease['lease_id'],reconcile=True)
             grant['status'] = 'REVOKED'
             report['grant_status_after_edit'] = grant['status']
             guard.artifact = True
