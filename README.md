@@ -97,3 +97,20 @@ python -m harness.demo
 
 Индивидуальный проект, разработанный с помощью AI. Контракты имеют версию `3.0.1`;
 версия демонстрации хранится отдельно в `DEMO_VERSION`. Лицензия — [MIT](LICENSE).
+
+## HALO и Jev
+
+- **Jev:** исполняемые предварительный и итоговый advisory hooks, журнал попыток,
+  защита от повторной отправки, System One API OpenCode/TypeSafe. Без ключа
+  предварительный вызов фиксирует UNAVAILABLE. [Настройка](docs/runtime/JEV.md).
+- **HALO:** офлайн-предложения оптимизации контекста, отдельная оценка, контроль
+  использования holdout и сохранённые метрики. Самостоятельного применения нет.
+  [Архитектура и ограничения](docs/runtime/HALO.md).
+
+```bash
+python -m harness.halo --output .runtime/new-halo-report
+python3 tools/run_demo.py --jev-provider opencode --jev-model jev-1.13-free --jev-completion
+```
+
+Второй запуск требует OPENCODE_API_KEY в окружении. Live Jev пока не проверен;
+полный production-профиль v3.3 и интеграция с сессией OpenCode ещё не активированы.

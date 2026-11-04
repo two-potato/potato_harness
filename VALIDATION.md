@@ -43,3 +43,14 @@ Remaining work is implementation, integration and runtime validation as listed i
   approximately 120 seconds, not a screen recording or wall-clock benchmark.
 - Live Ollama inference, OpenCode/Jev, production approval issuance, OS sandbox,
   full policy compiler and H/M/C activation validation remain NOT_RUN/unimplemented.
+
+## HALO/Jev implementation — 04.11.2026
+
+Durable advisory preflight/completion and System One protocol were implemented.
+HALO generates offline schema-valid proposals, evaluates separate datasets and
+records all attempts with a digest-bound holdout reuse cap. Reference optimization
+metrics are synthetic character counts, not production token/cost measurements.
+Full suite and both CLI workflows were run. Live Jev is NOT_RUN: neither provider
+API key is configured. Production OpenCode session integration and OS separation
+of optimizer/evaluator remain pending. Independent review findings for stale Jev
+cache and HALO dataset aliases were fixed with regression coverage.

@@ -14,3 +14,9 @@
 
 This is a demo release version, not a production runtime activation or completion
 of every milestone. JSON contracts remain version 3.0.1.
+
+## Unreleased — HALO and Jev
+
+- Durable advisory preflight/completion and typed System One transport.
+- Offline bounded HALO proposals with independent aggregate evaluation and holdout ledger.
+- Demo hooks and opt-in provider configuration; live Jev unverified without credentials.

@@ -1,3 +1,5 @@
+Implemented advisory Jev transport/hooks: see docs/runtime/JEV.md. The following activation contract still applies to the general OpenCode runtime, not the Python demo.
+
 # Runtime adapter activation contract
 
 No executable OpenCode configuration or plugin is supplied: previous guessed version/API assumptions are removed. The original agent text is reusable; metadata/config integration must be checked against the installed runtime. The adapters are NOT_IMPLEMENTED.
