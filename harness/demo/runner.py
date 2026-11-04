@@ -1,6 +1,6 @@
 """End-to-end local demo with real Git, tests, SQLite and evidence rejection."""
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import html
 import json
 from pathlib import Path
@@ -98,7 +98,17 @@ def run_scenario(scenario, *, proposal=None, adapter='offline', jev_provider=Non
             candidate = proposal if scenario == 'success' and proposal is not None else {
                 'operator':'add' if scenario == 'failed-tests' else 'multiply'}
             report['operator'] = candidate.get('operator') if isinstance(candidate, dict) else None
-            commit = apply_proposal(repo, candidate, actor='valera' if scenario == 'unauthorized' else 'backend', permitted=True)
+            from harness.policy import authorize
+            grant = json.loads((ROOT / 'fixtures/valid/capability-grant.json').read_text())
+            policy_digest = digest_bytes((ROOT / 'policy/checks.json').read_bytes())
+            grant.update(grant_id='demo-edit', task_id=task['task_id'], task_revision=task['revision'], agent_id='backend', worker_session_id='demo-worker', workspace_id='demo-workspace', actions=['edit'], paths=['calculation.py'], policy_digest=policy_digest, expires_at=(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat())
+            context = {key:grant[key] for key in ('task_id','task_revision','agent_id','worker_session_id','workspace_id','policy_digest','fencing_token')}
+            context['workspace_root'] = str(repo)
+            def authorize_write():
+                authorize('demo-edit', {'action':'edit','path':'calculation.py'}, context, lambda identity:deepcopy(grant), lambda:datetime.now(timezone.utc))
+            commit = apply_proposal(repo, candidate, actor='valera' if scenario == 'unauthorized' else 'backend', permitted=True, authorize_write=authorize_write)
+            grant['status'] = 'REVOKED'
+            report['grant_status_after_edit'] = grant['status']
             guard.artifact = True
             task = controller.pin_target(task['task_id'], task['row_version'],
                                          {'hash_algorithm':'sha1', 'value':commit},

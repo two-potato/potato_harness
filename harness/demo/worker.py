@@ -60,10 +60,13 @@ def prepare(workspace):
     return git(workspace, 'rev-parse', 'HEAD')
 
 
-def apply_proposal(workspace, proposal, *, actor, permitted):
+def apply_proposal(workspace, proposal, *, actor, permitted, authorize_write=None):
     operator = validate_proposal(proposal)
     if actor != 'backend' or permitted is not True:
         raise PermissionError('Permission denied: only the assigned backend may edit calculation.py')
+    if not callable(authorize_write):
+        raise PermissionError('Permission denied: broker authorization required')
+    authorize_write()
     path = workspace / 'calculation.py'
     if path.is_symlink() or path.parent.resolve() != workspace.resolve():
         raise PermissionError('Permission denied: unsafe artifact path')

@@ -96,3 +96,13 @@ class DemoTests(unittest.TestCase):
         report=run('success',jev_provider=advice,jev_completion=True)
         self.assertEqual(report['status'],'BLOCKED')
         self.assertIn('REREVIEW',[x['state'] for x in report['timeline']])
+
+    def test_worker_cannot_write_without_broker_callback(self):
+        from harness.demo.worker import apply_proposal
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace=Path(tmp)
+            target=workspace/'calculation.py'
+            target.write_text('original')
+            with self.assertRaises(PermissionError):
+                apply_proposal(workspace,{'operator':'multiply'},actor='backend',permitted=True)
+            self.assertEqual(target.read_text(),'original')

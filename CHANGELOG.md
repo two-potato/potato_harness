@@ -20,3 +20,10 @@ of every milestone. JSON contracts remain version 3.0.1.
 - Durable advisory preflight/completion and typed System One transport.
 - Offline bounded HALO proposals with independent aggregate evaluation and holdout ledger.
 - Demo hooks and opt-in provider configuration; live Jev unverified without credentials.
+
+## Unreleased — capability decisions
+
+- Fresh grant authorization for bounded read/edit/test actions, role/session/revision/
+  workspace/policy/fence bindings and path/secret/symlink restrictions.
+- Demo requests broker authorization before writing; no callback defaults to denial.
+- OS isolation, race-free file operations and trusted artifact publication remain pending.
