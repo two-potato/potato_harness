@@ -54,3 +54,15 @@ Full suite and both CLI workflows were run. Live Jev is NOT_RUN: neither provide
 API key is configured. Production OpenCode session integration and OS separation
 of optimizer/evaluator remain pending. Independent review findings for stale Jev
 cache and HALO dataset aliases were fixed with regression coverage.
+
+## Initial capability decisions — 04.11.2026
+
+138 tests pass, including 23 new broker adversarial tests and the worker default-
+deny regression. Package validation passes. Demo edit obtains a fresh bounded
+grant decision and revokes its host grant after writing. The API rejects stale
+bindings, expiry/revocation, unauthorized roles/actions, unsafe paths and symlinks.
+Decision checks do not implement race-free IO, process isolation, lease acquisition,
+artifact publication or external effects; production activation remains blocked.
+
+Independent review reproduced a hard-link alias to a protected secret; a failing
+regression was added and existing multiply-linked regular files are now rejected.
