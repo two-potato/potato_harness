@@ -74,3 +74,25 @@ class DemoTests(unittest.TestCase):
         for record in report['evidence']:
             artifact = report['artifacts'][record['attestation_ref']].encode('utf-8')
             self.assertEqual(digest_bytes(artifact), record['artifact_digest'])
+
+    def test_jev_hooks_run_before_dispatch_and_after_base_pass(self):
+        run, _ = self.api()
+        calls=[]
+        def advice(request):
+            calls.append(request['phase'])
+            return {'verdict':'CLEAR','gaps':[]}
+        report=run('success',jev_provider=advice,jev_completion=True)
+        self.assertEqual(calls,['PREFLIGHT','COMPLETION'])
+        self.assertEqual(report['status'],'DONE')
+        calls.clear()
+        report=run('failed-tests',jev_provider=advice,jev_completion=True)
+        self.assertEqual(calls,['PREFLIGHT'])
+        self.assertEqual(report['status'],'BLOCKED')
+
+    def test_jev_completion_gap_routes_to_review_then_blocks(self):
+        run, _ = self.api()
+        def advice(request):
+            return {'verdict':'REVIEW_RECOMMENDED','gaps':['extra_review']}
+        report=run('success',jev_provider=advice,jev_completion=True)
+        self.assertEqual(report['status'],'BLOCKED')
+        self.assertIn('REREVIEW',[x['state'] for x in report['timeline']])

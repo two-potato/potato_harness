@@ -7,8 +7,10 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import time
+import uuid
 
 from harness.controller import Controller, Event, initialize
+from harness.jev import Jev
 from harness.verifier import TrustedEvidence, VerificationError, digest_bytes, verify_bundle
 from .worker import SOURCE, prepare, apply_proposal, test_candidate, git
 
@@ -35,7 +37,7 @@ class DemoGuard:
             return self.ready
         if state in ('REVIEWING', 'VERIFYING'):
             return self.artifact
-        if state == 'COMPLETION_AUDITING':
+        if state in ('COMPLETION_AUDITING', 'REREVIEW'):
             return self.verified
         if state == 'ACCEPTED':
             return self.verified and self.audit
@@ -44,7 +46,7 @@ class DemoGuard:
         return False
 
 
-def run_scenario(scenario, *, proposal=None, adapter='offline'):
+def run_scenario(scenario, *, proposal=None, adapter='offline', jev_provider=None, jev_completion=False):
     if scenario not in SCENARIOS:
         raise ValueError('Unknown demo scenario')
     start = time.perf_counter()
@@ -67,7 +69,7 @@ def run_scenario(scenario, *, proposal=None, adapter='offline'):
         guard = DemoGuard()
         controller = Controller(db, guard=guard)
         task = json.loads((ROOT / 'fixtures/valid/task.json').read_text())
-        task.update(task_id='demo-' + scenario, workflow_id='portfolio', user_turn_id='local-demo',
+        task.update(task_id='demo-' + scenario, workflow_id='portfolio', user_turn_id='local-demo-' + str(uuid.uuid4()),
                     repository_id='disposable-demo-repository', revision=0, row_version=0,
                     owner='backend', task_class='BOUNDED', risk='LOW', objective='Correct integer-cent subtotal',
                     scope=['calculation.py'], non_goals=['arbitrary code', 'deployment'],
@@ -87,11 +89,8 @@ def run_scenario(scenario, *, proposal=None, adapter='offline'):
                                                'key-' + str(task['row_version']), state, reference=reference))
             report['timeline'].append({'state':state, 'row_version':task['row_version'], 'revision':task['revision']})
 
-        # Durable, explicit unavailable preflight; there is no fabricated Jev call.
-        with sqlite3.connect(db) as connection:
-            connection.execute('INSERT INTO provider_attempts VALUES(?,?,?,?,?,?,?)',
-                               ('preflight', task['task_id'], task['user_turn_id'], 'PREFLIGHT', 'UNAVAILABLE',
-                                json.dumps({'reason':'Jev adapter not installed; local demo only'}), datetime.now(timezone.utc).isoformat()))
+        jev = Jev(db, provider=jev_provider)
+        report['jev_preflight'] = jev.preflight(task['task_id'])
         guard.ready = True
         for state in ('CLASSIFIED', 'PLANNED', 'ASSIGNED', 'EXECUTING'):
             move(state)
@@ -137,10 +136,12 @@ def run_scenario(scenario, *, proposal=None, adapter='offline'):
             guard.verified = True
             report['verified'] = True
             move('COMPLETION_AUDITING')
-            with sqlite3.connect(db) as connection:
-                connection.execute('INSERT INTO provider_attempts VALUES(?,?,?,?,?,?,?)',
-                                   ('completion', task['task_id'], task['user_turn_id'], 'COMPLETION', 'RESULT',
-                                    json.dumps({'result':'SKIPPED_BY_POLICY', 'profile':'portfolio-demo-v1'}), datetime.now(timezone.utc).isoformat()))
+            advice = jev.completion(task['task_id'], records, attestations.__getitem__, trusted_issuers=frozenset({'local-demo-host'}), enabled=jev_completion)
+            report['jev_completion'] = advice
+            if jev_completion and advice['verdict'] != 'CLEAR':
+                if advice['verdict'] in ('REVIEW_RECOMMENDED', 'INCOMPLETE'):
+                    move('REREVIEW')
+                raise ValueError('Jev completion requires review: ' + advice['verdict'])
             guard.audit = True
             move('ACCEPTED')
             # All subprocesses are joined; the demo issues no enduring grants/leases.
@@ -151,6 +152,8 @@ def run_scenario(scenario, *, proposal=None, adapter='offline'):
             report['reason'] = str(error)
             move('BLOCKED', reference='demo-rejection')
         report.update(status=task['status'], revision=task['revision'])
+        with sqlite3.connect(db) as connection:
+            report['provider_attempts'] = [dict(key=r[0], state=r[1], record=json.loads(r[2])) for r in connection.execute('SELECT idempotency_key,state,result_json FROM provider_attempts')]
         with sqlite3.connect(db) as connection:
             report['events'] = [dict(zip(('type','revision','row_version','payload'), row)) for row in connection.execute(
                 'SELECT event_type,revision,row_version,payload_json FROM events ORDER BY event_seq')]
@@ -173,10 +176,10 @@ def terminal_lines(summary):
     return lines
 
 
-def run_all(output, *, proposal=None, adapter='offline', model_info=None):
+def run_all(output, *, proposal=None, adapter='offline', model_info=None, jev_provider=None, jev_completion=False):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    results = [run_scenario(name, proposal=proposal, adapter=adapter if name == 'success' else 'offline') for name in SCENARIOS]
+    results = [run_scenario(name, proposal=proposal, adapter=adapter if name == 'success' else 'offline', jev_provider=jev_provider if name == 'success' else None, jev_completion=jev_completion if name == 'success' else False) for name in SCENARIOS]
     summary = {'version':'0.1.0-demo', 'generated_at':datetime.now(timezone.utc).isoformat(),
                'all_expected':all(item['expected_outcome'] for item in results), 'scenarios':results,
                'model':model_info or {'live_call':False, 'model':None, 'requests':0, 'elapsed_seconds':None},
