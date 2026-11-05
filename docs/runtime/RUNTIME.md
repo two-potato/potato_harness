@@ -31,6 +31,14 @@ Config is trusted operator input. No dynamic command comes from model output.
 }
 ```
 
+Set `"domain_profile": "marketplace"` in operator config to add the bundled
+marketplace checks to the executor's mandatory policy context. The profile is
+versioned with Harness and included in the context policy digest. Use `objective`
+for task-specific business rules and acceptance, `scope` for exact permitted files
+and `test_argv` for the operator's verification command. Source repository text
+cannot select a profile or extend permissions. The profile guides the agent.
+The configured tests and existing LOW trial policy still govern acceptance.
+
 Optional `worker_command` is a trusted argv override. Default is the repository-pinned Bun executable plus `integrations/opencode/src/worker.mjs`. Its JSON stdin is `{role,prompt,model,projectDir,output_token_allowance,coordination}`; JSON stdout is `{edits:[{path,content}],summary,usage:{input_tokens,output_tokens,cost_usd}}`. The bridge runs outside the sandbox because it needs provider credentials; model tools must be disabled by that bridge. Provider projectDir is a new empty directory separate from copied source, preventing source `.opencode` configuration from becoming host plugin authority.
 
 `init` requires a clean source repository matching the exact SHA. It copies committed regular files from raw `git ls-tree`/`git cat-file` blobs, excluding Git metadata and rejecting special files, secret paths, files over 1 MiB and repositories over 32 MiB. Committed `.gitattributes` export/clean transforms cannot hide tests or alter these raw inputs. Target commits use the exact raw tested blobs and executable bits. The source repository is never modified. State is a new private directory outside it. Trial scope is a nonempty list of exact existing tracked file paths. A conservative filename rule rejects obvious authentication, payment, policy, deployment and other high-risk changes. This is a bounded LOW-risk trial policy, not a general risk classifier: operators must not submit changes whose actual risk exceeds LOW. Tests are supplied by the operator as the acceptance contract; the runtime does not infer business correctness from arbitrary passing tests.

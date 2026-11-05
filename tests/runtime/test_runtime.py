@@ -26,6 +26,28 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(json.loads((self.state/'evidence.json').read_text())),3)
         self.assertEqual(halo(self.state)['status'],'HOLD')
         with self.assertRaises(ValueError):run(self.state,worker=self.worker)
+    def test_marketplace_profile_reaches_executor_as_mandatory_policy(self):
+        state = self.root / 'marketplace-state'
+        init(dict(self.config, domain_profile='marketplace'), state)
+
+        def worker(request, command, timeout):
+            policy = next(
+                item for item in json.loads(request['prompt'])['instructions']
+                if item['name'] == 'policy'
+            )
+            self.assertTrue(policy['mandatory'])
+            self.assertIn('Marketplace engineering profile', policy['text'])
+            return {'edits': [{'path': 'calc.py', 'content': 'value = 2\n'}],
+                    'summary': 'fixture', 'usage': {'input_tokens': 100,
+                    'output_tokens': 10, 'cost_usd': 0.01}}
+
+        result = run(state, worker=worker, sandbox_probe=lambda: {'available': True},
+                     sandbox_run=lambda *args, **kwargs: {'returncode': 0,
+                     'stdout': 'ok', 'stderr': '', 'timed_out': False})
+        self.assertEqual(result['state'], 'DONE', result['reason'])
+        with self.assertRaisesRegex(ValueError, 'Unknown domain profile'):
+            init(dict(self.config, domain_profile='../custom'), self.root / 'invalid')
+
     def test_missing_sandbox_never_calls_provider(self):
         def forbidden(*a):self.fail('Provider called without sandbox')
         result=run(self.state,worker=forbidden,sandbox_probe=lambda:{'available':False,'reason':'fixture unavailable'})
