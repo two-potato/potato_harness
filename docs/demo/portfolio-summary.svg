@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="338" viewBox="0 0 1000 338" role="img" aria-labelledby="title desc">
+  <title id="title">Potato Harness — результат демо</title>
+  <desc id="desc">Четыре ожидаемых результата: одна принятая правка и три блокировки.</desc>
+  <rect width="1000" height="338" rx="20" fill="#111923"/>
+  <rect x="32" y="28" width="28" height="4" rx="2" fill="#ffc86e"/>
+  <g font-family="DejaVu Sans, sans-serif">
+    <text x="72" y="36" font-size="14" font-weight="bold" letter-spacing="2" fill="#ffc86e">POTATO HARNESS / DEMO</text>
+    <text x="32" y="85" font-size="35" font-weight="bold" fill="#f1f5fa">Четыре сценария, четыре ожидаемых исхода</text>
+    <text x="33" y="113" font-size="16" fill="#bacbdb">Записанный прогон · Git-коммиты, Python-тесты и SQLite</text>
+    <g fill="#1c2938">
+      <rect x="32" y="134" width="936" height="39" rx="8"/>
+      <rect x="32" y="180" width="936" height="39" rx="8"/>
+      <rect x="32" y="226" width="936" height="39" rx="8"/>
+      <rect x="32" y="272" width="936" height="39" rx="8"/>
+    </g>
+    <g x="48" font-size="14" font-weight="bold">
+      <text x="49" y="159" fill="#83e6b4">DONE</text>
+      <text x="49" y="205" fill="#ffc86e">BLOCKED</text>
+      <text x="49" y="251" fill="#ffc86e">BLOCKED</text>
+      <text x="49" y="297" fill="#ffc86e">BLOCKED</text>
+    </g>
+    <g font-size="18" fill="#f1f5fa">
+      <text x="178" y="159">Правка прошла тесты и проверку доказательств</text>
+      <text x="178" y="205">Тесты не прошли</text>
+      <text x="178" y="251">Доказательства относятся к другому коммиту</text>
+      <text x="178" y="297">У исполнителя нет права на запись</text>
+    </g>
+  </g>
+</svg>
