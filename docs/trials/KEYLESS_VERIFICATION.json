@@ -1,0 +1,50 @@
+{
+  "created_at": "2026-11-05T04:41:55.475505+00:00",
+  "checks": {
+    "python": {
+      "status": "PASS",
+      "version": "Python 3.12.14"
+    },
+    "opencode": {
+      "status": "PASS",
+      "version": "1.19.5"
+    },
+    "bun": {
+      "status": "PASS",
+      "version": "1.4.4"
+    },
+    "isolation": {
+      "status": "BLOCKED_HOST",
+      "available": false,
+      "reason": "Bubblewrap profile failed: bwrap: loopback: Failed to create NETLINK_ROUTE socket: Operation not permitted",
+      "version": "bubblewrap 0.12.0"
+    },
+    "credentials": {
+      "status": "MISSING_KEY",
+      "opencode": false,
+      "typesafe": false
+    },
+    "python_suite": {
+      "status": "PASS",
+      "output": "t_resolver_errors_fail_closed (runtime.test_verifier.VerifierTests.test_resolver_errors_fail_closed) ... ok\ntest_valid_evidence_bundle_and_approval (runtime.test_verifier.VerifierTests.test_valid_evidence_bundle_and_approval) ... ok\ntest_release_profiles_no_disabled_requirement (test_contracts.PolicyTests.test_release_profiles_no_disabled_requirement) ... ok\ntest_scenario_ids_complete (test_contracts.PolicyTests.test_scenario_ids_complete) ... ok\ntest_sensitive_floors_present (test_contracts.PolicyTests.test_sensitive_floors_present) ... ok\ntest_bad_task_state_rejected (test_contracts.SQLTests.test_bad_task_state_rejected) ... ok\ntest_foreign_keys_enabled (test_contracts.SQLTests.test_foreign_keys_enabled) ... ok\ntest_outbox_unique_key (test_contracts.SQLTests.test_outbox_unique_key) ... ok\ntest_outbox_unknown_is_storable (test_contracts.SQLTests.test_outbox_unknown_is_storable) ... ok\ntest_stale_cas_updates_zero_rows (test_contracts.SQLTests.test_stale_cas_updates_zero_rows) ... ok\ntest_authoritative_jev_rejected (test_contracts.SchemaTests.test_authoritative_jev_rejected) ... ok\ntest_date_format_enabled (test_contracts.SchemaTests.test_date_format_enabled) ... ok\ntest_empty_acceptance (test_contracts.SchemaTests.test_empty_acceptance) ... ok\ntest_empty_acceptance_ids (test_contracts.SchemaTests.test_empty_acceptance_ids) ... ok\ntest_empty_approval_scope (test_contracts.SchemaTests.test_empty_approval_scope) ... ok\ntest_empty_scope (test_contracts.SchemaTests.test_empty_scope) ... ok\ntest_format_is_not_authentication (test_contracts.SchemaTests.test_format_is_not_authentication) ... ok\ntest_glob_rejected (test_contracts.SchemaTests.test_glob_rejected) ... ok\ntest_hash_algorithm_length (test_contracts.SchemaTests.test_hash_algorithm_length) ... ok\ntest_invalid_artifact_digest (test_contracts.SchemaTests.test_invalid_artifact_digest) ... ok\ntest_invalid_commit (test_contracts.SchemaTests.test_invalid_commit) ... ok\ntest_missing_action_binding (test_contracts.SchemaTests.test_missing_action_binding) ... ok\ntest_missing_approval_nonce (test_contracts.SchemaTests.test_missing_approval_nonce) ... ok\ntest_missing_attestation (test_contracts.SchemaTests.test_missing_attestation) ... ok\ntest_missing_revision (test_contracts.SchemaTests.test_missing_revision) ... ok\ntest_missing_task_scope (test_contracts.SchemaTests.test_missing_task_scope) ... ok\ntest_no_zero_worker_budget (test_contracts.SchemaTests.test_no_zero_worker_budget) ... ok\ntest_path_traversal (test_contracts.SchemaTests.test_path_traversal) ... ok\ntest_sha256_commit_valid (test_contracts.SchemaTests.test_sha256_commit_valid) ... ok\ntest_unknown_fields_rejected (test_contracts.SchemaTests.test_unknown_fields_rejected) ... ok\ntest_unknown_jev_verdict (test_contracts.SchemaTests.test_unknown_jev_verdict) ... ok\ntest_unknown_state (test_contracts.SchemaTests.test_unknown_state) ... ok\n\n----------------------------------------------------------------------\nRan 189 tests in 14.174s\n\nOK (skipped=6)"
+    },
+    "contracts": {
+      "status": "PASS",
+      "output": "PASS: 14 schemas and valid fixtures; 9 source hashes; 10 skill headers; state policy; 13 SQL tables/integrity."
+    },
+    "omo_unit": {
+      "status": "PASS",
+      "output": "bun test v1.4.4 (38afee6c8)\n\n\ntests/profile.test.mjs:\n(pass) coordinator and worker tools remain denied [3.43ms]\n(pass) OMO defaults cannot install a second coordinator [0.58ms]\n(pass) actual pinned plugin imports [590.83ms]\n(pass) OMO official environment opt-out is set before factory startup [0.84ms]\n\ntests/worker.test.mjs:\n(pass) gateway rejects coordinator role before contacting provider [63.75ms]\n(pass) gateway rejects oversized input before model [57.27ms]\n(pass) coordinator cannot assign an unapproved executor [3.50ms]\n\n 7 pass\n 0 fail\nRan 7 tests across 2 files. [786.00ms]"
+    },
+    "omo_sdk_fixture": {
+      "status": "PASS",
+      "output": "{\"status\":\"PASS\",\"layer\":\"real-opencode-omo-local-provider-fixture\",\"provider_requests\":4,\"proposal\":{\"edits\":[{\"path\":\"example.py\",\"content\":\"result = 42\\n\"}],\"summary\":\"fixture proposal\"},\"live_inference\":false}"
+    }
+  },
+  "inference": "NOT_RUN",
+  "activation": "NOT_RUN",
+  "readiness": "BLOCKED_HOST_OR_CODE",
+  "blockers": [
+    "isolation"
+  ]
+}

@@ -6,3 +6,4 @@ __pycache__/
 .env.*
 !.env.example
 .venv-demo/
+node_modules/

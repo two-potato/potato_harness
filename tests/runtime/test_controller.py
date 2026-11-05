@@ -262,3 +262,11 @@ class ControllerTests(unittest.TestCase):
         with self.assertRaises(self.Error):
             self.Controller(self.db).pin_target('fixture', 4, commit, event_id='pin', idempotency_key='pin')
         self.assertEqual(self.c.get_task('fixture')['revision'], 0)
+
+    def test_unresolved_effect_prevents_terminal_state(self):
+        self.walk('ACCEPTED')
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO outbox(effect_id,task_id,task_revision,idempotency_key,action_digest,state,payload_json,created_at,updated_at) VALUES('effect','fixture',0,'effect','digest','UNKNOWN','{}','now','now')")
+        with self.assertRaises(self.Error):
+            self.move('DONE')
+        self.assertEqual(self.c.get_task('fixture')['status'],'ACCEPTED')

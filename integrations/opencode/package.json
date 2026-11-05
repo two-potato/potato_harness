@@ -1,0 +1,21 @@
+{
+  "name": "potato-harness-opencode",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test tests/*.test.mjs",
+    "setup": "node src/bootstrap.mjs",
+    "smoke": "bun src/protocol-smoke.mjs"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "1.19.5",
+    "@opencode-ai/sdk": "1.19.5",
+    "bun": "1.4.4",
+    "oh-my-opencode": "5.1.60",
+    "opencode-ai": "1.19.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.2"
+  }
+}
