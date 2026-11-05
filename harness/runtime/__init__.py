@@ -18,7 +18,7 @@ import uuid
 from harness.controller import Controller,Event,initialize,ROOT,_json
 from harness.budget import Budget
 from harness.state import Outbox
-from harness.context import _redact,compile_context
+from harness.context import DOMAIN_PROFILES,_redact,compile_context
 from harness.scheduler import Scheduler
 from harness.isolation import probe,run_private
 from harness.jev import Jev
@@ -44,7 +44,7 @@ def _git(repo,*args):
 
 def _config(config):
     required={'repo','base_sha','model','scope','test_argv','objective','budget','output'}
-    if set(config)-required-{'completion_jev','worker_command','jev_provider','jev_model'} or not required<=set(config):raise ValueError('Unknown or missing config fields')
+    if set(config)-required-{'completion_jev','worker_command','jev_provider','jev_model','domain_profile'} or not required<=set(config):raise ValueError('Unknown or missing config fields')
     if not all(isinstance(config[k],str) and config[k] for k in ('repo','base_sha','model','objective','output')):raise ValueError('Nonempty config text required')
     if not re.fullmatch('[a-f0-9]{40}|[a-f0-9]{64}',config['base_sha']):raise ValueError('Pinned base SHA required')
     if not isinstance(config['scope'],list) or not config['scope'] or len(set(config['scope']))!=len(config['scope']):raise ValueError('Unique exact-file scope required')
@@ -60,6 +60,10 @@ def _config(config):
         if type(b[name]) not in (int,float) or not math.isfinite(b[name]) or b[name]<=0:raise ValueError('Finite positive budget required')
     if b['estimate_cost_usd']>b['cost_usd'] or b['wall_time_s']>120:raise ValueError('Estimate exceeds budget or wall time exceeds trial 120s')
     if type(config.get('completion_jev',False)) is not bool:raise ValueError('completion_jev must be boolean')
+    if 'domain_profile' in config:
+        profile = config['domain_profile']
+        if not isinstance(profile, str) or profile not in DOMAIN_PROFILES:
+            raise ValueError('Unknown domain profile')
     return deepcopy(config)
 
 
@@ -240,7 +244,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         for name in config['scope']:
             allowed('read',name)
             segments.append({'name':name,'text':(workspace/name).read_text(),'mandatory':True,'trust':'untrusted'})
-        pack=compile_context(task,{'role':'backend','session_id':session},segments,config['budget']['tokens']-1,lambda text:len(text.encode('utf-8')))
+        pack=compile_context(task,{'role':'backend','session_id':session},segments,config['budget']['tokens']-1,lambda text:len(text.encode('utf-8')),domain_profile=config.get('domain_profile'))
         # This host counter is a conservative byte ceiling, never an exact tokenizer.
         prompt=pack['text']
         input_ceiling=len(prompt.encode('utf-8'))

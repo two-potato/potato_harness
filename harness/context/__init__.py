@@ -17,7 +17,10 @@ def _redact(text):
     return text
 
 
-def compile_context(task,recipient,segments,limit,token_count):
+DOMAIN_PROFILES = {"marketplace": "profiles/marketplace.md"}
+
+
+def compile_context(task,recipient,segments,limit,token_count,*,domain_profile=None):
     """recipient={role,session_id}; host callable counts the FINAL encoded text.
 
     Caller segments are always inert JSON data, even if claiming trusted status.
@@ -33,6 +36,10 @@ def compile_context(task,recipient,segments,limit,token_count):
     sources=['AGENTS.md','rules/PRIORITY.md','rules/SECURITY.md','rules/REPORTING.md','docs/harness/v3/CONTROL_FLOW.md']
     skill={'valera-ceo':'harness-delegate','architect':'harness-contract-design','qa':'harness-verify','security':'harness-security-review','devops-sre':'harness-recover'}.get(role,'harness-implement')
     sources.append('skills/'+skill+'/SKILL.md')
+    if domain_profile is not None:
+        if not isinstance(domain_profile, str) or domain_profile not in DOMAIN_PROFILES:
+            raise ControllerError('Unknown domain profile')
+        sources.append(DOMAIN_PROFILES[domain_profile])
     rules='\n'.join((ROOT/path).read_text() for path in sources)
     base=[{'name':'role','text':role_text,'trust':'trusted','mandatory':True},{'name':'policy','text':rules,'trust':'trusted','mandatory':True}]
     mandatory=[];optional=[]
