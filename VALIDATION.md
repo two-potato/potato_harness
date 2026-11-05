@@ -80,3 +80,12 @@ IO, Git integration and production lifecycle cleanup still require implementatio
 
 Final suite: 167 tests, 161 passed and 6 explicit skips (5 live namespace tests,
 1 Unix socket setup forbidden by host). Skips are not runtime safety evidence.
+
+## Trial candidate 0.2.0 — 2026-11-05
+
+- Python: 189 tests collected; 183 passed, 6 skipped.
+- OMO: 7 unit tests passed. Actual pinned OpenCode + OMO local HTTP fixture: 4 provider requests through coordinator and backend, PASS; no paid/live inference.
+- Contract validation: 14 schemas, 9 source hashes, 10 skill headers and 13 SQL tables/integrity passed.
+- Host: Bubblewrap 0.12.0 fails NETLINK_ROUTE namespace creation (Operation not permitted). The production runtime persists HOLD before provider use. A suitable Linux host remains required.
+- No API keys configured. See docs/trials/KEYLESS_VERIFICATION.json and the November 6 runbook.
+- This validates the bounded LOW single-task trial path; it does not certify all production profiles, exact provider-wide spend limits, or live model quality.

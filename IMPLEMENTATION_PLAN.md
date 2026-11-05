@@ -44,3 +44,18 @@ nonce consumption still require integration. The demo's tiny operator allowlist
 is not milestone 3's general broker/sandbox. Live OpenCode/Jev and full H/M/C
 activation coverage remain unimplemented/unrun. Demo version is 0.1.0-demo;
 contract version remains 3.0.1.
+
+## 0.2.0-trial integration candidate — 2026-11-05
+
+A persistent LOW/BOUNDED single-task runner now composes context, ready-queue,
+Jev hooks, model gateway, durable outbox/budget, broker/leases, artifact receiver,
+real Git targets, sandbox tests and evidence gates. Pinned OMO+OpenCode+SDK gateway
+loads actual dependencies and executes coordinator then specialist without native
+model-side tools. HALO accepts actual redacted trace datasets; no auto-application.
+
+This delivers the bounded trial path, not every production profile: host namespace
+activation, external inference, exact whole-request/Jev cost controls, hostile
+optimizer process separation, full parallel team fairness/repair/cancellation and
+MEDIUM+ independent human/QA integrations remain distinct acceptance work.
+Refer to docs/trials/2026-11-06-RUNBOOK.md; do not mark H/M/C registry complete merely
+because module tests passed. Existing historical status sections above are snapshots.

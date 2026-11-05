@@ -194,6 +194,11 @@ class Controller:
                     after['resume_state'] = 'VERIFYING' if source == 'ACCEPTED' else source
             elif [source, target] not in self.policy['edges']:
                 raise ControllerError(f'Illegal transition: {source} -> {target}')
+            if target in ('DONE','CANCELLED'):
+                if db.execute("SELECT 1 FROM outbox WHERE task_id=? AND state IN ('PENDING','DISPATCHING','UNKNOWN') LIMIT 1", (task_id,)).fetchone():
+                    raise ControllerError('Unresolved external effects prevent terminal state')
+                if db.execute("SELECT 1 FROM leases WHERE task_id=? AND status IN ('ACTIVE','SUSPECT') LIMIT 1", (task_id,)).fetchone():
+                    raise ControllerError('Unreconciled worker leases prevent terminal state')
             after.update(status=target, row_version=expected_row_version + 1)
             if target == 'REPAIR' and event.kind != 'resume':
                 after['revision'] += 1
