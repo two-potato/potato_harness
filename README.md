@@ -23,6 +23,16 @@ python3 tools/run_demo.py
 
 Откройте HTML-отчёт по пути из вывода команды. Демо использует детерминированного исполнителя, реальные Git-коммиты, Python-тесты и SQLite. API-ключ не нужен. [Записанный прогон](docs/demo/terminal.txt) · [Отчёт JSON](docs/demo/report.json)
 
+### Локальная разработка без Bubblewrap
+
+```bash
+python3 -m harness.readiness --mode development
+```
+
+Для исполнения тестов AI-изменённого проекта нужна проверенная изоляция:
+`python3 -m harness.readiness --mode execution`. Подробнее:
+[Локальная разработка и изоляция](docs/runtime/LOCAL_DEVELOPMENT.md).
+
 ## Как устроен рантайм
 
 ```mermaid
