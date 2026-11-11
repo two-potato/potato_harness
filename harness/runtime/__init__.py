@@ -20,7 +20,7 @@ from harness.budget import Budget
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
 from harness.scheduler import Scheduler
-from harness.isolation import probe,run_private
+from harness.isolation.backend import BubblewrapBackend
 from harness.jev import Jev
 from harness.leases import LeaseManager
 from harness.publisher import Publisher
@@ -192,9 +192,12 @@ def _jev_provider(config):
 
 def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
     """Injected callbacks are host test seams; CLI always uses actual sandbox."""
+    backend=BubblewrapBackend()
     state=Path(state).absolute()
     with _lock(state):
-        return _run(state,worker or _worker,sandbox_probe or probe,sandbox_run or run_private)
+        return _run(state,worker or _worker,
+                    sandbox_probe if sandbox_probe is not None else backend.probe,
+                    sandbox_run if sandbox_run is not None else backend.run)
 
 
 def _run(state,worker,sandbox_probe,sandbox_run):

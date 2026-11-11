@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — local-first readiness
+
+- Added separate development/execution readiness checks. Development requires
+  Python and Git, but never probes Bubblewrap or runs untrusted code.
+- Added host-owned IsolationBackend contract and reused the existing Bubblewrap
+  implementation for the protected runtime; no unsandboxed execution fallback.
+- Model/SDK compatibility and live inference remain unchanged and untested.
+
 ## 0.1.0-demo — portfolio preview
 
 - Runnable constrained repair with real Git commits, subprocess tests and SQLite
