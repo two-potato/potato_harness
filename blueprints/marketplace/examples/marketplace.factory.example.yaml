@@ -1,0 +1,66 @@
+schema_version: marketplace.factory/v1
+project:
+  slug: demo-market-kz
+  kind: multivendor_physical_goods
+  isolation: independent_repository_database_deployment
+  customization: modules_and_themes
+blueprint:
+  version: 0.1.0
+  source_sha: "0000000000000000000000000000000000000000"
+market:
+  country: KZ
+  currency: KZT
+  locales: [ru, kk]
+  timezone: Asia/Almaty
+  country_pack:
+    id: kz-dev-placeholder
+    sha256: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    review_status: UNVERIFIED_DEV_ONLY
+    production_payments_allowed: false
+payments:
+  provider: fake_psp
+  mode: sandbox
+  required_capabilities: [split_payments, seller_payouts, refunds, signed_webhooks, idempotency]
+architecture:
+  backend: django_drf
+  frontend: nextjs_typescript
+  database: postgresql
+  messaging: rabbitmq_transactional_outbox
+  cache: redis
+  object_storage: s3_compatible
+services:
+  search: {enabled: true, mode: basic, engine: opensearch}
+  notifications:
+    enabled: true
+    mode: basic
+    engine: celery_rabbitmq
+    channels: [telegram, email]
+  recommendations: {enabled: true, mode: basic, api: fastapi, fallback: deterministic_popularity}
+  moderation: {enabled: true, mode: basic, api: fastapi, publication_gate: fail_closed_revision_bound}
+  analytics: {enabled: true, mode: basic, api: fastapi, warehouse: clickhouse}
+gateway:
+  provider: kong_oss
+  configuration: db_less
+  edge: nginx
+  public_admin_api: false
+deployment:
+  platform: docker_swarm
+  environment: local_development
+  resource_profile: basic
+  images:
+    api: "registry.example.invalid/potato/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  publish_internal_ports: false
+observability:
+  prometheus: true
+  grafana: true
+  alertmanager: true
+  loki: true
+  alloy: true
+  tempo: true
+  opentelemetry: true
+discoverability:
+  seo: true
+  geo_ai: true
+  schema_org: true
+  merchant_feeds: true
+graphql: {enabled: false}

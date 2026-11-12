@@ -1,0 +1,55 @@
+asyncapi: '3.0.0'
+info:
+  title: Potato Marketplace Event Contracts
+  version: 1.0.0
+  description: >
+    Event payloads use schemas/event-envelope.v1.schema.json. Producer must
+    persist commerce event in same PostgreSQL transaction as aggregate state.
+    Consumer acknowledgements occur after idempotent persistence. RabbitMQ
+    never guarantees exactly-once delivery.
+channels:
+  listingSubmitted:
+    address: listing.submitted.v1
+    messages:
+      listingSubmitted:
+        $ref: '#/components/messages/envelope'
+  moderationVerdict:
+    address: moderation.verdict.v1
+    messages:
+      moderationVerdict:
+        $ref: '#/components/messages/envelope'
+  listingPublished:
+    address: listing.published.v1
+    messages:
+      listingPublished:
+        $ref: '#/components/messages/envelope'
+  listingUnpublished:
+    address: listing.unpublished.v1
+    messages:
+      listingUnpublished:
+        $ref: '#/components/messages/envelope'
+  notificationDelivery:
+    address: notification.delivery.v1
+    messages:
+      notificationDelivery:
+        $ref: '#/components/messages/envelope'
+operations:
+  publishListing:
+    action: send
+    channel:
+      $ref: '#/channels/listingPublished'
+  consumeSubmitted:
+    action: receive
+    channel:
+      $ref: '#/channels/listingSubmitted'
+  consumePublished:
+    action: receive
+    channel:
+      $ref: '#/channels/listingPublished'
+components:
+  messages:
+    envelope:
+      name: marketplaceEventEnvelope
+      contentType: application/json
+      payload:
+        $ref: ../../schemas/event-envelope.v1.schema.json
