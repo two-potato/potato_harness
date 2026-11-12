@@ -124,12 +124,87 @@ def _lock(state):
 
 
 class _Guard:
+    """Trusted trial guard. EXECUTING checks the *persisted* lease and budget.
+
+    The in-memory grant binding is host-issued and checked against the database
+    fencing token. This is not yet a general durable grant issuer.
+    """
     ready=False;artifact=False;verified=False;audit=False;clean=False
+
+    def __init__(self,database):
+        self.database=Path(database).resolve()
+        self.execution=None
+
+    def _can_execute(self,context):
+        binding=self.execution
+        before=context.before
+        if (not self.ready or before['status']!='ASSIGNED' or
+                context.after['revision']!=before['revision'] or
+                not isinstance(binding,dict)):
+            return False
+        grant=binding.get('grant')
+        if not isinstance(grant,dict):
+            return False
+        now=datetime.now(timezone.utc)
+        try:
+            if (grant.get('status')!='ACTIVE' or
+                    grant.get('task_id')!=before['task_id'] or
+                    grant.get('task_revision')!=before['revision'] or
+                    grant.get('agent_id')!=before['owner'] or
+                    grant.get('worker_session_id')!=binding['session'] or
+                    grant.get('workspace_id')!='trial-workspace' or
+                    set(grant.get('actions',[]))!={'read','edit','test'} or
+                    grant.get('paths')!=before['scope'] or
+                    grant.get('policy_digest')!=digest_bytes((ROOT/'policy/checks.json').read_bytes()) or
+                    datetime.fromisoformat(grant['expires_at'])<=now):
+                return False
+            db=sqlite3.connect(self.database.as_uri()+'?mode=ro',uri=True)
+            db.row_factory=sqlite3.Row
+            try:
+                db.execute('BEGIN')
+                lease=db.execute('SELECT * FROM leases WHERE lease_id=?',
+                                 (binding['lease_id'],)).fetchone()
+                budget=db.execute('SELECT r.*,b.task_id,b.revision,b.budget_json '
+                                  'FROM budget_reservations r JOIN budgets b USING(budget_id) '
+                                  'WHERE r.attempt_id=?',(binding['attempt_id'],)).fetchone()
+                claims=db.execute('SELECT kind,resource_key FROM lease_claims WHERE lease_id=? '
+                                  'ORDER BY kind,resource_key',(binding['lease_id'],)).fetchall()
+                if not lease or not budget:
+                    return False
+                if (lease['status']!='ACTIVE' or
+                        lease['task_id']!=before['task_id'] or
+                        lease['task_revision']!=before['revision'] or
+                        lease['repository_id']!=before['repository_id'] or
+                        lease['worker_session_id']!=binding['session'] or
+                        lease['workspace_id']!='trial-workspace' or
+                        datetime.fromisoformat(lease['expires_at'])<=now or
+                        grant['fencing_token']!=lease['fencing_token']):
+                    return False
+                if sorted((r['kind'],r['resource_key']) for r in claims)!=sorted(
+                        ('path',p) for p in before['scope']):
+                    return False
+                if (budget['task_id']!=before['task_id'] or
+                        budget['revision']!=before['revision'] or
+                        budget['settlement'] is not None or
+                        budget['tokens']!=binding['tokens'] or
+                        budget['cost']!=binding['cost'] or
+                        json.loads(budget['budget_json'])['status']!='ACTIVE'):
+                    return False
+                if db.execute("SELECT 1 FROM outbox WHERE task_id=? AND state='UNKNOWN' LIMIT 1",
+                              (before['task_id'],)).fetchone():
+                    return False
+                return True
+            finally:
+                db.close()
+        except (KeyError,TypeError,ValueError,sqlite3.Error,OSError):
+            return False
+
     def __call__(self,c):
         target=c.after['status']
         if target=='BLOCKED':return True
         if c.event.kind=='pin_target':return self.artifact
-        if target in ('CLASSIFIED','PLANNED','ASSIGNED','EXECUTING'):return self.ready
+        if target=='EXECUTING':return self._can_execute(c)
+        if target in ('CLASSIFIED','PLANNED','ASSIGNED'):return self.ready
         if target in ('REVIEWING','VERIFYING'):return self.artifact
         if target=='COMPLETION_AUDITING':return self.verified
         if target=='ACCEPTED':return self.verified and self.audit
@@ -203,7 +278,7 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
 def _run(state,worker,sandbox_probe,sandbox_run):
     config=_config(json.loads((state/'config.json').read_text()));run=json.loads((state/'run.json').read_text())
     if run['state']!='INITIALIZED':raise ValueError('Run already started; inspect status/recover, never auto-replay')
-    guard=_Guard();controller=Controller(state/'state.db',guard=guard);task=controller.get_task(run['task_id'])
+    guard=_Guard(state/'state.db');controller=Controller(state/'state.db',guard=guard);task=controller.get_task(run['task_id'])
     outbox=Outbox(state/'state.db');budget=Budget(state/'state.db');leases=LeaseManager(state/'state.db')
     workspace=state/'workspace';grant=None;effect=None;claimed=False;provider_returned=False
     deadline=time.monotonic()+config['budget']['wall_time_s']
@@ -231,14 +306,24 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         for target in ('CLASSIFIED','PLANNED'):move(target)
         dag={'nodes':[{'id':'trial','task_id':task['task_id'],'needs':[]}]}
         if Scheduler(state/'state.db').ready(dag)!=[task['task_id']]:raise ValueError('Task not in bounded ready queue')
-        for target in ('ASSIGNED','EXECUTING'):move(target)
+        move('ASSIGNED')
         before=_snapshot(workspace)
+        # Reserve finite provider budget BEFORE execution state or lease issuance.
+        attempt='provider-'+task['task_id']
+        budget.reserve(task['task_id'],config['budget']['tokens'],config['budget']['estimate_cost_usd'],attempt)
         session=uuid.uuid4().hex
+        # ASSIGNED leases are prospective: LeaseManager.validate still denies
+        # worker effects until the trusted controller enters EXECUTING.
         lease=leases.acquire(task['task_id'],task['row_version'],session,'trial-workspace',[{'kind':'path','key':p} for p in config['scope']])
         run['lease_id']=lease['lease_id']
         grant=json.loads((ROOT/'fixtures/valid/capability-grant.json').read_text())
         grant.update(grant_id='trial-edit',task_id=task['task_id'],task_revision=task['revision'],agent_id='backend',worker_session_id=session,workspace_id='trial-workspace',actions=['read','edit','test'],paths=config['scope'],policy_digest=digest_bytes((ROOT/'policy/checks.json').read_bytes()),fencing_token=lease['fencing_token'],expires_at=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat())
-        run['grant']=grant;save()
+        run['grant']=grant;run['attempt_id']=attempt;save()
+        guard.execution={'lease_id':lease['lease_id'],'session':session,
+                         'attempt_id':attempt,'grant':deepcopy(grant),
+                         'tokens':config['budget']['tokens'],
+                         'cost':config['budget']['estimate_cost_usd']}
+        move('EXECUTING')
         context={k:grant[k] for k in ('task_id','task_revision','agent_id','worker_session_id','workspace_id','policy_digest','fencing_token')};context['workspace_root']=str(workspace)
         def allowed(action,path):
             leases.validate(lease['lease_id'],task['task_id'],task['revision'],session,'trial-workspace')
@@ -253,7 +338,6 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         input_ceiling=len(prompt.encode('utf-8'))
         if input_ceiling>=config['budget']['tokens']:raise ValueError('Mandatory prompt byte ceiling exceeds finite token reservation; increase budget')
         run['context']={'digest':pack['content_hash'],'role_prompt_hash':pack['role_prompt_hash'],'policy_digest':pack['policy_digest'],'input_utf8_bytes':input_ceiling,'count_method':'conservative UTF-8 byte ceiling; not exact model tokens','output_token_allowance':min(4096,config['budget']['tokens']-input_ceiling)};save()
-        attempt='provider-'+task['task_id'];budget.reserve(task['task_id'],config['budget']['tokens'],config['budget']['estimate_cost_usd'],attempt)
         provider_project=state/'provider-project';provider_project.mkdir(mode=0o700)
         command=config.get('worker_command',[str(ROOT/'integrations/opencode/node_modules/.bin/bun'),str(ROOT/'integrations/opencode/src/worker.mjs')])
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
@@ -350,11 +434,19 @@ def recover(state):
     state=Path(state).absolute()
     with _lock(state):
         run=json.loads((state/'run.json').read_text());outbox=Outbox(state/'state.db')
+        task=Controller(state/'state.db').get_task(run['task_id'])
+        if task['status']=='DONE' and run['state']=='DONE':
+            return status(state)
         with outbox.controller._connection() as db:
             effects=[row[0] for row in db.execute("SELECT effect_id FROM outbox WHERE task_id=? AND state='DISPATCHING'",(run['task_id'],))]
+            active_leases=[row[0] for row in db.execute(
+                "SELECT lease_id FROM leases WHERE task_id=? AND status IN ('ACTIVE','SUSPECT')",
+                (run['task_id'],))]
         for effect in effects:outbox.mark_unknown(effect)
         leases=LeaseManager(state/'state.db')
-        if run['lease_id']:leases.suspect(run['lease_id'])
+        # The run.json pointer may lag SQLite after a host crash. Inspect all
+        # persisted leases, not just the latest optional pointer.
+        for lease_id in active_leases:leases.suspect(lease_id)
         run.update(state='HOLD',reason='Recovery never retransmits effects; reconcile UNKNOWN outcomes and fence suspect leases before a new task')
         _write(state/'run.json',run)
         return status(state)

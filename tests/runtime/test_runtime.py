@@ -116,6 +116,81 @@ class RuntimeTests(unittest.TestCase):
         for name in ('regression.py','calc.py','.gitattributes'):
             blob=subprocess.check_output(['/usr/bin/git','-C',str(other/'integration-repo'),'show',target+':'+name])
             self.assertEqual(blob,(other/'workspace'/name).read_bytes())
+    def test_provider_sees_persisted_lease_and_reservation(self):
+        import sqlite3
+        def inspect(request,command,timeout):
+            with sqlite3.connect(self.state/'state.db') as db:
+                state=db.execute('SELECT state FROM tasks').fetchone()[0]
+                active=db.execute("SELECT count(*) FROM leases WHERE status='ACTIVE'").fetchone()[0]
+                reserved=db.execute("SELECT count(*) FROM budget_reservations WHERE settlement IS NULL").fetchone()[0]
+            self.assertEqual(state,'EXECUTING')
+            self.assertEqual(active,1)
+            self.assertEqual(reserved,1)
+            return self.worker(request,command,timeout)
+        result=run(self.state,worker=inspect,sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['state'],'DONE',result['reason'])
+
+    def test_budget_failure_blocks_without_executing(self):
+        from unittest.mock import patch
+        with patch('harness.runtime.Budget.reserve',side_effect=RuntimeError('test budget rejected')):
+            result=run(self.state,worker=lambda *a:self.fail('Worker called without budget'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_lease_failure_blocks_without_executing(self):
+        from unittest.mock import patch
+        with patch('harness.runtime.LeaseManager.acquire',side_effect=RuntimeError('test lease denied')):
+            result=run(self.state,worker=lambda *a:self.fail('Worker called without lease'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_recovery_suspects_lease_missing_from_run_pointer(self):
+        import sqlite3
+        from harness.controller import Controller,Event
+        from harness.leases import LeaseManager
+        controller=Controller(self.state/'state.db',guard=lambda ctx:True)
+        task=controller.get_task(json.loads((self.state/'run.json').read_text())['task_id'])
+        for name in ('CLASSIFIED','PLANNED','ASSIGNED','EXECUTING'):
+            task=controller.transition(task['task_id'],task['row_version'],
+                                       Event('test-'+name,'test-'+name,name))
+        lease=LeaseManager(self.state/'state.db').acquire(
+            task['task_id'],task['row_version'],'crashed-session','trial-workspace',
+            [{'kind':'path','key':'calc.py'}])
+        record=json.loads((self.state/'run.json').read_text())
+        record['state']='RUNNING';record['lease_id']=None
+        (self.state/'run.json').write_text(json.dumps(record))
+        result=recover(self.state)
+        self.assertEqual(result['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT status FROM leases WHERE lease_id=?',
+                                        (lease['lease_id'],)).fetchone()[0],'SUSPECT')
+
+    def test_missing_budget_record_blocks_even_if_reserve_claims_success(self):
+        from unittest.mock import patch
+        # A faulty host adapter must not turn an unpersisted receipt into a
+        # valid EXECUTING precondition.
+        with patch('harness.runtime.Budget.reserve',return_value={'attempt_id':'forged'}):
+            result=run(self.state,worker=lambda *a:self.fail('Worker ran without durable budget'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_fencing_token_substitution_blocks_execution(self):
+        from unittest.mock import patch
+        from harness.leases import LeaseManager
+        original=LeaseManager.acquire
+        def wrong_fence(manager,*args,**kwargs):
+            receipt=original(manager,*args,**kwargs)
+            return dict(receipt,fencing_token=receipt['fencing_token']+1)
+        with patch('harness.runtime.LeaseManager.acquire',new=wrong_fence):
+            result=run(self.state,worker=lambda *a:self.fail('Worker ran with fake fence'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
     def test_halo_explicit_splits_reject_overlap(self):
         row={'trace_id':'fixture-trace','status':'PASS','checks':['fixture'],'bindings':{'policy':'fixture'},'optional_detail':'fixture detail'}
         paths=[]
