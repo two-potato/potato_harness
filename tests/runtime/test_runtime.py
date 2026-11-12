@@ -52,6 +52,45 @@ class RuntimeTests(unittest.TestCase):
         def forbidden(*a):self.fail('Provider called without sandbox')
         result=run(self.state,worker=forbidden,sandbox_probe=lambda:{'available':False,'reason':'fixture unavailable'})
         self.assertEqual(result['state'],'HOLD');self.assertIn('Sandbox unavailable',result['reason'])
+    def test_ambiguous_provider_keeps_suspect_lease_until_manual_reconcile(self):
+        import sqlite3
+        from harness.leases import LeaseManager,LeaseError
+        def uncertain(*args):
+            raise RuntimeError('provider delivery uncertain')
+        result=run(self.state,worker=uncertain,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        record=json.loads((self.state/'run.json').read_text())
+        self.assertEqual(record['grant']['status'],'REVOKED')
+        self.assertIsNotNone(record['lease_id'])
+        with sqlite3.connect(self.state/'state.db') as db:
+            statuses=[row[0] for row in db.execute(
+                'SELECT status FROM leases WHERE task_id=?',
+                (record['task_id'],))]
+            effects=[row[0] for row in db.execute(
+                'SELECT state FROM outbox WHERE task_id=?',
+                (record['task_id'],))]
+        self.assertEqual(statuses,['SUSPECT'])
+        self.assertEqual(effects,['UNKNOWN'])
+        with self.assertRaises(LeaseError):
+            LeaseManager(self.state/'state.db').release(record['lease_id'])
+        self.assertEqual(recover(self.state)['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            self.assertEqual(db.execute(
+                'SELECT status FROM leases WHERE lease_id=?',
+                (record['lease_id'],)).fetchone()[0],'SUSPECT')
+
+    def test_failed_sandbox_keeps_test_lease_suspect(self):
+        import sqlite3
+        def failed_test(*args,**kwargs):
+            raise RuntimeError('test sandbox outcome uncertain')
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},sandbox_run=failed_test)
+        self.assertEqual(result['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            statuses=[row[0] for row in db.execute(
+                'SELECT status FROM leases ORDER BY rowid')]
+        self.assertEqual(statuses,['REVOKED','SUSPECT'])
+
     def test_provider_uncertainty_never_replays(self):
         def crash(*a):raise RuntimeError('fixture interrupted provider')
         result=run(self.state,worker=crash,sandbox_probe=lambda:{'available':True})

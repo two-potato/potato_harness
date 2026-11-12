@@ -291,11 +291,17 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         nonlocal task
         task=controller.transition(task['task_id'],task['row_version'],Event(uuid.uuid4().hex,uuid.uuid4().hex,target,reference=reference))
         run['trace'].append({'state':target,'revision':task['revision'],'row_version':task['row_version']});save()
-    def cleanup():
+    def cleanup(*, uncertain=False):
         if grant:
             grant['status']='REVOKED';run['grant']=grant
         if run['lease_id']:
-            leases.release(run['lease_id'],reconcile=True);run['lease_id']=None
+            if uncertain:
+                # On HOLD, the host has not proven all external workers and test
+                # descendants are quiescent. Fence rather than pretending an
+                # authoritative reconciliation occurred.
+                leases.suspect(run['lease_id'])
+            else:
+                leases.release(run['lease_id'],reconcile=True);run['lease_id']=None
         save()
     try:
         run['state']='RUNNING';save()
@@ -424,7 +430,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         if effect and claimed and not provider_returned:
             try:outbox.mark_unknown(effect)
             except ValueError:pass
-        cleanup()
+        cleanup(uncertain=True)
         if task['status'] not in ('DONE','CANCELLED','BLOCKED'):move('BLOCKED','runtime-hold')
         run.update(state='HOLD',reason=_redact(str(error)))
     save();return status(state)
