@@ -25,7 +25,12 @@ class BootstrapError(ValueError):
 def _validator():
     # Domain dependencies stay out of generic Harness modules.
     sys.path.insert(0, str(BLUEPRINT))
-    from factory_contracts import validate_manifest
+    try:
+        from factory_contracts import validate_manifest
+    except ImportError as error:
+        raise BootstrapError(
+            "Missing blueprint dependencies; install blueprints/marketplace/requirements-dev.txt"
+        ) from error
     return validate_manifest
 
 
