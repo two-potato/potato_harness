@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "rules/PRIORITY.md",
+    "rules/SECURITY.md",
+    "docs/marketplace/QUICKSTART.md"
+  ],
+  "permission": {"*": "deny"},
+  "share": "disabled",
+  "autoupdate": false
+}

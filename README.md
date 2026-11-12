@@ -33,6 +33,22 @@ python3 -m harness.readiness --mode development
 `python3 -m harness.readiness --mode execution`. Подробнее:
 [Локальная разработка и изоляция](docs/runtime/LOCAL_DEVELOPMENT.md).
 
+
+### Фабрика маркетплейсов: единый репозиторий
+
+В этом же репозитории находятся [контракты Marketplace Blueprint](blueprints/marketplace/README.md).
+Единые правила: `AGENTS.md` и `rules/*`; команда OpenCode `/marketplace <slug>` доступна в `.opencode/commands/marketplace.md`.
+
+Пока реализована проверка R1 и безопасное создание независимого **контрактного проекта**:
+
+```bash
+python3 -m pip install -r blueprints/marketplace/requirements-dev.txt
+python3 tools/marketplace.py status
+python3 tools/marketplace.py init demo-market-kz
+```
+
+Результат `init` не является работающим Django/Next.js маркетплейсом; полный генератор, пять сервисов и Docker Swarm являются этапами R2–R5. Вызов OpenCode через обычный TUI не обходит ограничения изоляции. См. [единый quickstart](docs/marketplace/QUICKSTART.md).
+
 ## Как устроен рантайм
 
 ```mermaid

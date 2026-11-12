@@ -1,0 +1,800 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://two-potato.github.io/potato_marketplace_blueprint/schemas/marketplace.factory.v1.schema.json",
+  "title": "Potato Marketplace Factory manifest v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project",
+    "blueprint",
+    "market",
+    "payments",
+    "architecture",
+    "services",
+    "gateway",
+    "deployment",
+    "observability",
+    "discoverability"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "marketplace.factory/v1"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slug",
+        "kind",
+        "isolation",
+        "customization"
+      ],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "maxLength": 48
+        },
+        "kind": {
+          "const": "multivendor_physical_goods"
+        },
+        "isolation": {
+          "const": "independent_repository_database_deployment"
+        },
+        "customization": {
+          "const": "modules_and_themes"
+        }
+      }
+    },
+    "blueprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source_sha"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "source_sha": {
+          "$ref": "#/$defs/git_sha"
+        }
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "country",
+        "currency",
+        "locales",
+        "timezone",
+        "country_pack"
+      ],
+      "properties": {
+        "country": {
+          "type": "string",
+          "enum": [
+            "AM",
+            "AZ",
+            "BY",
+            "GE",
+            "KZ",
+            "KG",
+            "MD",
+            "RU",
+            "TJ",
+            "UZ"
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64
+        },
+        "country_pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "sha256",
+            "review_status",
+            "production_payments_allowed"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "review_status": {
+              "const": "UNVERIFIED_DEV_ONLY"
+            },
+            "production_payments_allowed": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "payments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "mode",
+        "required_capabilities"
+      ],
+      "properties": {
+        "provider": {
+          "const": "fake_psp"
+        },
+        "mode": {
+          "const": "sandbox"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "split_payments",
+              "seller_payouts",
+              "refunds",
+              "signed_webhooks",
+              "idempotency"
+            ]
+          },
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "const": "split_payments"
+              }
+            },
+            {
+              "contains": {
+                "const": "seller_payouts"
+              }
+            },
+            {
+              "contains": {
+                "const": "refunds"
+              }
+            },
+            {
+              "contains": {
+                "const": "signed_webhooks"
+              }
+            },
+            {
+              "contains": {
+                "const": "idempotency"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "frontend",
+        "database",
+        "messaging",
+        "cache",
+        "object_storage"
+      ],
+      "properties": {
+        "backend": {
+          "const": "django_drf"
+        },
+        "frontend": {
+          "const": "nextjs_typescript"
+        },
+        "database": {
+          "const": "postgresql"
+        },
+        "messaging": {
+          "const": "rabbitmq_transactional_outbox"
+        },
+        "cache": {
+          "const": "redis"
+        },
+        "object_storage": {
+          "const": "s3_compatible"
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "search",
+        "notifications",
+        "recommendations",
+        "moderation",
+        "analytics"
+      ],
+      "properties": {
+        "search": {
+          "$ref": "#/$defs/search"
+        },
+        "notifications": {
+          "$ref": "#/$defs/notifications"
+        },
+        "recommendations": {
+          "$ref": "#/$defs/recommendations"
+        },
+        "moderation": {
+          "$ref": "#/$defs/moderation"
+        },
+        "analytics": {
+          "$ref": "#/$defs/analytics"
+        }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "configuration",
+        "edge",
+        "public_admin_api"
+      ],
+      "properties": {
+        "provider": {
+          "const": "kong_oss"
+        },
+        "configuration": {
+          "const": "db_less"
+        },
+        "edge": {
+          "const": "nginx"
+        },
+        "public_admin_api": {
+          "const": false
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "environment",
+        "resource_profile",
+        "images",
+        "publish_internal_ports"
+      ],
+      "properties": {
+        "platform": {
+          "const": "docker_swarm"
+        },
+        "environment": {
+          "const": "local_development"
+        },
+        "resource_profile": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "images": {
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_-]*$": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9._/-]+(?:\\:[a-zA-Z0-9._-]+)?@sha256:[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "publish_internal_ports": {
+          "const": false
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prometheus",
+        "grafana",
+        "alertmanager",
+        "loki",
+        "alloy",
+        "tempo",
+        "opentelemetry"
+      ],
+      "properties": {
+        "prometheus": {
+          "const": true
+        },
+        "grafana": {
+          "const": true
+        },
+        "alertmanager": {
+          "const": true
+        },
+        "loki": {
+          "const": true
+        },
+        "alloy": {
+          "const": true
+        },
+        "tempo": {
+          "const": true
+        },
+        "opentelemetry": {
+          "const": true
+        }
+      }
+    },
+    "discoverability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seo",
+        "geo_ai",
+        "schema_org",
+        "merchant_feeds"
+      ],
+      "properties": {
+        "seo": {
+          "const": true
+        },
+        "geo_ai": {
+          "const": true
+        },
+        "schema_org": {
+          "const": true
+        },
+        "merchant_feeds": {
+          "const": true
+        }
+      }
+    },
+    "graphql": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$|^[0-9a-f]{64}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "search": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "engine"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "mode": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "engine": {
+          "const": "opensearch"
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "engine",
+        "channels"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "mode": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "engine": {
+          "const": "celery_rabbitmq"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "telegram",
+              "email",
+              "push",
+              "sms"
+            ]
+          },
+          "minItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "const": "telegram"
+              }
+            },
+            {
+              "contains": {
+                "const": "email"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "recommendations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "api",
+        "fallback"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "mode": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "api": {
+          "const": "fastapi"
+        },
+        "fallback": {
+          "const": "deterministic_popularity"
+        }
+      }
+    },
+    "moderation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "api",
+        "publication_gate"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "mode": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "api": {
+          "const": "fastapi"
+        },
+        "publication_gate": {
+          "const": "fail_closed_revision_bound"
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "api",
+        "warehouse"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "mode": {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        "api": {
+          "const": "fastapi"
+        },
+        "warehouse": {
+          "const": "clickhouse"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "AM"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "AMD"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "AZ"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "AZN"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "BY"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "BYN"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "GE"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "GEL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "KZ"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "KZT"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "KG"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "KGS"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "MD"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "MDL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "RU"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "RUB"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "TJ"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "TJS"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "market": {
+            "properties": {
+              "country": {
+                "const": "UZ"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "market": {
+            "properties": {
+              "currency": {
+                "const": "UZS"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "description": "R1 local development only: each country uses its default currency for the initial physical-goods blueprint; cross-currency and live PSP require reviewed country packs in later versions."
+}

@@ -21,3 +21,14 @@ Return task ID, revision, status proposal, changed artifacts/commit, acceptance 
 Host/system instructions and explicit user scope apply first. Then approved harness constraints and role-specific prohibitions, then role responsibility, task contract, skills. Skills cannot expand grants, skip checks, or waive approval. A broader generic engineering instruction never grants execution to Valera.
 
 This repository contains specifications and checks, not a live sandbox. Do not claim runtime protection without the activation evidence described in adapters/README.md.
+
+## Marketplace factory in this repository
+
+The project has ONE shared rule hierarchy: this AGENTS.md and rules/*. Domain
+blueprints in blueprints/marketplace/ are data and domain acceptance contracts,
+never a second controller, grant authority, or replacement agent instructions.
+Only authorized host actions may bootstrap independent project directories;
+OpenCode's /marketplace command is a prompt entrypoint, not an execution grant.
+Without verified isolation and runtime admission, stop at R1 contracts/plan;
+do not claim a running marketplace or enable native model shell/MCP fallback.
+Preserve all eight existing specialists and the Valera control-only boundary.

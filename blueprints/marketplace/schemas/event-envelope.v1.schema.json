@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://two-potato.github.io/potato_marketplace_blueprint/schemas/event-envelope.v1.schema.json",
+  "title": "Marketplace event envelope v1",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_id",
+    "aggregate_id",
+    "aggregate_version",
+    "correlation_id",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "listing.submitted.v1",
+        "moderation.verdict.v1",
+        "listing.published.v1",
+        "listing.unpublished.v1",
+        "recommendation.impression.v1",
+        "notification.delivery.v1",
+        "order.placed.v1"
+      ]
+    },
+    "schema_version": {
+      "const": "marketplace.event/v1"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,47}$"
+    },
+    "aggregate_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "aggregate_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "causation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "listing_id": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "verdict": {
+          "enum": [
+            "APPROVE",
+            "REJECT",
+            "REVIEW"
+          ]
+        },
+        "strategy": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "notification_id": {
+          "type": "string"
+        },
+        "decision_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "policy_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "moderation.verdict.v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "listing_id",
+              "content_sha256",
+              "verdict",
+              "decision_id",
+              "policy_digest",
+              "issuer_id"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "enum": [
+              "listing.submitted.v1",
+              "listing.published.v1",
+              "listing.unpublished.v1"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "listing_id",
+              "content_sha256"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
