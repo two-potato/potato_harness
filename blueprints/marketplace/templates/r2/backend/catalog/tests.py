@@ -88,14 +88,16 @@ class ListingAccessTests(TestCase):
         self.assertEqual(self.listing.status, Listing.Status.PENDING_REVIEW)
         self.assertEqual(self.listing.content_revision, 1)
 
-    def test_published_requires_exact_approved_revision(self):
+    def test_published_fields_without_moderation_receipt_stay_private(self):
         self.listing.status=Listing.Status.PUBLISHED
         self.listing.approved_revision=0
         self.listing.save()
         self.assertEqual(len(self.api.get("/api/listings/").data), 0)
         self.listing.approved_revision=1
         self.listing.save()
-        self.assertEqual(len(self.api.get("/api/listings/").data), 1)
+        self.assertFalse(self.listing.is_visible)
+        # Even matching status/revision fields do not bypass a missing APPROVE receipt.
+        self.assertEqual(len(self.api.get("/api/listings/").data), 0)
 
     def test_private_seller_list_filters_other_accounts(self):
         self.api.force_authenticate(self.owner)

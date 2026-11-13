@@ -1,6 +1,6 @@
 """Local MVP API: seller revision workflow and human moderator decisions."""
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
@@ -13,16 +13,26 @@ from .permissions import IsModerator, IsSeller, SellerWritePermission
 from .serializers import DecisionSerializer, ListingSerializer, RevisionSerializer
 
 
+def _visible_to(user):
+    """Fail closed: published fields alone are not moderation evidence."""
+    approved = ModerationDecision.objects.filter(
+        listing_id=OuterRef("pk"), content_revision=OuterRef("content_revision"),
+        verdict=ModerationDecision.Verdict.APPROVE,
+    )
+    listings = Listing.objects.annotate(has_approval_receipt=Exists(approved))
+    visible = Q(status=Listing.Status.PUBLISHED,
+                approved_revision=F("content_revision"), has_approval_receipt=True)
+    if user and user.is_authenticated and user.is_active:
+        visible |= Q(seller=user)
+    return listings.filter(visible)
+
+
 class ListingListCreate(generics.ListCreateAPIView):
     serializer_class = ListingSerializer
     permission_classes = [SellerWritePermission]
 
     def get_queryset(self):
-        visible = Q(status=Listing.Status.PUBLISHED, approved_revision=F("content_revision"))
-        user = self.request.user
-        if user and user.is_authenticated and user.is_active:
-            visible |= Q(seller=user)
-        return Listing.objects.filter(visible).order_by("id")
+        return _visible_to(self.request.user).order_by("id")
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user, status=Listing.Status.DRAFT,
@@ -45,10 +55,7 @@ class ListingDetail(generics.RetrieveUpdateAPIView):
         user = self.request.user
         if self.request.method not in permissions.SAFE_METHODS:
             return Listing.objects.filter(seller=user) if user and user.is_authenticated and user.is_active else Listing.objects.none()
-        visible = Q(status=Listing.Status.PUBLISHED, approved_revision=F("content_revision"))
-        if user and user.is_authenticated and user.is_active:
-            visible |= Q(seller=user)
-        return Listing.objects.filter(visible)
+        return _visible_to(user)
 
     def update(self, request, *args, **kwargs):
         revision = RevisionSerializer(data=request.data)

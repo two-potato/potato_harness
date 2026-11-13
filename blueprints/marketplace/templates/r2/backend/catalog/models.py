@@ -33,7 +33,11 @@ class Listing(models.Model):
 
     @property
     def is_visible(self):
-        return self.status == self.Status.PUBLISHED and self.approved_revision == self.content_revision
+        return (self.status == self.Status.PUBLISHED and
+                self.approved_revision == self.content_revision and
+                ModerationDecision.objects.filter(listing_id=self.pk,
+                    content_revision=self.content_revision,
+                    verdict=ModerationDecision.Verdict.APPROVE).exists())
 
 
 class ModerationDecision(models.Model):
