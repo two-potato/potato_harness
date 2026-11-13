@@ -9,11 +9,12 @@ from rest_framework.views import APIView
 
 from .models import Listing
 from .serializers import ListingSerializer, RevisionSerializer
+from .permissions import SellerWritePermission
 
 
 class ListingListCreate(generics.ListCreateAPIView):
     serializer_class = ListingSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [SellerWritePermission]
 
     def get_queryset(self):
         # Only published-and-approved listings are public; authenticated sellers
@@ -31,7 +32,7 @@ class ListingListCreate(generics.ListCreateAPIView):
 
 class ListingDetail(generics.RetrieveUpdateAPIView):
     serializer_class = ListingSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [SellerWritePermission]
 
     def get_queryset(self):
         user = self.request.user
@@ -59,7 +60,7 @@ class ListingDetail(generics.RetrieveUpdateAPIView):
 
 
 class ListingSubmit(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SellerWritePermission]
 
     def post(self, request, pk):
         rev = RevisionSerializer(data=request.data)

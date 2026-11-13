@@ -1,5 +1,6 @@
 """Run with PostgreSQL and DJANGO_SECRET_KEY set in an isolated test runner."""
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 from .models import Listing
@@ -10,8 +11,29 @@ class ListingAccessTests(TestCase):
         User = get_user_model()
         self.owner = User.objects.create_user(username="seller_a", password="local-test-01")
         self.other = User.objects.create_user(username="seller_b", password="local-test-02")
+        self.buyer = User.objects.create_user(username="buyer", password="local-test-03")
+        seller_group = Group.objects.create(name="seller")
+        self.owner.groups.add(seller_group)
+        self.other.groups.add(seller_group)
         self.listing = Listing.objects.create(seller=self.owner, slug="book", title="Book", price="10.00")
         self.api = APIClient()
+
+    def test_buyer_cannot_create_or_submit_listings(self):
+        self.api.force_authenticate(self.buyer)
+        body={"slug":"stolen", "title":"Not a seller", "price":"25.00", "currency":"KZT"}
+        self.assertEqual(self.api.post("/api/listings/", body, format="json").status_code,403)
+        self.assertEqual(self.api.post(f"/api/listings/{self.listing.pk}/submit/", {"expected_revision":1}, format="json").status_code,403)
+        self.assertEqual(Listing.objects.count(),1)
+
+    def test_seller_can_create_draft_but_never_self_publish(self):
+        self.api.force_authenticate(self.owner)
+        body={"slug":"new-book", "title":"Book 2", "price":"12.00", "currency":"KZT", "status":"PUBLISHED"}
+        response=self.api.post("/api/listings/", body, format="json")
+        self.assertEqual(response.status_code,201)
+        new=Listing.objects.get(slug="new-book")
+        self.assertEqual(new.seller,self.owner)
+        self.assertEqual(new.status,Listing.Status.DRAFT)
+        self.assertIsNone(new.approved_revision)
 
     def test_anonymous_cannot_see_draft(self):
         self.assertEqual(self.api.get("/api/listings/").data, [])

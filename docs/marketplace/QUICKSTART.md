@@ -18,7 +18,7 @@ python3 -m venv .venv
 
 The `generate` command creates `../demo-market-kz/` as an independent Git
 repository, containing actual Django/DRF backend source, a catalog migration and
-seller-owned revision-bound endpoints, Next.js TypeScript storefront sources, an
+seller-group RBAC and owner-scoped revision-bound endpoints, Next.js TypeScript storefront sources, an
 unverified sandbox manifest and a deterministic `blueprint.lock`. All templates
 are copied from reviewed source; **no template code, model, Git hook, npm, pip,
 Docker, shell script or external payment provider is executed** except trusted

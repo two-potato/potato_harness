@@ -97,8 +97,9 @@ class GeneratorTests(unittest.TestCase):
                 ast.parse(data.decode(),filename=name)
             if name.endswith(".json"):
                 json.loads(data)
-        self.assertIn(b"IsAuthenticatedOrReadOnly", files["backend/catalog/views.py"])
+        self.assertIn(b"SellerWritePermission", files["backend/catalog/views.py"])
         self.assertIn(b"expected_revision", files["backend/catalog/views.py"])
+        self.assertIn(b"name=\"seller\"", files["backend/catalog/permissions.py"])
         self.assertIn(b"django.db.backends.postgresql", files["backend/config/settings.py"])
 
     def test_symlink_template_is_refused(self):
