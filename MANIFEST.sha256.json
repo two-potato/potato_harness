@@ -246,7 +246,7 @@
   "tests/runtime/test_verifier.py": "a47071dd32405a87d42c65e9366225ab9512a6f3dc2342951670abd0b2d4a548",
   "tests/test_contracts.py": "3b406cf5fd1f125ca1b65d21e251ea5cb920c0097c25c526d0d12459bb6899b6",
   "tests/test_marketplace_entrypoint.py": "0ae393949a4750e7e4588a45ea9775b3536f30280b0aafeaaa5efa7ee8e52288",
-  "tests/test_marketplace_generator.py": "61a065aef94b33e3bbb9aeb8bbc51aa05bf50a8616815d3a59dcb8fbc3b8794a",
+  "tests/test_marketplace_generator.py": "63010649c31919da32a7b7f6bf326b9b5439977d7905ea954129212ba1b86c6c",
   "tools/create_trial.py": "6c91cd0faa4a7445ddf8d1904c639a77cb21cf91eb232f141a485528c32f1856",
   "tools/marketplace.py": "98137e0b415c227068e9ea4e992d5f06fdd0fee24d0b5f4580be98585a56c7b2",
   "tools/prepare_trials.py": "fab9db0566309f8f3cad5a2e399eb5408c9d8092480ab3e5a9d1e03b2ec171c7",

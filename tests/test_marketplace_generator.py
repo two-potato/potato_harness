@@ -99,7 +99,10 @@ class GeneratorTests(unittest.TestCase):
                 json.loads(data)
         self.assertIn(b"SellerWritePermission", files["backend/catalog/views.py"])
         self.assertIn(b"expected_revision", files["backend/catalog/views.py"])
-        self.assertIn(b"name=\"seller\"", files["backend/catalog/permissions.py"])
+        # Check role enforcement, not a particular inline filter spelling.
+        self.assertIn(b'has_group(request.user, "seller")', files["backend/catalog/permissions.py"])
+        self.assertIn(b'has_group(user, "moderator")', files["backend/catalog/permissions.py"])
+        self.assertIn(b'user.is_staff', files["backend/catalog/permissions.py"])
         self.assertIn(b"django.db.backends.postgresql", files["backend/config/settings.py"])
         for required in ("backend/catalog/auth_views.py",
                          "backend/catalog/moderation.py",
