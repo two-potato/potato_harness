@@ -26,6 +26,39 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(json.loads((self.state/'evidence.json').read_text())),3)
         self.assertEqual(halo(self.state)['status'],'HOLD')
         with self.assertRaises(ValueError):run(self.state,worker=self.worker)
+    def test_init_denies_symlinked_state_ancestor(self):
+        alias=self.root/'state-alias'
+        alias.symlink_to(self.repo,target_is_directory=True)
+        with self.assertRaisesRegex(ValueError,'State path or ancestor is a symlink'):
+            init(self.config,alias/'hidden-runtime')
+        self.assertFalse((self.repo/'hidden-runtime').exists())
+
+    def test_recover_done_after_run_json_lags_sqlite(self):
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['task_status'],'DONE')
+        lagged=json.loads((self.state/'run.json').read_text())
+        lagged['state']='RUNNING'
+        (self.state/'run.json').write_text(json.dumps(lagged))
+        recovered=recover(self.state)
+        self.assertEqual(recovered['task_status'],'DONE')
+        self.assertEqual(recovered['state'],'DONE')
+
+    def test_recover_done_refuses_corrupted_output(self):
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['task_status'],'DONE')
+        (Path(self.config['output'])/'result.json').unlink()
+        lagged=json.loads((self.state/'run.json').read_text())
+        lagged['state']='RUNNING'
+        (self.state/'run.json').write_text(json.dumps(lagged))
+        recovered=recover(self.state)
+        self.assertEqual(recovered['state'],'HOLD')
+        self.assertEqual(recovered['task_status'],'DONE')
+        self.assertIn('manual reconciliation',recovered['reason'])
+
     def test_marketplace_profile_reaches_executor_as_mandatory_policy(self):
         state = self.root / 'marketplace-state'
         init(dict(self.config, domain_profile='marketplace'), state)

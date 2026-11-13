@@ -73,8 +73,11 @@ def init(config,state):
     if _git(repo,'status','--porcelain') or _git(repo,'rev-parse','HEAD')!=config['base_sha']:raise ValueError('Trusted repository must be clean at pinned base SHA')
     output=Path(config['output']).absolute()
     if output.exists() or output.is_relative_to(repo) or any(p.is_symlink() for p in (output,*output.parents)):raise ValueError('Output must be a new nonsymlink directory outside source repository')
-    if state.exists():raise ValueError('State directory already exists')
-    if state.is_relative_to(repo):raise ValueError('State must be outside repository')
+    if state.exists() or state.is_symlink():raise ValueError('State directory already exists')
+    if any(path.is_symlink() for path in (state, *state.parents)):
+        raise ValueError('State path or ancestor is a symlink')
+    if state==repo or state.is_relative_to(repo):
+        raise ValueError('State must be outside repository')
     state.mkdir(mode=0o700,parents=True)
     workspace=state/'workspace';workspace.mkdir(mode=0o700)
     # Raw blobs avoid .gitattributes export-ignore/export-subst transformations.
@@ -436,18 +439,67 @@ def _run(state,worker,sandbox_probe,sandbox_run):
     save();return status(state)
 
 
+
+def _done_artifacts_ok(state,task):
+    """Read-only recovery check; never infer DONE from run.json alone."""
+    try:
+        config=_config(json.loads((state/'config.json').read_text()))
+        output=Path(config['output']).absolute()
+        result=json.loads((state/'result.json').read_text())
+        exported=json.loads((output/'result.json').read_text())
+        evidence=json.loads((state/'evidence.json').read_text())
+        exported_evidence=json.loads((output/'evidence.json').read_text())
+        if (result!=exported or evidence!=exported_evidence or
+                result.get('target_commit')!=task['target_commit'] or
+                not isinstance(evidence,list) or len(evidence)!=3 or
+                not isinstance(result.get('publications'),list) or
+                not result['publications']):
+            return False
+        expected={'relevant_checks','basic_review','acceptance_coverage'}
+        if {item['check_id'] for item in evidence}!=expected:
+            return False
+        for item in evidence:
+            name=item['check_id']+'.artifact'
+            for location in (state/name, output/name):
+                if location.is_symlink() or not location.is_file() or location.stat().st_size>MAX_BYTES:
+                    return False
+                if digest_bytes(location.read_bytes())!=item['artifact_digest']:
+                    return False
+        for receipt in result['publications']:
+            digest=receipt['digest']
+            if not isinstance(digest,str) or not re.fullmatch('sha256:[a-f0-9]{64}',digest):
+                return False
+            location=output/'artifacts'/digest.split(':')[1]
+            if location.is_symlink() or not location.is_file() or location.stat().st_size>MAX_BYTES:
+                return False
+            if digest_bytes(location.read_bytes())!=digest:
+                return False
+        return True
+    except (OSError,ValueError,KeyError,TypeError,AttributeError):
+        return False
+
+
 def recover(state):
     state=Path(state).absolute()
     with _lock(state):
         run=json.loads((state/'run.json').read_text());outbox=Outbox(state/'state.db')
         task=Controller(state/'state.db').get_task(run['task_id'])
-        if task['status']=='DONE' and run['state']=='DONE':
-            return status(state)
         with outbox.controller._connection() as db:
             effects=[row[0] for row in db.execute("SELECT effect_id FROM outbox WHERE task_id=? AND state='DISPATCHING'",(run['task_id'],))]
             active_leases=[row[0] for row in db.execute(
                 "SELECT lease_id FROM leases WHERE task_id=? AND status IN ('ACTIVE','SUSPECT')",
                 (run['task_id'],))]
+        # The task state in SQLite is authoritative; run.json may lag the final
+        # DONE transaction after a crash. Restore its pointer ONLY if exported
+        # receipts and artifact digests are still intact.
+        if task['status']=='DONE':
+            if not effects and not active_leases and not outbox.unresolved(run['task_id']) and _done_artifacts_ok(state,task):
+                run.update(state='DONE',reason='Recovered completed task from durable DONE state and verified artifacts')
+                _write(state/'run.json',run)
+                return status(state)
+            run.update(state='HOLD',reason='DONE task has missing or inconsistent outputs/effects; manual reconciliation required')
+            _write(state/'run.json',run)
+            return status(state)
         for effect in effects:outbox.mark_unknown(effect)
         leases=LeaseManager(state/'state.db')
         # The run.json pointer may lag SQLite after a host crash. Inspect all
