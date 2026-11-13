@@ -65,8 +65,10 @@ class LeaseManager:
         claims=_resources(resources)
         with self.controller._connection(write=True) as db:
             task=self.controller._read(db,task_id)
-            if task['row_version']!=expected_row_version or task['status']!='EXECUTING':
-                raise LeaseError('stale row version or task not EXECUTING')
+            if task['row_version']!=expected_row_version or task['status'] not in ('ASSIGNED','EXECUTING'):
+                raise LeaseError('stale row version or task not ASSIGNED/EXECUTING')
+            # An ASSIGNED lease is only a prospective reservation. validate()
+            # rejects all worker access until trusted state becomes EXECUTING.
             repo=task['repository_id']
             existing=db.execute("SELECT c.kind,c.resource_key FROM leases l JOIN lease_claims c USING(lease_id) WHERE l.repository_id=? AND l.status IN ('ACTIVE','SUSPECT')",(repo,))
             for row in existing:

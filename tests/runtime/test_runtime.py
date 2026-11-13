@@ -26,6 +26,56 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(json.loads((self.state/'evidence.json').read_text())),3)
         self.assertEqual(halo(self.state)['status'],'HOLD')
         with self.assertRaises(ValueError):run(self.state,worker=self.worker)
+    def test_init_denies_symlinked_state_ancestor(self):
+        alias=self.root/'state-alias'
+        alias.symlink_to(self.repo,target_is_directory=True)
+        with self.assertRaisesRegex(ValueError,'State path or ancestor is a symlink'):
+            init(self.config,alias/'hidden-runtime')
+        self.assertFalse((self.repo/'hidden-runtime').exists())
+
+    def test_init_denies_dotdot_state_alias_into_source(self):
+        detour=self.root/'detour'
+        detour.mkdir()
+        unsafe=detour/'..'/'source'/'runtime-state'
+        with self.assertRaisesRegex(ValueError,'State path must be canonical'):
+            init(self.config,unsafe)
+        self.assertFalse((self.repo/'runtime-state').exists())
+
+    def test_init_denies_dotdot_output_alias_into_source(self):
+        detour=self.root/'output-detour'
+        detour.mkdir()
+        unsafe=detour/'..'/'source'/'runtime-output'
+        config=dict(self.config,output=str(unsafe))
+        with self.assertRaisesRegex(ValueError,'Output path must be canonical'):
+            init(config,self.root/'different-state')
+        self.assertFalse((self.repo/'runtime-output').exists())
+
+    def test_recover_done_after_run_json_lags_sqlite(self):
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['task_status'],'DONE')
+        lagged=json.loads((self.state/'run.json').read_text())
+        lagged['state']='RUNNING'
+        (self.state/'run.json').write_text(json.dumps(lagged))
+        recovered=recover(self.state)
+        self.assertEqual(recovered['task_status'],'DONE')
+        self.assertEqual(recovered['state'],'DONE')
+
+    def test_recover_done_refuses_corrupted_output(self):
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['task_status'],'DONE')
+        (Path(self.config['output'])/'result.json').unlink()
+        lagged=json.loads((self.state/'run.json').read_text())
+        lagged['state']='RUNNING'
+        (self.state/'run.json').write_text(json.dumps(lagged))
+        recovered=recover(self.state)
+        self.assertEqual(recovered['state'],'HOLD')
+        self.assertEqual(recovered['task_status'],'DONE')
+        self.assertIn('manual reconciliation',recovered['reason'])
+
     def test_marketplace_profile_reaches_executor_as_mandatory_policy(self):
         state = self.root / 'marketplace-state'
         init(dict(self.config, domain_profile='marketplace'), state)
@@ -52,6 +102,45 @@ class RuntimeTests(unittest.TestCase):
         def forbidden(*a):self.fail('Provider called without sandbox')
         result=run(self.state,worker=forbidden,sandbox_probe=lambda:{'available':False,'reason':'fixture unavailable'})
         self.assertEqual(result['state'],'HOLD');self.assertIn('Sandbox unavailable',result['reason'])
+    def test_ambiguous_provider_keeps_suspect_lease_until_manual_reconcile(self):
+        import sqlite3
+        from harness.leases import LeaseManager,LeaseError
+        def uncertain(*args):
+            raise RuntimeError('provider delivery uncertain')
+        result=run(self.state,worker=uncertain,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        record=json.loads((self.state/'run.json').read_text())
+        self.assertEqual(record['grant']['status'],'REVOKED')
+        self.assertIsNotNone(record['lease_id'])
+        with sqlite3.connect(self.state/'state.db') as db:
+            statuses=[row[0] for row in db.execute(
+                'SELECT status FROM leases WHERE task_id=?',
+                (record['task_id'],))]
+            effects=[row[0] for row in db.execute(
+                'SELECT state FROM outbox WHERE task_id=?',
+                (record['task_id'],))]
+        self.assertEqual(statuses,['SUSPECT'])
+        self.assertEqual(effects,['UNKNOWN'])
+        with self.assertRaises(LeaseError):
+            LeaseManager(self.state/'state.db').release(record['lease_id'])
+        self.assertEqual(recover(self.state)['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            self.assertEqual(db.execute(
+                'SELECT status FROM leases WHERE lease_id=?',
+                (record['lease_id'],)).fetchone()[0],'SUSPECT')
+
+    def test_failed_sandbox_keeps_test_lease_suspect(self):
+        import sqlite3
+        def failed_test(*args,**kwargs):
+            raise RuntimeError('test sandbox outcome uncertain')
+        result=run(self.state,worker=self.worker,
+                   sandbox_probe=lambda:{'available':True},sandbox_run=failed_test)
+        self.assertEqual(result['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            statuses=[row[0] for row in db.execute(
+                'SELECT status FROM leases ORDER BY rowid')]
+        self.assertEqual(statuses,['REVOKED','SUSPECT'])
+
     def test_provider_uncertainty_never_replays(self):
         def crash(*a):raise RuntimeError('fixture interrupted provider')
         result=run(self.state,worker=crash,sandbox_probe=lambda:{'available':True})
@@ -116,6 +205,81 @@ class RuntimeTests(unittest.TestCase):
         for name in ('regression.py','calc.py','.gitattributes'):
             blob=subprocess.check_output(['/usr/bin/git','-C',str(other/'integration-repo'),'show',target+':'+name])
             self.assertEqual(blob,(other/'workspace'/name).read_bytes())
+    def test_provider_sees_persisted_lease_and_reservation(self):
+        import sqlite3
+        def inspect(request,command,timeout):
+            with sqlite3.connect(self.state/'state.db') as db:
+                state=db.execute('SELECT state FROM tasks').fetchone()[0]
+                active=db.execute("SELECT count(*) FROM leases WHERE status='ACTIVE'").fetchone()[0]
+                reserved=db.execute("SELECT count(*) FROM budget_reservations WHERE settlement IS NULL").fetchone()[0]
+            self.assertEqual(state,'EXECUTING')
+            self.assertEqual(active,1)
+            self.assertEqual(reserved,1)
+            return self.worker(request,command,timeout)
+        result=run(self.state,worker=inspect,sandbox_probe=lambda:{'available':True},
+                   sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['state'],'DONE',result['reason'])
+
+    def test_budget_failure_blocks_without_executing(self):
+        from unittest.mock import patch
+        with patch('harness.runtime.Budget.reserve',side_effect=RuntimeError('test budget rejected')):
+            result=run(self.state,worker=lambda *a:self.fail('Worker called without budget'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_lease_failure_blocks_without_executing(self):
+        from unittest.mock import patch
+        with patch('harness.runtime.LeaseManager.acquire',side_effect=RuntimeError('test lease denied')):
+            result=run(self.state,worker=lambda *a:self.fail('Worker called without lease'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_recovery_suspects_lease_missing_from_run_pointer(self):
+        import sqlite3
+        from harness.controller import Controller,Event
+        from harness.leases import LeaseManager
+        controller=Controller(self.state/'state.db',guard=lambda ctx:True)
+        task=controller.get_task(json.loads((self.state/'run.json').read_text())['task_id'])
+        for name in ('CLASSIFIED','PLANNED','ASSIGNED','EXECUTING'):
+            task=controller.transition(task['task_id'],task['row_version'],
+                                       Event('test-'+name,'test-'+name,name))
+        lease=LeaseManager(self.state/'state.db').acquire(
+            task['task_id'],task['row_version'],'crashed-session','trial-workspace',
+            [{'kind':'path','key':'calc.py'}])
+        record=json.loads((self.state/'run.json').read_text())
+        record['state']='RUNNING';record['lease_id']=None
+        (self.state/'run.json').write_text(json.dumps(record))
+        result=recover(self.state)
+        self.assertEqual(result['state'],'HOLD')
+        with sqlite3.connect(self.state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT status FROM leases WHERE lease_id=?',
+                                        (lease['lease_id'],)).fetchone()[0],'SUSPECT')
+
+    def test_missing_budget_record_blocks_even_if_reserve_claims_success(self):
+        from unittest.mock import patch
+        # A faulty host adapter must not turn an unpersisted receipt into a
+        # valid EXECUTING precondition.
+        with patch('harness.runtime.Budget.reserve',return_value={'attempt_id':'forged'}):
+            result=run(self.state,worker=lambda *a:self.fail('Worker ran without durable budget'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
+    def test_fencing_token_substitution_blocks_execution(self):
+        from unittest.mock import patch
+        from harness.leases import LeaseManager
+        original=LeaseManager.acquire
+        def wrong_fence(manager,*args,**kwargs):
+            receipt=original(manager,*args,**kwargs)
+            return dict(receipt,fencing_token=receipt['fencing_token']+1)
+        with patch('harness.runtime.LeaseManager.acquire',new=wrong_fence):
+            result=run(self.state,worker=lambda *a:self.fail('Worker ran with fake fence'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertNotIn('EXECUTING',[step['state'] for step in result['trace']])
+
     def test_halo_explicit_splits_reject_overlap(self):
         row={'trace_id':'fixture-trace','status':'PASS','checks':['fixture'],'bindings':{'policy':'fixture'},'optional_detail':'fixture detail'}
         paths=[]

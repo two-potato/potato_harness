@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 from types import SimpleNamespace
 pytest=SimpleNamespace(raises=unittest.TestCase().assertRaises)
-from harness.controller import Controller, initialize
+from harness.controller import Controller, Event, initialize
 from harness.state import Outbox
 from harness.budget import Budget
 from harness.scheduler import Scheduler
@@ -20,16 +20,39 @@ def database(tmp_path):
     Controller(path).create_task(task,event_id='created',idempotency_key='created')
     return path
 
+def enter_executing(database):
+    # Only deterministic host-test harness sets a permissive guard; real
+    # controller transitions use the trusted runtime's durable admission.
+    controller=Controller(database,guard=lambda context:True)
+    task=controller.get_task('fixture')
+    for state in ('CLASSIFIED','PLANNED','ASSIGNED','EXECUTING'):
+        task=controller.transition(task['task_id'],task['row_version'],
+                                   Event('test-'+state,'once-'+state,state))
+
+
 def budget_record():
     record = json.loads((ROOT / 'fixtures/valid/budget.json').read_text())
     record.update(revision=0,token_soft=5,token_hard=10,cost_usd_soft=0.5,cost_usd_hard=1,max_parallel_workers=2)
     return record
+
+def test_outbox_reservation_cannot_dispatch_before_executing(database):
+    import sqlite3
+    outbox=Outbox(database)
+    effect=outbox.reserve('fixture',0,{'kind':'future-effect'},'future')
+    with pytest.raises(ValueError):
+        outbox.claim(effect)
+    with sqlite3.connect(database) as db:
+        assert db.execute('SELECT state FROM outbox WHERE effect_id=?',(effect,)).fetchone()[0]=='PENDING'
+    enter_executing(database)
+    assert outbox.claim(effect) is True
+
 
 def test_outbox_identity_and_uncertain_effect(database):
     out = Outbox(database)
     effect = out.reserve('fixture',0,{'target':'x'},'key')
     assert out.reserve('fixture',0,{'target':'x'},'key') == effect
     with pytest.raises(ValueError): out.reserve('fixture',0,{'target':'y'},'key')
+    enter_executing(database)
     assert out.claim(effect) is True
     assert out.claim(effect) is False
     out.mark_unknown(effect)
@@ -81,6 +104,7 @@ def _claim(args):
 
 def test_claim_process_cas(database):
     effect=Outbox(database).reserve('fixture',0,{'target':'x'},'once')
+    enter_executing(database)
     with multiprocessing.get_context('fork').Pool(4) as pool:
         assert sum(pool.map(_claim,[(database,effect)]*4))==1
 
@@ -102,6 +126,7 @@ def test_combined_compilation_and_reservation(database):
     Budget(database).configure('fixture',record)
     reservation=Budget(database).reserve('fixture',pack['token_count'],.1,'attempt')
     effect=Outbox(database).reserve('fixture',0,{'context':pack['content_hash'],'reservation':reservation},'dispatch')
+    enter_executing(database)
     assert Outbox(database).claim(effect)
     Outbox(database).finish(effect,{'result':'recorded'},True)
     Budget(database).settle('attempt',pack['token_count'],.05)

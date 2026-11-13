@@ -81,6 +81,21 @@ class LeaseTests(unittest.TestCase):
         with self.assertRaises(LeaseError):self.manager.validate(lease['lease_id'],'fixture',0,'session','workspace')
         with self.assertRaises(LeaseError):self.acquire('free')
 
+    def test_assigned_lease_is_prospective_not_execution_authority(self):
+        other=json.loads((ROOT/'fixtures/valid/task.json').read_text())
+        other.update(task_id='prospective',repository_id='prospective-repo',revision=0,row_version=0)
+        self.c.create_task(other,event_id='pre-create',idempotency_key='pre-create')
+        task=self.c.get_task('prospective')
+        for state in ('CLASSIFIED','PLANNED','ASSIGNED'):
+            task=self.c.transition('prospective',task['row_version'],
+                                   Event('pre-'+state,'pre-'+state,state))
+        lease=self.manager.acquire('prospective',task['row_version'],'s','w',
+                                   [{'kind':'path','key':'src'}])
+        with self.assertRaises(LeaseError):
+            self.manager.validate(lease['lease_id'],'prospective',0,'s','w')
+        self.c.transition('prospective',task['row_version'],Event('pre-exec','pre-exec','EXECUTING'))
+        self.manager.validate(lease['lease_id'],'prospective',0,'s','w')
+
     def test_process_race(self):
         context=multiprocessing.get_context('spawn');barrier=context.Barrier(2);queue=context.Queue()
         workers=[context.Process(target=racer,args=(str(self.path),barrier,queue)) for _ in range(2)]
