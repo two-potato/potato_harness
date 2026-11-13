@@ -87,3 +87,26 @@ jobs:
           npm install --ignore-scripts --no-audit --no-fund
           npm run typecheck
           npm run build
+      - name: Real local HTTP smoke through Next.js session proxy
+        env:
+          # Only this trusted CI step uses HTTP developer cookies/admin on 127.0.0.1.
+          DJANGO_DEBUG: '1'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/demo-market-kz/backend"
+          python manage.py shell -c 'from django.contrib.auth import get_user_model; from django.contrib.auth.models import Group; U=get_user_model(); a=U.objects.create_user(username="smoke_seller",password="fixture-seller-01"); a.groups.add(Group.objects.get(name="seller")); b=U.objects.create_user(username="smoke_moderator",password="fixture-moderator-02",is_staff=True); b.groups.add(Group.objects.get(name="moderator")); U.objects.create_user(username="smoke_buyer",password="fixture-buyer-03")'
+          python manage.py runserver 127.0.0.1:8000 --noreload > "$RUNNER_TEMP/django-http.log" 2>&1 &
+          DJANGO_PID=$!
+          cd ../frontend
+          npm run dev -- --hostname 127.0.0.1 > "$RUNNER_TEMP/next-http.log" 2>&1 &
+          NEXT_PID=$!
+          cleanup() {
+            code=$?
+            if [ "$code" -ne 0 ]; then
+              tail -n 80 "$RUNNER_TEMP/django-http.log" "$RUNNER_TEMP/next-http.log" || true
+            fi
+            kill "$DJANGO_PID" "$NEXT_PID" 2>/dev/null || true
+            return "$code"
+          }
+          trap cleanup EXIT
+          python "$GITHUB_WORKSPACE/blueprints/marketplace/tests/http_smoke.py"

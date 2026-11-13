@@ -85,6 +85,12 @@ npm run typecheck
 npm run dev -- --hostname 127.0.0.1
 ```
 
+GitHub CI also runs a real loopback HTTP smoke test through the Next.js
+`/api` proxy with separate seller, human moderator and buyer sessions, checks
+CSRF rejection/role denial and confirms that Next.js SSR actually displays the
+approved listing. It uses disposable credentials and never connects to real
+payment systems. It is not a public deployment or browser automation test.
+
 The Django admin, `http://127.0.0.1:8000/admin/`, is only available when
 `DJANGO_DEBUG=1`. The migration creates empty `seller` and `moderator`
 groups, **not accounts or passwords**. The administrator creates users and
