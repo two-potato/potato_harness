@@ -34,3 +34,24 @@ class Listing(models.Model):
     @property
     def is_visible(self):
         return self.status == self.Status.PUBLISHED and self.approved_revision == self.content_revision
+
+
+class ModerationDecision(models.Model):
+    """Immutable decision receipt. One successful decision per content revision."""
+    class Verdict(models.TextChoices):
+        APPROVE = "APPROVE", "Approve"
+        REJECT = "REJECT", "Reject"
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    listing = models.ForeignKey(Listing, on_delete=models.PROTECT, related_name="moderation_decisions")
+    moderator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    content_revision = models.PositiveIntegerField()
+    content_sha256 = models.CharField(max_length=71)
+    verdict = models.CharField(max_length=7, choices=Verdict.choices)
+    reason = models.CharField(max_length=300, blank=True)
+    decided_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["listing", "content_revision"], name="one_moderation_verdict_per_revision"),
+        ]

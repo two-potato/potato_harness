@@ -56,7 +56,11 @@ def template_contents() -> dict[str, bytes]:
         files[relative.as_posix()] = data
     essential = {"backend/manage.py", "backend/config/settings.py", "backend/catalog/models.py",
                  "backend/catalog/migrations/0001_initial.py", "frontend/package.json",
-                 "frontend/app/page.tsx", ".env.example", ".gitignore"}
+                 "frontend/app/page.tsx", "frontend/app/seller/page.tsx",
+                 "frontend/app/moderation/page.tsx", "frontend/lib/session.ts",
+                 "backend/catalog/auth_views.py", "backend/catalog/moderation.py",
+                 "backend/catalog/migrations/0002_moderation_decisions.py",
+                 ".env.example", ".gitignore"}
     if not essential.issubset(files):
         raise GenerationError("Incomplete R2 template set")
     return files
@@ -118,6 +122,22 @@ def generated_files(manifest_text: bytes, manifest: dict) -> dict[str, bytes]:
         "payment settlement, five running services, Kong, Swarm or integrations. "
         "Generated code MUST pass independent review and actual integration tests "
         "before any trusted agent executes it.\n\n"
+        "## Local seller/moderator browser flow\n\n"
+        "This project includes Django CSRF-protected sessions and two Next.js "
+        "pages: /seller and /moderation. Locally set DJANGO_DEBUG=1 only on "
+        "127.0.0.1; this enables developer admin at /admin/ and HTTP cookies. "
+        "After migrate, run createsuperuser, create seller accounts in the "
+        "Django admin and assign them to the migrated seller group. For a "
+        "moderator, mark the account staff AND assign the moderator group. "
+        "Never let users self-assign roles. Start Django at 127.0.0.1:8000. "
+        "Start Next.js at 127.0.0.1:3000 with "
+        "MARKETPLACE_API_URL=http://127.0.0.1:8000. "
+        "The Next.js same-origin /api proxy forwards Django CSRF/session "
+        "cookies only to an explicit loopback backend. The human reviewer "
+        "can approve/reject a submitted exact revision. Only approved "
+        "revisions appear in the public storefront. This is a local MVP, "
+        "not a rate-limited public authentication service or the separate "
+        "R4 moderation microservice.\n\n"
         "`blueprint.lock` records template bytes reproducibly; it is NOT a signed "
         "release provenance. `marketplace.factory.yaml` is a sandbox fixture.\n").encode()
     project["NEXT_STEPS.md"] = (

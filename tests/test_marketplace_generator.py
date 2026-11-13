@@ -101,6 +101,15 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn(b"expected_revision", files["backend/catalog/views.py"])
         self.assertIn(b"name=\"seller\"", files["backend/catalog/permissions.py"])
         self.assertIn(b"django.db.backends.postgresql", files["backend/config/settings.py"])
+        for required in ("backend/catalog/auth_views.py",
+                         "backend/catalog/moderation.py",
+                         "backend/catalog/migrations/0002_moderation_decisions.py",
+                         "frontend/app/seller/page.tsx",
+                         "frontend/app/moderation/page.tsx",
+                         "frontend/lib/session.ts"):
+            self.assertIn(required, files)
+        self.assertIn(b"CSRF_TRUSTED_ORIGINS",files["backend/config/settings.py"])
+        self.assertIn(b"ModerationDecide",files["backend/catalog/views.py"])
 
     def test_symlink_template_is_refused(self):
         with tempfile.TemporaryDirectory() as root:

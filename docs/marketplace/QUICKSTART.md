@@ -48,7 +48,8 @@ The generated project contains:
 
 - `backend/`: Django/DRF, PostgreSQL connection, `catalog.Listing` revision
   and publication status model, migration, scoped seller API and access tests.
-- `frontend/`: Next.js TypeScript read-only SSR catalog UI.
+- `frontend/`: Next.js TypeScript public SSR catalog, seller login/portal,
+  and staff/moderator review queue with Django session+CSRF.
 - `marketplace.factory.yaml`, `blueprint.lock`, `.env.example`, `README.md`,
   `NEXT_STEPS.md`.
 
@@ -57,6 +58,51 @@ secret env configuration. The GitHub `marketplace-contracts` workflow performs
 a bounded Django/PostgreSQL smoke test plus Next.js build; no live models or
 Swarm are involved. Direct dependency versions are pinned but the transitive
 `pip` and `npm` lock files are not yet release-ready.
+
+## Local browser MVP: seller -> moderation -> buyer
+
+**Host-controlled development only.** The generator writes reviewed source; it
+does not execute Python/Node, expose a port or authorize deployment. A local
+operator must inspect the generated project before installing dependencies.
+
+Use a private PostgreSQL instance and set `PGDATABASE`, `PGUSER`, `PGPASSWORD`,
+`PGHOST`, `PGPORT`. Also set `DJANGO_SECRET_KEY` to a fresh random value of
+at least 32 characters. On a loopback-only development machine, set
+`DJANGO_DEBUG=1`; do not use that setting on an externally accessible host.
+
+```sh
+cd ../demo-market-kz/backend
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py createsuperuser
+.venv/bin/python manage.py runserver 127.0.0.1:8000
+
+# Another terminal in ../demo-market-kz/frontend:
+# MARKETPLACE_API_URL must be http://127.0.0.1:8000
+npm install --ignore-scripts
+npm run typecheck
+npm run dev -- --hostname 127.0.0.1
+```
+
+The Django admin, `http://127.0.0.1:8000/admin/`, is only available when
+`DJANGO_DEBUG=1`. The migration creates empty `seller` and `moderator`
+groups, **not accounts or passwords**. The administrator creates users and
+assigns the `seller` group. A human reviewer must be both `staff` and a
+member of `moderator`. These roles cannot be assigned through the public API.
+
+Use `http://127.0.0.1:3000/seller` to sign in, create, edit and submit a draft
+with an expected revision; then `/moderation` to approve/reject that exact
+revision; then `/` to view the published listing anonymously. Rejected or
+unreviewed revisions are invisible in the storefront. Django checks CSRF on
+session requests and on state-changing API requests. Decision UUIDs are
+idempotent, and replay with conflicting content is rejected.
+
+**Not production authentication:** no self-service registration, rate limiting,
+account recovery, external identity provider, browser E2E automation or network
+security audit is included. Do not expose this demo to a public interface. The
+moderation workflow is local and human-only; separate R4 moderation events and
+five running services still need implementation.
 
 ## OpenCode workflow and remaining work
 
@@ -73,6 +119,6 @@ capability grants and a tested protected runner in R0.
 
 Still incomplete: R1 typed OpenAPI response schemas and generated TypeScript
 clients (#16), production-grade country packs and payment reconciliation, R2
-full seller portal and transactional moderation, R3 Nginx/Kong and Docker Swarm,
+production authentication and moderation-service integration, R3 Nginx/Kong and Docker Swarm,
 R4 five mandatory running microservices, R5 end-to-end validation. No live PSP,
 network calls, production deployment or real-model inference is performed.

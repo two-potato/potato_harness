@@ -59,6 +59,9 @@ REST_FRAMEWORK = {"DEFAULT_AUTHENTICATION_CLASSES": [
     "UNAUTHENTICATED_USER": None,
 }
 SESSION_COOKIE_SECURE = not DEBUG
+# Development-only Next.js same-origin proxy at localhost:3000.
+# No cross-origin browser sessions are allowed when DEBUG is disabled.
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"] if DEBUG else []
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
