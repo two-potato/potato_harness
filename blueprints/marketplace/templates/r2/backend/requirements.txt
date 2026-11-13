@@ -1,0 +1,4 @@
+# Development scaffold, exact direct versions. Resolve a full hash-locked dependency graph before release.
+Django==5.2.19
+djangorestframework==3.16.1
+psycopg[binary]==3.3.8
