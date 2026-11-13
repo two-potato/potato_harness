@@ -256,6 +256,22 @@ class ListingAccessTests(TestCase):
         self.assertEqual([x["id"] for x in public.json()],[pk])
         self.assertEqual(public.json()[0]["title"],"A reviewed book")
 
+    def test_no_slash_proxy_alias_never_redirects_session_or_moderation(self):
+        anonymous=Client(enforce_csrf_checks=True)
+        csrf_get=anonymous.get("/api/auth/session")
+        self.assertEqual(csrf_get.status_code,200)
+        credentials=json.dumps({"username":"seller_a","password":"local-test-01"})
+        reply=anonymous.post("/api/auth/login", data=credentials,content_type="application/json",
+                             HTTP_X_CSRFTOKEN=anonymous.cookies["csrftoken"].value)
+        self.assertEqual(reply.status_code,200)
+        self.assertEqual(anonymous.get("/api/me/listings").status_code,200)
+        self.api.force_authenticate(self.owner)
+        self.assertEqual(self.api.post(f"/api/listings/{self.listing.pk}/submit",
+                                       {"expected_revision":1}, format="json").status_code,200)
+        self.api.force_authenticate(self.moderator)
+        self.assertEqual(self.api.post(f"/api/moderation/{self.listing.pk}/decision",
+                                       self.review_payload(),format="json").status_code,200)
+
     def test_bad_credentials_do_not_echo_password(self):
         client=Client(enforce_csrf_checks=True)
         client.get("/api/auth/session/")
