@@ -78,6 +78,21 @@ flowchart LR
 
 Для испытаний на Linux выполните `python3 tools/prepare_trials.py --install --verify` и проверьте статус изоляции. Команды запуска, настройки Jev и проверка HALO описаны в [инструкции испытаний](docs/trials/2026-11-06-RUNBOOK.md). Результаты проверок собраны в [VALIDATION.md](VALIDATION.md).
 
+### R2: детерминированный каркас маркетплейса
+
+В том же репозитории доступна офлайн-генерация **исходников** Django/DRF и Next.js.
+Сначала установите зависимости для проверки manifest и затем выполните:
+
+```bash
+python3 -m pip install -r blueprints/marketplace/requirements-dev.txt
+python3 tools/marketplace.py generate demo-market-kz
+```
+
+Создаётся отдельный Git-проект с каталогом продавцов, PostgreSQL-моделью,
+SSR-витриной и `blueprint.lock`. Генератор не исполняет созданный код, не запускает
+модели и не выдаёт production-approval. Это R2 **development scaffold**, не
+готовый работающий маркетплейс. См. [руководство фабрики](docs/marketplace/QUICKSTART.md).
+
 ## Документация
 
 - [Рантайм и конфигурация задачи](docs/runtime/RUNTIME.md) · [OpenCode / OMO](integrations/opencode/README.md)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted, offline marketplace contract bootstrap. Never executes generated code."""
-
+"""Trusted offline marketplace seed/generator CLI; never runs project code or models."""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT = ROOT / "blueprints" / "marketplace"
@@ -19,18 +19,15 @@ MANDATORY = ("search", "notifications", "recommendations", "moderation", "analyt
 
 
 class BootstrapError(ValueError):
-    """An invalid or unsafe bootstrap request; nothing is activated."""
+    """Invalid or unsafe bootstrap request; nothing is activated."""
 
 
 def _validator():
-    # Domain dependencies stay out of generic Harness modules.
     sys.path.insert(0, str(BLUEPRINT))
     try:
         from factory_contracts import validate_manifest
     except ImportError as error:
-        raise BootstrapError(
-            "Missing blueprint dependencies; install blueprints/marketplace/requirements-dev.txt"
-        ) from error
+        raise BootstrapError("Missing blueprint validation dependencies") from error
     return validate_manifest
 
 
@@ -40,8 +37,8 @@ def _check_root():
 
 
 def _path_is_safe(path: Path) -> Path:
-    if not path.is_absolute():
-        raise BootstrapError("Destination must be an absolute path")
+    if not path.is_absolute() or ".." in path.parts:
+        raise BootstrapError("Destination must be a canonical absolute path")
     if path == ROOT or path.is_relative_to(ROOT):
         raise BootstrapError("Cannot create a project inside the Harness repository")
     if any(part.is_symlink() for part in (path, *path.parents)):
@@ -57,58 +54,71 @@ def _git(root: Path, *args: str) -> None:
     executable = shutil.which("git")
     if not executable:
         raise BootstrapError("Local Git is required")
-    command = [executable, "-c", "core.hooksPath=/dev/null", "-C", str(root), *args]
-    # Never run hooks, network commands or code supplied by the generated project.
-    subprocess.run(command, check=True, stdin=subprocess.DEVNULL, capture_output=True)
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "/nonexistent",
+           "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+           # A fixed synthetic timestamp makes generated Git HEAD deterministic.
+           "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z",
+           "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
+    command = [executable, "-c", "core.hooksPath=/dev/null", "-c", "core.autocrlf=false",
+               "-C", str(root), *args]
+    subprocess.run(command, check=True, stdin=subprocess.DEVNULL,
+                   capture_output=True, timeout=20, env=env)
 
 
-def _init(slug: str, output: Path) -> dict:
+def _manifest(slug: str, source: Path | None):
     if not SLUG.fullmatch(slug) or slug.endswith("-") or "--" in slug:
         raise BootstrapError("Project slug must be canonical lowercase kebab-case")
-    _check_root()
-    destination = _path_is_safe(output)
-    template = (BLUEPRINT / "examples" / "marketplace.factory.example.yaml").read_text()
-    token = "slug: demo-market-kz"
-    if template.count(token) != 1:
-        raise BootstrapError("Expected exactly one project slug in the pinned template")
-    manifest = template.replace(token, f"slug: {slug}")
-    # Validate a file *before* writing the destination. No YAML execution.
-    import tempfile
+    if source is None:
+        text = (BLUEPRINT / "examples" / "marketplace.factory.example.yaml").read_text()
+        token = "slug: demo-market-kz"
+        if text.count(token) != 1:
+            raise BootstrapError("Pinned example slug is missing")
+        contents = text.replace(token, f"slug: {slug}").encode("utf-8")
+    else:
+        if source.is_symlink() or not source.is_file() or source.stat().st_size > 64 * 1024:
+            raise BootstrapError("Manifest must be regular bounded file")
+        contents = source.read_bytes()
     with tempfile.TemporaryDirectory(prefix="potato-manifest-") as temp:
-        temporary_manifest = Path(temp) / "marketplace.factory.yaml"
-        temporary_manifest.write_text(manifest)
-        _validator()(temporary_manifest)
+        location = Path(temp) / "marketplace.factory.yaml"
+        location.write_bytes(contents)
+        manifest = _validator()(location)
+    if manifest["project"]["slug"] != slug:
+        raise BootstrapError("Manifest slug differs from requested project")
+    return contents, manifest
+
+
+def _commit(destination: Path, message: str) -> None:
+    _git(destination, "init", "-q", "-b", "main")
+    _git(destination, "add", "--all")
+    _git(destination, "-c", "user.name=Potato Generator",
+         "-c", "user.email=generator@localhost.invalid",
+         "commit", "-q", "-m", message)
+
+
+def _init(slug: str, output: Path, source: Path | None = None) -> dict:
+    manifest_text, _ = _manifest(slug, source)
+    destination = _path_is_safe(output)
     destination.mkdir(mode=0o700)
     try:
-        (destination / "marketplace.factory.yaml").write_text(manifest)
+        (destination / "marketplace.factory.yaml").write_bytes(manifest_text)
         (destination / "README.md").write_text(
-            f"# {slug}\n\n"
-            "Contract-only project seed generated by Potato Harness.\n\n"
+            f"# {slug}\n\nContract-only project seed generated by Potato Harness.\n\n"
             "**NOT a runnable marketplace.** No Django, Next.js, Kong, five business "
             "services, PSP or Docker Swarm stack have been generated.\n\n"
             "The manifest is sandbox-only and contains fake payment providers, "
             "placeholder SHA/digests and no deployment authorization.\n\n"
             "Follow the blueprint contracts and the central Harness rules "
-            "through reviewed R2–R5 engineering tasks.\n"
-        )
+            "through reviewed R2–R5 engineering tasks.\n")
         (destination / "NEXT_STEPS.md").write_text(
-            "# Acceptance roadmap\n\n"
-            "1. Implement Django + PostgreSQL and Next.js (R2).\n"
+            "# Acceptance roadmap\n\n1. Implement Django + PostgreSQL and Next.js (R2).\n"
             "2. Add Kong/Nginx, RabbitMQ/outbox and local Swarm profiles (R3).\n"
             "3. Implement Search, Notifications, Recommendations, Moderation and Analytics (R4).\n"
-            "4. Verify the real cross-service catalog E2E scenario in an isolated runner (R5).\n"
-            "5. Keep payment PSP sandbox-only until local country pack is reviewed.\n\n"
-            "Do not run untrusted code without a passing isolation probe and host grants.\n"
-        )
+            "4. Verify cross-service catalog E2E in an isolated runner (R5).\n"
+            "5. Keep PSP sandbox-only until country pack review.\n")
         (destination / ".gitignore").write_text(
-            ".env\n.env.*\n!.env.example\nnode_modules/\n.venv/\n__pycache__/\n"
-        )
-        _git(destination, "init", "-q")
-        _git(destination, "add", "--", "marketplace.factory.yaml", "README.md", "NEXT_STEPS.md", ".gitignore")
-        _git(destination, "-c", "user.name=Potato Bootstrap", "-c", "user.email=bootstrap@localhost.invalid", "commit", "-q", "-m", "Bootstrap marketplace contract seed")
-        _validator()(destination / "marketplace.factory.yaml")
+            ".env\n.env.*\n!.env.example\nnode_modules/\n.venv/\n__pycache__/\n")
+        _commit(destination, "Bootstrap marketplace contract seed")
     except BaseException:
-        # No user data existed when creating this new directory.
         shutil.rmtree(destination)
         raise
     return {"status": "CONTRACT_SEED", "project": slug, "path": str(destination),
@@ -116,36 +126,64 @@ def _init(slug: str, output: Path) -> dict:
             "execution_authorized": False, "production_approved": False}
 
 
+def _generate(slug: str, output: Path, source: Path | None = None) -> dict:
+    manifest_text, manifest = _manifest(slug, source)
+    sys.path.insert(0, str(BLUEPRINT))
+    from factory_contracts.generator import generated_files
+    files = generated_files(manifest_text, manifest)
+    destination = _path_is_safe(output)
+    destination.mkdir(mode=0o700)
+    try:
+        for filename, data in sorted(files.items()):
+            target = destination / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("xb") as stream:
+                stream.write(data)
+            target.chmod(0o644)
+        _commit(destination, "Generate reproducible R2 development scaffold")
+        (destination / "blueprint.lock").read_bytes()
+        _validator()(destination / "marketplace.factory.yaml")
+    except BaseException:
+        shutil.rmtree(destination)
+        raise
+    return {"status": "R2_DEV_SCAFFOLD", "project": slug, "path": str(destination),
+            "files_generated": len(files), "independent_git_repository": True,
+            "marketplace_running": False, "runtime_verified": False,
+            "execution_authorized": False, "production_approved": False}
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("status", help="Report currently implemented capabilities")
+    commands.add_parser("status", help="Report implemented capabilities")
     check = commands.add_parser("validate", help="Validate a marketplace.factory/v1 manifest")
     check.add_argument("manifest")
-    init = commands.add_parser("init", help="Generate a contract-only independent project")
-    init.add_argument("slug")
-    init.add_argument("--output", type=Path, default=None)
+    for command in ("init", "generate"):
+        item = commands.add_parser(command, help=("Contract-only seed" if command=="init" else "Offline Django/Next.js source scaffold"))
+        item.add_argument("slug")
+        item.add_argument("--output", type=Path, default=None)
+        item.add_argument("--manifest", type=Path, default=None)
     args = parser.parse_args(argv)
     try:
         _check_root()
         if args.command == "status":
-            result = {"status":"R1_CONTRACTS", "marketplace_generator_ready":False,
-                      "opencode_worker_live_verified":False,
-                      "sandbox_authorized":False,
-                      "required_services":list(MANDATORY)}
+            result = {"status": "R2_DEV_SCAFFOLD", "marketplace_generator_ready": False,
+                      "development_scaffold_available": True, "opencode_worker_live_verified": False,
+                      "sandbox_authorized": False, "required_services": list(MANDATORY)}
         elif args.command == "validate":
             manifest = _validator()(args.manifest)
-            result = {"status":"PASS", "project":manifest["project"]["slug"],
-                      "execution_authorized":False,"production_approved":False}
+            result = {"status": "PASS", "project": manifest["project"]["slug"],
+                      "execution_authorized": False, "production_approved": False}
+        elif args.command == "init":
+            result = _init(args.slug, args.output if args.output is not None else ROOT.parent/args.slug, args.manifest)
         else:
-            default = ROOT.parent / args.slug
-            result = _init(args.slug, args.output if args.output is not None else default)
-        print(json.dumps(result,sort_keys=True))
+            result = _generate(args.slug, args.output if args.output is not None else ROOT.parent/args.slug, args.manifest)
+        print(json.dumps(result, sort_keys=True))
         return 0
-    except (BootstrapError, OSError, ValueError, subprocess.CalledProcessError) as exc:
-        # Do not reflect untrusted path contents or provider/config secrets.
-        reason = type(exc).__name__ if not isinstance(exc, BootstrapError) else str(exc)
-        print(json.dumps({"status":"HOLD", "reason":reason},sort_keys=True))
+    except (BootstrapError, OSError, ValueError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired) as error:
+        reason = str(error) if isinstance(error, BootstrapError) else type(error).__name__
+        print(json.dumps({"status": "HOLD", "reason": reason}, sort_keys=True))
         return 2
 
 

@@ -2,12 +2,10 @@
 
 **Status: R1 CONTRACTS / NOT RUNTIME READY.** No Django, Next.js, OpenSearch,
 Kong, Swarm or payment service is deployed by this repository. This is a
-logically isolated subtree of the single potato_harness repository. It must not
-become an import dependency of the generic Potato Harness core.
+separate blueprint source tree; it must not become a dependency of the generic
+Potato Harness core.
 
 ## Verify locally
-
-From `blueprints/marketplace/` (or use the root trusted `tools/marketplace.py` CLI):
 
 ```sh
 python -m pip install -r requirements-dev.txt
@@ -41,3 +39,24 @@ CIS country list is a product targeting list, **not** a compliance certification
 - Generated code, integrations, deployment and model inference are R2–R5 work.
 
 See `docs/ARCHITECTURE_BASELINE_v1.md` and `docs/IMPLEMENTATION_PLAN_v1.md`.
+
+## R2 development scaffold (separate stage, NOT a complete marketplace)
+
+The single-repository operator can run:
+
+```sh
+python3 tools/marketplace.py generate demo-market-kz
+```
+
+This validates the manifest and writes deterministic **development sources** for
+Django/DRF/PostgreSQL and Next.js under a new independent Git checkout. The
+`blueprint.lock` contains a template tree SHA-256 digest, the exact manifest
+SHA-256 and a file map. It is NOT cryptographically authenticated release
+provenance or a production certification. Source is generated but **not
+executed** by the generator. R2 generated backend/frontend integration runs in
+trusted CI separately from the production agent isolation boundary.
+
+Only a KZ/KZT sandbox fixture is accepted by this R2 preview. Seller listing
+access and revision semantics are prototypes with negative tests; moderation
+approval, five services, real payments, orchestration and protected AI execution
+are NOT implemented. See `docs/marketplace/QUICKSTART.md` from the repo root.

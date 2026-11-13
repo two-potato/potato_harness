@@ -15,7 +15,13 @@ work to the existing eight specialists through the trusted host executor. Do not
 bypass the host runtime with OpenCode native tools, plugins, arbitrary shell or MCP.
 Do not override denied permissions or fall back to unsandboxed execution.
 
-The deterministic bootstrap is `python3 tools/marketplace.py init <slug>`; this
+The deterministic contract seed remains `python3 tools/marketplace.py init <slug>`.
+A distinct trusted-host command `python3 tools/marketplace.py generate <slug>`
+creates *R2 development source files* (Django/DRF + Next.js) in an
+independent Git checkout, but neither executes them nor authorizes deployment.
+This command may only be invoked explicitly by a trusted operator; Valera/
+OpenCode native tools must not execute it, and no model gets shell/Docker grants.
+The earlier bootstrap was `python3 tools/marketplace.py init <slug>`; this
 creates only an independent Git project with a validated development manifest.
 OpenCode must NOT claim a functioning marketplace on that basis. Never invoke a
 shell expansion from this prompt. Operators may execute the trusted bootstrap
