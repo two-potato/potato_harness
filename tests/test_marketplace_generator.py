@@ -114,6 +114,12 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn(b"CSRF_TRUSTED_ORIGINS",files["backend/config/settings.py"])
         self.assertIn(b"ModerationDecide",files["backend/catalog/views.py"])
 
+    def test_next_proxy_does_not_redirect_mutating_api_requests(self):
+        config = template_contents()["frontend/next.config.mjs"]
+        self.assertIn(b"skipTrailingSlashRedirect: true", config)
+        self.assertIn(b"source:'/api/:path*'", config)
+        self.assertIn(b"destination:`${backend}/api/:path*`", config)
+
     def test_symlink_template_is_refused(self):
         with tempfile.TemporaryDirectory() as root:
             base=Path(root)

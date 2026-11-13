@@ -9,6 +9,9 @@ if (backend && !/^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{2,5}$/.test(backend)
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Django owns /api routes with and without a trailing slash. Next must not
+  // issue a 308 redirect before forwarding mutating requests or CSRF checks.
+  skipTrailingSlashRedirect: true,
   async rewrites() {
     return backend ? [{source:'/api/:path*',destination:`${backend}/api/:path*`}] : [];
   },
