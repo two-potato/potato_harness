@@ -43,8 +43,10 @@ class Outbox:
             row = db.execute('SELECT * FROM outbox WHERE effect_id=?', (effect_id,)).fetchone()
             if not row: raise ControllerError('Unknown effect')
             task = self.controller._read(db, row['task_id'])
-            if task['revision'] != row['task_revision'] or task['status'] in ('DONE','CANCELLED','BLOCKED','NEEDS_HUMAN_APPROVAL'):
-                raise ControllerError('Task no longer permits dispatch')
+            # Reserving a future effect is not dispatch authority. Only a task
+            # admitted to EXECUTING by the trusted controller may claim it.
+            if task['revision'] != row['task_revision'] or task['status'] != 'EXECUTING':
+                raise ControllerError('Task not in authorized EXECUTING state for dispatch')
             if row['approval_id'] is not None:self._approval(db,row['approval_id'],row['task_id'],row['task_revision'],row['action_digest'])
             return db.execute("UPDATE outbox SET state='DISPATCHING',row_version=row_version+1,updated_at=? WHERE effect_id=? AND state='PENDING'", (_now(),effect_id)).rowcount == 1
 
