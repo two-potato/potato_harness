@@ -33,6 +33,23 @@ class RuntimeTests(unittest.TestCase):
             init(self.config,alias/'hidden-runtime')
         self.assertFalse((self.repo/'hidden-runtime').exists())
 
+    def test_init_denies_dotdot_state_alias_into_source(self):
+        detour=self.root/'detour'
+        detour.mkdir()
+        unsafe=detour/'..'/'source'/'runtime-state'
+        with self.assertRaisesRegex(ValueError,'State path must be canonical'):
+            init(self.config,unsafe)
+        self.assertFalse((self.repo/'runtime-state').exists())
+
+    def test_init_denies_dotdot_output_alias_into_source(self):
+        detour=self.root/'output-detour'
+        detour.mkdir()
+        unsafe=detour/'..'/'source'/'runtime-output'
+        config=dict(self.config,output=str(unsafe))
+        with self.assertRaisesRegex(ValueError,'Output path must be canonical'):
+            init(config,self.root/'different-state')
+        self.assertFalse((self.repo/'runtime-output').exists())
+
     def test_recover_done_after_run_json_lags_sqlite(self):
         result=run(self.state,worker=self.worker,
                    sandbox_probe=lambda:{'available':True},

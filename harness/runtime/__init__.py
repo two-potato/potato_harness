@@ -69,9 +69,13 @@ def _config(config):
 
 def init(config,state):
     config=_config(config);state=Path(state).absolute()
+    if '..' in state.parts:
+        raise ValueError('State path must be canonical (no parent traversal)')
     repo=Path(config['repo']).resolve(strict=True)
     if _git(repo,'status','--porcelain') or _git(repo,'rev-parse','HEAD')!=config['base_sha']:raise ValueError('Trusted repository must be clean at pinned base SHA')
     output=Path(config['output']).absolute()
+    if '..' in output.parts:
+        raise ValueError('Output path must be canonical (no parent traversal)')
     if output.exists() or output.is_relative_to(repo) or any(p.is_symlink() for p in (output,*output.parents)):raise ValueError('Output must be a new nonsymlink directory outside source repository')
     if state.exists() or state.is_symlink():raise ValueError('State directory already exists')
     if any(path.is_symlink() for path in (state, *state.parents)):
