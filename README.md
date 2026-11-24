@@ -60,7 +60,7 @@ python3 tools/run_demo.py
 | Evidence относится к устаревшей ревизии | `BLOCKED` |
 | Исполнитель не имеет права на изменение | `BLOCKED` |
 
-[Описание демо и материалы](docs/PORTFOLIO.md) · [Записанный отчёт JSON](docs/demo/report.json) · [Короткое видео](docs/demo/walkthrough.mp4)
+[Вечерний протокол проверки Zen (один новый запуск)](docs/trials/2026-11-24-EVENING-ZEN.md) · [Описание демо и материалы](docs/PORTFOLIO.md) · [Записанный отчёт JSON](docs/demo/report.json) · [Короткое видео](docs/demo/walkthrough.mp4)
 
 ![Один принятый результат и три ожидаемых отказа](docs/demo/portfolio-summary.svg)
 

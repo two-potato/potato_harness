@@ -32,9 +32,22 @@ try{
  await client.session.delete({path:{id:session.data.id}});
  const {fileURLToPath}=await import('node:url');
  const workerPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'worker.mjs');
- const child=Bun.spawn([process.execPath,workerPath],{env:{PATH:process.env.PATH,POTATO_PROVIDER_FIXTURE_URL:`http://127.0.0.1:${fixture.address().port}/v1`},stdin:'pipe',stdout:'pipe',stderr:'pipe'});
+ // Reproduce the earlier Sisyphus hang: hostile user/global config must not
+ // override the harness-owned Valera/backend profile inside the child.
+ const hostConfig=path.join(temp,'polluted-user-config.json');
+ fs.writeFileSync(hostConfig,JSON.stringify({default_agent:'sisyphus',agent:{'valera-ceo':{disable:true}}}));
+ const child=Bun.spawn([process.execPath,workerPath],{env:{
+  PATH:process.env.PATH,
+  OPENCODE_CONFIG:hostConfig,
+  OPENCODE_CONFIG_DIR:temp,
+  OPENCODE_DISABLE_DEFAULT_PLUGINS:'false',
+  POTATO_PROVIDER_FIXTURE_URL:`http://127.0.0.1:${fixture.address().port}/v1`
+ },stdin:'pipe',stdout:'pipe',stderr:'pipe'});
  child.stdin.write(JSON.stringify({role:'backend',model:'fixture/test',prompt:'Return fixture JSON proposal.',output_token_allowance:128,coordination:{objective:'Fixture repair',scope:['example.py']}}));child.stdin.end();
  const workerOutput=await new Response(child.stdout).text(),workerError=await new Response(child.stderr).text();
  assert.equal(await child.exited,0,workerError);const workerResult=JSON.parse(workerOutput);assert.equal(workerResult.edits[0].path,'example.py');assert.equal(workerResult.usage.input_tokens,20);assert.equal(count,4);
+ assert.match(workerError,/"phase":"valera","status":"ok"/);
+ assert.match(workerError,/"phase":"specialist","status":"ok"/);
+ assert.match(workerError,/"phase":"cleanup","status":"ok"/);
  console.log(JSON.stringify({status:'PASS',layer:'real-opencode-omo-local-provider-fixture',provider_requests:count,proposal,live_inference:false}));
 }finally{server?.close();await new Promise(r=>fixture.close(r));fs.rmSync(temp,{recursive:true,force:true});}
