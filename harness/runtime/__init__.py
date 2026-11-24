@@ -137,17 +137,31 @@ class _Guard:
         return False
 
 
-def _worker(request,command,timeout):
+def _worker(request,command,timeout,*,diagnostics_path=None):
     # No shell. Provider bridge is host-trusted; the model only returns edit data.
+    # Keep raw provider stderr in an unnamed temporary file; never publish it.
+    from harness.runtime.gateway_diagnostics import parse_gateway_events
     with __import__('tempfile').TemporaryFile() as out,__import__('tempfile').TemporaryFile() as err:
         process=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=out,stderr=err,start_new_session=True)
-        try:process.communicate(_json(request).encode(),timeout=timeout)
+        outcome='ERROR'
+        try:
+            process.communicate(_json(request).encode(),timeout=timeout)
+            if process.returncode==0:outcome='OK'
         except BaseException as error:
+            if isinstance(error,subprocess.TimeoutExpired):outcome='TIMEOUT'
             import signal
             if process.poll() is None:
                 os.killpg(process.pid,signal.SIGKILL);process.wait()
             if isinstance(error,subprocess.TimeoutExpired):raise RuntimeError('Provider bridge timed out; outcome uncertain') from None
             raise
+        finally:
+            if diagnostics_path is not None:
+                try:
+                    _write(Path(diagnostics_path),{'schema_version':1,'outcome':outcome,
+                                                   'events':parse_gateway_events(err)})
+                except OSError:
+                    # Advisory logging failure must never authorize a retry.
+                    pass
         if process.returncode:raise RuntimeError('Provider bridge failed; inspect host bridge logs')
         if out.tell()>MAX_BYTES:raise ValueError('Provider response exceeds bound')
         out.seek(0);return json.loads(out.read(MAX_BYTES))
@@ -194,8 +208,11 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
     """Injected callbacks are host test seams; CLI always uses actual sandbox."""
     backend=BubblewrapBackend()
     state=Path(state).absolute()
+    if worker is None:
+        def worker(request,command,timeout):
+            return _worker(request,command,timeout,diagnostics_path=state/'gateway-phases.json')
     with _lock(state):
-        return _run(state,worker or _worker,
+        return _run(state,worker,
                     sandbox_probe if sandbox_probe is not None else backend.probe,
                     sandbox_run if sandbox_run is not None else backend.run)
 
