@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Evening Zen trial hardening: trial preparation installs marketplace/PyYAML
+  requirements; isolated SDK smoke rejects inherited Sisyphus config;
+  read-only diagnostics display only allowlisted phase and state metadata.
+  Added an explicit one-shot live runbook without changing fail-closed gates.
+
 - Added separate development/execution readiness checks. Development requires
   Python and Git, but never probes Bubblewrap or runs untrusted code.
 - Added host-owned IsolationBackend contract and reused the existing Bubblewrap
