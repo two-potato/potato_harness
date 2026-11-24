@@ -1,0 +1,35 @@
+name: Live Linux isolation evidence
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/live-isolation.yml'
+      - 'harness/isolation/**'
+      - 'tests/runtime/test_isolation.py'
+permissions:
+  contents: read
+jobs:
+  containment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install Bubblewrap without relaxing host restrictions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          bwrap --version
+          python3 --version
+          git rev-parse HEAD
+      - name: Probe actual sandbox profile
+        run: python3 -m harness.isolation --probe
+      - name: Require all live and deterministic isolation tests
+        run: |
+          python3 - <<'PY'
+          import unittest
+          suite = unittest.defaultTestLoader.loadTestsFromName("tests.runtime.test_isolation")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.testsRun < 17 or result.skipped:
+              raise SystemExit("Isolation evidence incomplete: failure, insufficient test count or skip")
+          print("Isolation suite passed without skips on this hosted runner; not a production certification.")
+          PY
