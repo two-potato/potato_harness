@@ -7,7 +7,7 @@ import json
 import os
 
 PREFIX = 'POTATO_GATEWAY_PHASE '
-PHASES = frozenset({'request', 'server', 'omo', 'valera', 'specialist', 'usage'})
+PHASES = frozenset({'request', 'server', 'omo', 'valera', 'specialist', 'usage', 'cleanup'})
 STATUSES = frozenset({'start', 'ok', 'error'})
 MAX_STDERR_TAIL = 65536
 MAX_EVENTS = 64

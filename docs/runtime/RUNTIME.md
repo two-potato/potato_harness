@@ -39,17 +39,26 @@ and `test_argv` for the operator's verification command. Source repository text
 cannot select a profile or extend permissions. The profile guides the agent.
 The configured tests and existing LOW trial policy still govern acceptance.
 
-Optional `worker_command` is a trusted argv override. Default is the repository-pinned Bun executable plus `integrations/opencode/src/worker.mjs`. Its JSON stdin is `{role,prompt,model,projectDir,output_token_allowance,coordination}`; JSON stdout is `{edits:[{path,content}],summary,usage:{input_tokens,output_tokens,cost_usd}}`. The bridge runs outside the sandbox because it needs provider credentials; model tools must be disabled by that bridge. Provider projectDir is a new empty directory separate from copied source, preventing source `.opencode` configuration from becoming host plugin authority.
+Optional `worker_command` is a trusted argv override. Default is the repository-pinned Bun executable plus `integrations/opencode/src/worker.mjs`. Its JSON stdin is `{role,prompt,model,projectDir,output_token_allowance,coordination,bridge_timeout_ms}` (the final field is host-owned); JSON stdout is `{edits:[{path,content}],summary,usage:{input_tokens,output_tokens,cost_usd}}`. The bridge runs outside the sandbox because it needs provider credentials; model tools must be disabled by that bridge. Provider projectDir is a new empty directory separate from copied source, preventing source `.opencode` configuration from becoming host plugin authority.
 
 During the default OpenCode bridge attempt, the host writes `state/gateway-phases.json`
 with only allowlisted phase names (`request`, `server`, `omo`, `valera`, `specialist`,
-`usage`), state (`start`, `ok`, `error`), integer elapsed milliseconds and final
+`usage`, `cleanup`), state (`start`, `ok`, `error`), integer elapsed milliseconds and final
 process outcome (`OK`, `ERROR`, `TIMEOUT`). No raw stderr, prompts, model text,
 credentials or stack traces are persisted. This advisory log is not proof of
 provider delivery, authorization, spending or completion. On timeout, the last
 `start` phase can identify where progress stopped, but not whether the upstream
 provider executed or billed the request. If saving diagnostics fails, this
 must never permit retransmission. Injected fixture workers do not produce this log.
+The two model prompts now share a host-supplied bridge deadline with a
+4-second local finalization reserve. The SDK session deletions are limited to
+1.5 seconds each; phase logging includes cleanup. The host's 80-second
+subprocess cap remains intact because the existing lease lasts at most
+90 seconds. An expired stage still means UNKNOWN provider outcome, never an
+automatic retry. Reasoning/cache token counts default to zero only when
+absent; missing required tokens fail closed. A missing or nonfinite SDK cost
+remains null and HOLD. SDK cost=0 is an explicit report, not independently
+verified provider billing or an authoritative zero-price tariff.
 
 `init` requires a clean source repository matching the exact SHA. It copies committed regular files from raw `git ls-tree`/`git cat-file` blobs, excluding Git metadata and rejecting special files, secret paths, files over 1 MiB and repositories over 32 MiB. Committed `.gitattributes` export/clean transforms cannot hide tests or alter these raw inputs. Target commits use the exact raw tested blobs and executable bits. The source repository is never modified. State is a new private directory outside it. Trial scope is a nonempty list of exact existing tracked file paths. A conservative filename rule rejects obvious authentication, payment, policy, deployment and other high-risk changes. This is a bounded LOW-risk trial policy, not a general risk classifier: operators must not submit changes whose actual risk exceeds LOW. Tests are supplied by the operator as the acceptance contract; the runtime does not infer business correctness from arbitrary passing tests.
 
