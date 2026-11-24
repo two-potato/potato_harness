@@ -7,6 +7,9 @@
 - Added host-owned IsolationBackend contract and reused the existing Bubblewrap
   implementation for the protected runtime; no unsandboxed execution fallback.
 - Model/SDK compatibility and live inference remain unchanged and untested.
+- Added allowlisted phase diagnostics for pinned OpenCode/OMO bridge failures
+  and timeouts. Raw provider stderr, prompts and credentials are not persisted;
+  provider outcomes remain unknown on timeout.
 
 ## 0.1.0-demo — portfolio preview
 
