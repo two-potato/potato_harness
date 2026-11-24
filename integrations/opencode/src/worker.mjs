@@ -6,6 +6,8 @@ import { createOpencodeClient,createOpencodeServer } from '@opencode-ai/sdk';
 import {fileURLToPath} from 'node:url';
 import {validateAssignment} from './contracts.mjs';
 import {prepareProject,ROLES} from './profile.mjs';
+import {bridgeBudget,withTimeout,SESSION_DELETE_TIMEOUT_MS,FINALIZATION_RESERVE_MS} from './bridge_limits.mjs';
+import {combineModelUsage} from './bridge_accounting.mjs';
 // Only fixed, non-secret phase markers may reach the trusted host.
 let activePhase=null,phaseStarted=0;
 function beginPhase(phase){activePhase=phase;phaseStarted=performance.now();emitPhase('start');}
@@ -18,6 +20,7 @@ try{
  const input=await new Response(Bun.stdin.stream()).text();
  if(Buffer.byteLength(input)>262144)throw Error('Oversized model request');
  const request=JSON.parse(input);
+ const budget=bridgeBudget(request.bridge_timeout_ms??75_000);
  if(!ROLES.includes(request.role)||request.role==='valera-ceo'||typeof request.prompt!=='string')throw Error('Invalid specialist request');
  const fixtureURL=process.env.POTATO_PROVIDER_FIXTURE_URL;
  if(fixtureURL && (request.model!=='fixture/test'||process.env.OPENCODE_API_KEY||!/^http:\/\/127\.0\.0\.1:[0-9]+\/v1$/.test(fixtureURL)))throw Error('Unsafe test provider configuration');
@@ -37,26 +40,26 @@ try{
  if(fixtureURL)Object.assign(config.provider[provider],{npm:'@ai-sdk/openai-compatible',name:'Fixture',options:{baseURL:fixtureURL,apiKey:'test-only'}});
  const password=randomBytes(32).toString('hex');
  process.env.OPENCODE_SERVER_PASSWORD=password;process.env.OPENCODE_SERVER_USERNAME='potato';
- const deadline=AbortSignal.timeout(120000);
+ const deadline=AbortSignal.timeout(Math.max(1,budget.remainingMs()-FINALIZATION_RESERVE_MS));
  endPhase('ok');beginPhase('server');
  const availablePort=await new Promise((resolve,reject)=>{const socket=createServer();socket.once('error',reject);socket.listen(0,'127.0.0.1',()=>{const port=socket.address().port;socket.close(error=>error?reject(error):resolve(port));});});
- server=await createOpencodeServer({hostname:'127.0.0.1',port:availablePort,timeout:30000,config,signal:deadline});
+ server=await budget.stage(()=>createOpencodeServer({hostname:'127.0.0.1',port:availablePort,timeout:30000,config,signal:deadline}));
  client=createOpencodeClient({baseUrl:server.url,directory:temporary,throwOnError:true,signal:deadline,headers:{Authorization:'Basic '+Buffer.from('potato:'+password).toString('base64')}});
  endPhase('ok');beginPhase('omo');
- const roster=await client.app.agents();
+ const roster=await budget.stage(()=>client.app.agents());
  if(!roster.data?.find(a=>a.name==='valera-ceo')?.description?.includes('[OMO 5.1.60 + Potato Harness]'))throw Error('OMO composition not active');
  endPhase('ok');beginPhase('valera');
  const coordination=request.coordination;
  if(!coordination||typeof coordination.objective!=='string'||!Array.isArray(coordination.scope))throw Error('Host-approved coordination summary required');
- const planning=await client.session.create({body:{title:'Potato control-only assignment'}});
+ const planning=await budget.stage(()=>client.session.create({body:{title:'Potato control-only assignment'}}));
  let planAnswer;
- try{planAnswer=await client.session.prompt({path:{id:planning.data.id},body:{agent:'valera-ceo',parts:[{type:'text',text:JSON.stringify({objective:coordination.objective,scope:coordination.scope,approved_owner:request.role,instructions:'You coordinate only. Do not inspect source or use tools. Return exactly JSON {owner: approved_owner, reason: short routing explanation}.'})}],tools:{}}});}
- finally{await client.session.delete({path:{id:planning.data.id}});}
+ try{planAnswer=await budget.stage(()=>client.session.prompt({path:{id:planning.data.id},body:{agent:'valera-ceo',parts:[{type:'text',text:JSON.stringify({objective:coordination.objective,scope:coordination.scope,approved_owner:request.role,instructions:'You coordinate only. Do not inspect source or use tools. Return exactly JSON {owner: approved_owner, reason: short routing explanation}.'})}],tools:{}}}));}
+ finally{await withTimeout(()=>client.session.delete({path:{id:planning.data.id}}),SESSION_DELETE_TIMEOUT_MS);}
  if(planAnswer.data.info.error||planAnswer.data.parts.some(p=>p.type==='tool'))throw Error('Coordinator planning failed');
  validateAssignment(JSON.parse(planAnswer.data.parts.filter(p=>p.type==='text').map(p=>p.text).join('')),request.role);
  endPhase('ok');beginPhase('specialist');
- const created=await client.session.create({body:{title:'Potato scoped specialist'}});session=created.data.id;
- const answer=await client.session.prompt({path:{id:session},body:{agent:request.role,parts:[{type:'text',text:request.prompt+'\nReturn exactly JSON: {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No Markdown. No tool calls.'}],tools:{}}});
+ const created=await budget.stage(()=>client.session.create({body:{title:'Potato scoped specialist'}}));session=created.data.id;
+ const answer=await budget.stage(()=>client.session.prompt({path:{id:session},body:{agent:request.role,parts:[{type:'text',text:request.prompt+'\nReturn exactly JSON: {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No Markdown. No tool calls.'}],tools:{}}}));
  const data=answer.data;
  if(data.info.error)throw Error('Model provider failed');
  if(data.parts.some(p=>p.type==='tool'))throw Error('Unexpected model tool request');
@@ -66,19 +69,19 @@ try{
  if(!proposal||Object.keys(proposal).sort().join(',')!=='edits,summary'||!Array.isArray(proposal.edits)||proposal.edits.length>16||typeof proposal.summary!=='string'||proposal.summary.length>4096)throw Error('Invalid proposal');
  for(const edit of proposal.edits)if(!edit||Object.keys(edit).sort().join(',')!=='content,path'||typeof edit.path!=='string'||typeof edit.content!=='string'||Buffer.byteLength(edit.content)>65536)throw Error('Invalid edit');
  endPhase('ok');beginPhase('usage');
- const tokens=data.info.tokens;
- const finite=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
- const planningTokens=planAnswer.data.info.tokens;
- const planInput=planningTokens.input+(planningTokens.cache?.read||0)+(planningTokens.cache?.write||0);
- const planOutput=planningTokens.output+planningTokens.reasoning;
- const inputTokens=planInput+tokens.input+(tokens.cache?.read||0)+(tokens.cache?.write||0),outputTokens=planOutput+tokens.output+tokens.reasoning;
- if(!Number.isSafeInteger(inputTokens)||!Number.isSafeInteger(outputTokens)||inputTokens<0||outputTokens<0)throw Error('Missing token accounting');
+ const usage=combineModelUsage(planAnswer.data.info,data.info);
  endPhase('ok');
- console.log(JSON.stringify({...proposal,usage:{input_tokens:inputTokens,output_tokens:outputTokens,cost_usd:finite(data.info.cost)&&finite(planAnswer.data.info.cost)?data.info.cost+planAnswer.data.info.cost:null}}));
+ console.log(JSON.stringify({...proposal,usage}));
 }catch{
  endPhase('error');
  console.error('OpenCode/OMO specialist request failed. Inspect host provider setup; raw prompts and credentials omitted.');process.exitCode=2;
 }finally{
- if(client&&session)try{await client.session.delete({path:{id:session}});}catch{}
- server?.close();fs.rmSync(temporary,{recursive:true,force:true});
+ beginPhase('cleanup');
+ let cleanupFailed=false;
+ if(client&&session)try{
+  await withTimeout(()=>client.session.delete({path:{id:session}}),SESSION_DELETE_TIMEOUT_MS);
+ }catch{cleanupFailed=true;}
+ try{server?.close();}catch{cleanupFailed=true;}
+ endPhase(cleanupFailed?'error':'ok');
+ fs.rmSync(temporary,{recursive:true,force:true});
 }

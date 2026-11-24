@@ -145,7 +145,9 @@ def _worker(request,command,timeout,*,diagnostics_path=None):
         process=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=out,stderr=err,start_new_session=True)
         outcome='ERROR'
         try:
-            process.communicate(_json(request).encode(),timeout=timeout)
+            # Shared model deadline leaves time for bounded cleanup before host expiry.
+            payload={**request,'bridge_timeout_ms':min(120000,max(4001,math.floor(timeout*1000)-1000))}
+            process.communicate(_json(payload).encode(),timeout=timeout)
             if process.returncode==0:outcome='OK'
         except BaseException as error:
             if isinstance(error,subprocess.TimeoutExpired):outcome='TIMEOUT'

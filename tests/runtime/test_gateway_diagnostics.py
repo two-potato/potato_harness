@@ -24,6 +24,17 @@ class GatewayDiagnosticsTests(unittest.TestCase):
             {'phase': 'valera', 'status': 'error', 'elapsed_ms': 3},
         ])
 
+    def test_host_passes_bounded_bridge_deadline(self):
+        code = 'import json,sys;print(json.dumps({"bridge_timeout_ms":json.loads(sys.stdin.read())["bridge_timeout_ms"]}))'
+        response = _worker({}, [sys.executable, '-c', code], 8)
+        self.assertGreaterEqual(response['bridge_timeout_ms'], 4001)
+        self.assertLess(response['bridge_timeout_ms'], 8000)
+
+    def test_cleanup_marker_is_allowed(self):
+        message = b'POTATO_GATEWAY_PHASE {"phase":"cleanup","status":"error","elapsed_ms":19}\n'
+        self.assertEqual(parse_gateway_events(io.BytesIO(message)),
+                         [{'phase':'cleanup','status':'error','elapsed_ms':19}])
+
     def test_subprocess_success_persists_only_phase_metadata(self):
         code = ('import sys\n'
                 'sys.stderr.write("Bearer PRIVATE\\n")\n'

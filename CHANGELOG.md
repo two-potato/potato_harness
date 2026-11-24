@@ -7,6 +7,9 @@
 - Added host-owned IsolationBackend contract and reused the existing Bubblewrap
   implementation for the protected runtime; no unsandboxed execution fallback.
 - Model/SDK compatibility and live inference remain unchanged and untested.
+- Added a shared bridge deadline and bounded SDK session cleanup for Valera
+  and specialist. Optional reasoning/cache token counts no longer become
+  NaN; unknown SDK cost remains unknown, without a free-price assumption.
 - Added allowlisted phase diagnostics for pinned OpenCode/OMO bridge failures
   and timeouts. Raw provider stderr, prompts and credentials are not persisted;
   provider outcomes remain unknown on timeout.
