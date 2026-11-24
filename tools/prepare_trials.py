@@ -29,7 +29,8 @@ def main():
     python=ROOT/'.venv-demo/bin/python'
     if args.install:
         if not python.exists():venv.EnvBuilder(with_pip=True).create(python.parent.parent)
-        call([python,'-m','pip','install','-r',ROOT/'requirements-validation.txt'])
+        call([python,'-m','pip','install','-r',ROOT/'requirements-validation.txt',
+              '-r',ROOT/'blueprints/marketplace/requirements-dev.txt'])
         call(['npm','ci','--ignore-scripts','--no-audit','--no-fund'],cwd=INTEGRATION)
         call(['node','src/bootstrap.mjs'],cwd=INTEGRATION)
     report={'created_at':datetime.now(timezone.utc).isoformat(),'checks':{},'inference':'NOT_RUN','activation':'NOT_AUTHORIZED'}
