@@ -2,6 +2,9 @@
 
 ## Unreleased — local-first readiness
 
+- Trial `--install` installs validation and marketplace development requirements
+  together, fixing missing PyYAML during local trial verification.
+
 - Added separate development/execution readiness checks. Development requires
   Python and Git, but never probes Bubblewrap or runs untrusted code.
 - Added host-owned IsolationBackend contract and reused the existing Bubblewrap
