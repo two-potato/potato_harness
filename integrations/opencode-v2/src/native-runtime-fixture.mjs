@@ -26,11 +26,19 @@ export async function launchNativeFixture({model,worker,maxOutput,audit,offline}
     // A Web Request object only; never executed or passed to fetch.
     hooks['http.request']({...e,request:new Request('https://potato-native-fixture.invalid/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})});
     const first=session.agent==='valera-ceo';
+    const idleType=first?({idle_rate:'provider.rate-limit',idle_quota:'provider.quota',idle_auth:'provider.auth',failed_idle_with_answer:'provider.rate-limit'}[fault]):fault==='specialist_idle_rate'?'provider.rate-limit':undefined;
+    const idleError=idleType?{type:idleType,message:'PRIVATE_PROVIDER_TEXT'}:undefined;
+    if(idleError&&fault!=='failed_idle_with_answer'){
+     hooks.retry({});session.messages=[{type:'user'},{type:'idle',outcome:'failed',error:idleError}];return;
+    }
     const error=first&&fault==='rate_limit'?{type:'provider.rate-limit',message:'PRIVATE_PROVIDER_TEXT'}:undefined;
     if(error||first&&fault==='audit')hooks.retry({});
     const value=first?{owner:fault==='assignment'?'qa':'backend',reason:'synthetic routing'}:
      {edits:[{path:fault==='scope'?'outside.py':'calculation.py',content:'def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'}],summary:'synthetic native runtime proposal'};
     session.messages=[{type:'user'},{type:'assistant',agent:session.agent,model:{...ref,variant:'default'},finish:error?'error':'stop',time:{completed:1},tokens:{input:10,output:10},cost:first&&fault==='unknown_cost'?undefined:0,error,content:error?[]:[{type:'text',text:JSON.stringify(value)}]}];
+    if(first&&fault==='failed_idle_with_answer')session.messages.push({type:'idle',outcome:'failed',error:idleError});
+    if(first&&fault==='duplicate_idle')session.messages.push({type:'idle',outcome:'succeeded'},{type:'idle',outcome:'succeeded'});
+    if(first&&fault==='interrupted_idle')session.messages.push({type:'idle',outcome:'interrupted'});
    },
    interrupt:async({sessionID})=>{lookup(sessionID);}
   },experimental:{session:{wait:async({sessionID})=>{if(!lookup(sessionID).messages)throw Error('FIXTURE_NOT_READY');}}},

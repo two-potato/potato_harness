@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R2.5 preparation: preserve native idle-only failure categories, reject
+  contradictory terminal outcomes and enforce cumulative reported token usage
+  against the host reservation. No live worker admission or automatic replay.
+
 - R2: remove the guessed fixed cloud endpoint, retain native OpenCode routing
   and authenticated loopback HTTP; validate a closed native runtime request
   contract before launch. Fixture and offline modes remain non-live.

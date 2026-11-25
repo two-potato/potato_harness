@@ -276,3 +276,20 @@ RATE_LIMIT attempts are not reconciled by these changes. Independent review,
 verified billing/limits and evidence of actual upstream behavior are still
 required for live activation. Keep the confirmed offline namespace and
 Bubblewrap checks, Outbox reconciliation and deny-by-default control.
+
+## R2.5 preparation: terminal outcome and cumulative accounting
+
+Native sessions can terminate with an idle failure and no assistant. Preserve
+only the known diagnostic category (RATE_LIMIT, FREE_QUOTA, AUTH, etc.); reject
+failed/interrupted/duplicate idle events even when assistant text exists. No
+specialist follows an invalid coordinator outcome, and no automatic replay or
+model fallback is introduced. The host now passes its reserved token allowance
+into native diagnostic modes; the shared flow checks cumulative reported usage
+and blocks another stage when fewer than two tokens remain. This is a reported
+usage gate, not an independent pre-dispatch limit on upstream input tokens.
+The host's final accounting and UNKNOWN effect semantics remain unchanged.
+
+This is live-admission preparation, not activation: no new live worker mode,
+no provider dispatch from CI, no change to native route selection or local
+HTTP. Independent review, prior-outcome reconciliation, actual provider limits
+and successful real inference remain required before a live runtime trial.

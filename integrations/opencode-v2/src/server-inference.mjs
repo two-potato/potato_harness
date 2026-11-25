@@ -24,7 +24,8 @@ export function probeUsage(info,cap=PROBE_CAP){
 // The common flow has no transport of its own. Only the fixed manual probe
 // and the explicitly synthetic/offline runtime diagnostics can invoke it.
 async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{}}){
- const {worker,scope,objective,prompt,cap,synthetic,checkProposal}=task;
+ const {worker,scope,objective,prompt,cap,synthetic,checkProposal,tokenAllowance}=task;
+ let reportedTokens=0;
  let observedPhase=null,started=0;
  const begin=name=>{observedPhase=name;started=performance.now();onPhase({phase:name,status:'start',elapsed_ms:0});};
  const end=(status,detail={})=>{if(observedPhase)onPhase({phase:observedPhase,status,elapsed_ms:Math.max(0,Math.round(performance.now()-started)),...detail});observedPhase=null;};
@@ -56,9 +57,16 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
    const page=await budget.stage(()=>readBoundedMessages(input=>server.client.message.list(input),sessionID));
    response=responseShape(page.data,role,ref);check='user_count';
    if(page.data.filter(x=>x?.type==='user').length!==1)throw Error('UNEXPECTED_USER_MESSAGES');
+   // Native v2 can emit only an idle failure and no assistant. Never let
+   // a conflicting failed/interrupted terminal event pass as a valid answer.
+   if(response?.counts.idle&&(response.counts.idle!==1||response.idle?.outcome!=='succeeded'||response.idle.error!=='NONE')){
+    check='idle_outcome';throw Error('UNSUCCESSFUL_IDLE');
+   }
    check='assistant_contract';const answer=parseAssistant(page.data,role,ref);
    check='variant';if(!isNativeBaseVariant(answer.info.model.variant))throw Error('UNEXPECTED_VARIANT');
    check='usage';const usage=probeUsage(answer.info,cap);
+   reportedTokens+=usage.input_tokens+usage.output_tokens;
+   if(!Number.isSafeInteger(reportedTokens)||(tokenAllowance!==undefined&&reportedTokens>tokenAllowance))throw Error('NATIVE_TOKEN_BUDGET_EXCEEDED');
    check='audit_after_response';assertAudit(server.readAudit(),worker,count);
    sessionID=undefined;
    return {answer,usage};
@@ -67,6 +75,9 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
   if(offline){phase='offline_end';check='offline_boundary';throw Error('OFFLINE_UNEXPECTED_RESPONSE');}
   phase='assignment';check='assignment_contract';
   validateAssignment(plan.answer.value,worker);
+  // Two positive usage counters are required for the next stage. This is a
+  // reported-usage gate, not a pre-dispatch guarantee of actual wire tokens.
+  if(tokenAllowance!==undefined&&tokenAllowance-reportedTokens<2){check='usage';throw Error('NATIVE_TOKEN_BUDGET_EXHAUSTED');}
   stages.push({role:'valera-ceo',usage:plan.usage});end('ok');
   const proposal=await call(worker,prompt,5);
   phase='proposal';check='proposal_contract';
@@ -76,7 +87,8 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
   result=combined;end('ok');
  }catch(error){
   reason=phase.toUpperCase()+'_HOLD';
-  failure={check,category:errorCategory(error)};
+  const terminalCategory=check==='idle_outcome'&&response?.idle?.error;
+  failure={check,category:terminalCategory&&terminalCategory!=='NONE'?terminalCategory:errorCategory(error)};
   end('error',observedPhase==='valera'||observedPhase==='specialist'?{step:reasonStep(check),reason_code:reasonCode(failure.category)}:{});
  }finally{
   begin('cleanup');
@@ -106,7 +118,7 @@ export const NATIVE_FIXTURE_MODEL='opencode/potato-runtime-fixture-free';
 // A trusted host request is data, never transport configuration or activation.
 // Both native runtime diagnostics share the same closed, bounded contract.
 function prepareNativeRuntime(request,offline){
- const fields=['role','model','prompt','coordination','output_token_allowance','projectDir','bridge_timeout_ms'];
+ const fields=['role','model','prompt','coordination','output_token_allowance','projectDir','bridge_timeout_ms','token_allowance'];
  if(!request||typeof request!=='object'||Array.isArray(request)||
     Object.keys(request).some(key=>!fields.includes(key))||
     ('projectDir' in request&&(typeof request.projectDir!=='string'||!request.projectDir.startsWith('/')||request.projectDir.includes('\0')))||
@@ -117,16 +129,18 @@ function prepareNativeRuntime(request,offline){
  if(offline?model===NATIVE_FIXTURE_MODEL:model!==NATIVE_FIXTURE_MODEL)throw Error('NATIVE_RUNTIME_MODE_MODEL');
  const cap=validateRequest(request,{requestModel:model,modelRef:ref});
  const budget=bridgeBudget('bridge_timeout_ms' in request?request.bridge_timeout_ms:75000);
- return {model,cap,budget};
+ const tokenAllowance=request.token_allowance;
+ if('token_allowance' in request&&(!Number.isSafeInteger(tokenAllowance)||tokenAllowance<2))throw Error('NATIVE_TOKEN_ALLOWANCE');
+ return {model,cap,budget,tokenAllowance};
 }
 // Not a live adapter. The model identifier is synthetic, and the host worker
 // supplies only the in-process fixture client. No live CLI launch is wired.
 export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhase}){
- const {model,cap,budget}=prepareNativeRuntime(request,false);
+ const {model,cap,budget,tokenAllowance}=prepareNativeRuntime(request,false);
  const {report,proposal}=await nativeFlow({model,launch,awaitPolicy,onPhase,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:request.prompt+'\nReturn only JSON {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No tools.',
-   cap,synthetic:true,checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
+   cap,tokenAllowance,synthetic:true,checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
  if(report.status!=='PASS'||!proposal)throw Error('NATIVE_FIXTURE_HOLD');
  return proposal;
 }
@@ -134,10 +148,10 @@ export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhas
 // Real CLI with the offline guard. Never return a proposal to the runtime.
 export async function runNativeRuntimeOffline(request,{launch,awaitPolicy,onPhase=()=>{},verifyNetwork=requireOfflineNetwork}){
  verifyNetwork();
- const {model,cap,budget}=prepareNativeRuntime(request,true);
+ const {model,cap,budget,tokenAllowance}=prepareNativeRuntime(request,true);
  const {report}=await nativeFlow({model,launch,awaitPolicy,onPhase,offline:true,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
-   prompt:'Offline diagnostic only; no specialist dispatch permitted.',cap,synthetic:false,
+   prompt:'Offline diagnostic only; no specialist dispatch permitted.',cap,tokenAllowance,synthetic:false,
    checkProposal:()=>{throw Error('OFFLINE_PROPOSAL_DENIED');}}});
  const d=report.diagnostics,a=d?.audit;
  if(report.status==='HOLD'&&report.offline_diagnostic===true&&report.external_inference===false&&

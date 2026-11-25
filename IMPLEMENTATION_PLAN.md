@@ -89,3 +89,7 @@ loopback HTTP. Native runtime diagnostic requests reject transport overrides
 and unknown fields before launch. Hook checks are not egress enforcement.
 Live adapter admission, independent review and prior-outcome reconciliation
 remain open; no real model execution is claimed.
+
+R2.5 preparation adds terminal idle failure handling and cumulative reported
+token accounting across coordinator and specialist. This is not live runtime
+admission or a wire-level usage guarantee. Live activation remains HOLD.

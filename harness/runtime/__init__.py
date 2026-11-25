@@ -318,6 +318,8 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
         request={'role':'backend','prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
+        if config.get('adapter') in ('opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
+            request['token_allowance']=config['budget']['tokens']
         if config.get('adapter')=='opencode-v2-console':
             request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
         effect=outbox.reserve(task['task_id'],task['revision'],{'kind':'provider-proposal','model':config['model'],'context_digest':run['context']['digest'],**({'adapter':config['adapter']} if 'adapter' in config else {})},'provider:'+task['task_id'])

@@ -90,6 +90,7 @@ class RuntimeTests(unittest.TestCase):
         calls=[]
         def rate_limit(request,command,timeout):
             self.assertEqual(command[-1],'native-free-fixture')
+            self.assertEqual(request['token_allowance'],json.loads((root/'config.json').read_text())['budget']['tokens'])
             calls.append(request['model'])
             raise RuntimeError('synthetic provider rate limit')
         result=run(state,worker=rate_limit,sandbox_probe=lambda:{'available':True})

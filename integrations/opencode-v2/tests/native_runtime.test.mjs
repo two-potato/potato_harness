@@ -97,3 +97,37 @@ test('native fixture accepts host request fields without forwarding workspace or
  assert.deepEqual(calls,[{model:NATIVE_FIXTURE_MODEL,worker:'backend',maxOutput:2048,audit:true,offline:false}]);
  assert.equal(result.usage.cost_usd,0);
 });
+
+test('native idle-only provider errors preserve fixed category and stop without replay',async()=>{
+ for(const [fault,category,roles] of [
+  ['idle_rate','RATE_LIMIT',['valera-ceo']],
+  ['idle_quota','FREE_QUOTA',['valera-ceo']],
+  ['idle_auth','AUTH',['valera-ceo']],
+  ['specialist_idle_rate','RATE_LIMIT',['valera-ceo','backend']],
+  ['failed_idle_with_answer','RATE_LIMIT',['valera-ceo']],
+  ['duplicate_idle','RESPONSE_REJECTED',['valera-ceo']],
+  ['interrupted_idle','RESPONSE_REJECTED',['valera-ceo']]
+ ]){
+  const calls=[],events=[];
+  await assert.rejects(()=>runNativeRuntimeFixture(request,{...opts,
+   launch:o=>launchNativeFixture(o,{fault,onPrompt:r=>calls.push(r)}),onPhase:e=>events.push(e)}),/NATIVE_FIXTURE_HOLD/);
+  assert.deepEqual(calls,roles);
+  assert.ok(events.some(e=>e.phase===(roles.length===1?'valera':'specialist')&&e.status==='error'&&e.reason_code===category));
+  assert.ok(events.some(e=>e.phase==='cleanup'&&e.status==='ok'));
+  assert.ok(!JSON.stringify(events).includes('PRIVATE_PROVIDER_TEXT'));
+ }
+});
+test('native cumulative reported usage prevents second dispatch or proposal when budget is exhausted',async()=>{
+ for(const [limit,roles] of [[19,['valera-ceo']],[21,['valera-ceo']],[39,['valera-ceo','backend']]]){
+  const calls=[];
+  await assert.rejects(()=>runNativeRuntimeFixture({...request,token_allowance:limit},{
+   ...opts,launch:o=>launchNativeFixture(o,{onPrompt:r=>calls.push(r)})
+  }),/NATIVE_FIXTURE_HOLD/);
+  assert.deepEqual(calls,roles);
+ }
+ const p=await runNativeRuntimeFixture({...request,token_allowance:40},opts);
+ assert.deepEqual(p.usage,{input_tokens:20,output_tokens:20,cost_usd:0});
+ for(const token_allowance of [0,1,-1,null,1.5,Number.MAX_SAFE_INTEGER+1]){
+  await assert.rejects(()=>runNativeRuntimeFixture({...request,token_allowance},{...opts,launch:()=>{throw Error('unexpected launch');}}),/NATIVE_TOKEN_ALLOWANCE/);
+ }
+});
