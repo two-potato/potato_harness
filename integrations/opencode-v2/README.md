@@ -66,3 +66,31 @@ Pinned upstream references:
 - https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/session/runner/retry.ts
 - https://github.com/anomalyco/opencode/blob/v2.4.1/packages/plugin/src/promise/session.ts
 - https://opencode.ai/docs/console/api/inference/
+
+## Native CLI server candidate (preflight only)
+
+A separate path starts the installed official OpenCode 2.4.1 CLI via
+`serve --stdio --hostname 127.0.0.1 --port 0`. It uses an owned process,
+random loopback password, clean project/config and stable private OpenCode
+data under `~/.local/state/potato-harness/opencode-free`. The server uses its
+own native signed-out provider; no Console key or user-agent override is
+passed. Normal desktop/CLI credentials are not copied. Do not clear this
+state to reset quotas. Native free usage is subject to provider restrictions.
+
+After installing the locked dependencies, choose a model from the official
+OpenCode catalog and run a no-inference probe:
+
+```sh
+integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-probe.mjs opencode/<available-free-model>
+```
+
+The probe checks the exact CLI/server version, active private plugin, all
+nine deny-only roles, a single enabled native model with explicit zero input,
+output and cache prices, disabled tools and bounded output. It never submits
+a prompt. The plugin contains candidate guards against duplicate dispatch,
+auxiliary generation and retries; unit tests exercise these hooks, but
+their actual CLI execution must be validated before enabling inference.
+The preflight path is not yet a runtime profile and does not replace the
+existing fixture/default config. Do not run the Console profile as part
+of this migration. Full runtime wiring and real-model validation are separate.

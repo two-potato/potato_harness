@@ -10,7 +10,7 @@ test('only native v2 packages, Bun and nine unchanged role prompts',()=>{
  const integration=path.join(ROOT,'integrations/opencode-v2');
  const pkg=JSON.parse(fs.readFileSync(path.join(integration,'package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.join(integration,'package-lock.json'),'utf8'));
- assert.deepEqual(pkg.dependencies,{'@opencode/sdk':'2.4.1',bun:'1.4.4'});
+ assert.deepEqual(pkg.dependencies,{'@opencode/client':'2.4.1','@opencode/sdk':'2.4.1',bun:'1.4.4'});
  assert.equal(lock.packages['node_modules/@opencode/sdk'].version,'2.4.1');
  assert.equal(lock.packages['node_modules/bun'].version,'1.4.4');
  assert.ok(!Object.keys(lock.packages).some(p=>/node_modules\/(?:@opencode-ai\/|oh-my-opencode(?:\/|$)|opencode-ai(?:\/|$))/.test(p)));
