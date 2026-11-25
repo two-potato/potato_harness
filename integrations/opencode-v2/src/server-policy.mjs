@@ -1,6 +1,7 @@
 // Policy for a dedicated official OpenCode CLI server, not the operator's existing server.
 import {candidateConfig} from './contracts.mjs';
 import {ROLES} from './profile.mjs';
+import {auditSequence,auditViolation,readAudit,recordAudit} from './server-audit.mjs';
 
 export const POLICY_ID='potato-harness-native-server';
 export function modelRef(name){
@@ -28,13 +29,40 @@ export function nativeConfig(model,maxOutput,plugin){
  ];
  return config;
 }
+// OpenCode 2.4.1 ModelResolver.withVariant maps exactly 'default' to undefined.
+// https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/model-resolver.ts
+export function isNativeBaseVariant(variant){return variant===undefined||variant==='default';}
+// The local client uses authenticated loopback HTTP (server-process.mjs).
+// Only the upstream model hook sees this request. OpenCode owns routing;
+// no fixed provider URL, endpoint rewrite or custom proxy. These shape checks
+// are NOT independent destination authorization or network containment.
+export function nativeHttpViolation(request){
+ if(!(request instanceof Request))return 'http_request_shape';
+ if(request.method!=='POST')return 'http_method';
+ const url=new URL(request.url);
+ if(url.protocol!=='https:'||url.username||url.password||url.hash)return 'http_destination';
+ const type=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+ if(type!=='application/json'||!request.body||request.bodyUsed)return 'http_payload';
+ return null;
+}
 // Self-contained: the CLI loads this from a private generated directory.
-export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck}){
+export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
- const same=m=>m?.providerID===ref.providerID&&m.id===ref.id&&m.variant===undefined;
+ // Diagnostic labels are fixed; never include an observed identifier or variant.
+ const mismatch=m=>{
+  if(!m||typeof m!=='object'||Array.isArray(m))return 'resolve_model_shape';
+  if(m.providerID!==ref.providerID)return typeof m.providerID!=='string'?'resolve_provider_missing_or_type':'resolve_provider_mismatch';
+  if(m.id!==ref.id)return typeof m.id!=='string'?'resolve_id_missing_or_type':
+   m.id===ref.providerID+'/'+ref.id?'resolve_id_qualified':'resolve_id_mismatch';
+  if(!isNativeBaseVariant(m.variant))return m.variant===null?'resolve_variant_null':
+   m.variant===''?'resolve_variant_empty':
+   typeof m.variant==='string'?'resolve_variant_named':'resolve_variant_type';
+  return null;
+ };
+ const same=m=>mismatch(m)===null;
  const resolved=new Map(),sent=new Set(),http=new Set();
  let admitted=0;
- const allowed=(event)=>same(event.model)&&resolved.get(event.sessionID)===event.agent&&event.kind==='primary';
+ const allowed=(event)=>same(event.model)&&resolved.has(event.sessionID)&&resolved.get(event.sessionID)===event.agent&&event.kind==='primary';
  return {id,async setup(ctx){
   const registrations=[];
   registrations.push(await ctx.agent.transform(editor=>{
@@ -56,16 +84,19 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    if(editor.get(ref.providerID,ref.id))editor.default.set(ref.providerID,ref.id);
   }));
   registrations.push(await ctx.tool.transform(editor=>{for(const t of editor.list())editor.remove(t.id);}));
-  registrations.push(await ctx.permission.hook('evaluate',e=>{e.effect='deny';}));
+  registrations.push(await ctx.permission.hook('evaluate',e=>{e.effect='deny';record('violation:permission');}));
   registrations.push(await ctx.session.hook('title',e=>{e.result='Potato bounded proposal';}));
-  registrations.push(await ctx.session.hook('retry',e=>{e.decision={retry:false};}));
+  registrations.push(await ctx.session.hook('retry',e=>{e.decision={retry:false};record('violation:retry');}));
   registrations.push(await ctx.session.hook('experimental.model.resolve',e=>{
    // Resolution for the title can precede the title hook. Any title HTTP request
    // is still rejected by the model.request/http.request guards below.
    if(e.kind==='title'&&same(e.model))return;
    const role=admitted===0?'valera-ceo':admitted===1?worker:null;
-   if(e.kind!=='primary'||!same(e.model)||e.agent!==role||resolved.has(e.sessionID)){
-    e.model={providerID:'potato-denied',id:'denied'};return;
+   const failure=e.kind!=='primary'?'resolve_kind':mismatch(e.model)??(
+    typeof e.sessionID!=='string'||!e.sessionID?'resolve_session':
+    role===null||e.agent!==role?'resolve_role':resolved.has(e.sessionID)?'resolve_duplicate':null);
+   if(failure){
+    e.model={providerID:'potato-denied',id:'denied'};record('violation:'+failure);return;
    }
    admitted++;resolved.set(e.sessionID,e.agent);
   }));
@@ -73,21 +104,51 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    e.tools={};e.options.maxTokens=Math.min(maxOutput,e.options.maxTokens??maxOutput);
   }));
   registrations.push(await ctx.session.hook('model.request',e=>{
-   if(!allowed(e)||sent.has(e.sessionID))throw Error('MODEL_REQUEST_DENIED');
-   sent.add(e.sessionID);
+   if(!allowed(e)||sent.has(e.sessionID)){record('violation:'+(allowed(e)?'model_duplicate':'model_scope'));throw Error('MODEL_REQUEST_DENIED');}
+   if(offline){record('violation:offline_stop');throw Error('OFFLINE_MODEL_REQUEST_DENIED');}
+   record('model:'+e.agent);sent.add(e.sessionID);
   }));
   registrations.push(await ctx.session.hook('http.request',e=>{
-   if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID))throw Error('HTTP_REQUEST_DENIED');
-   http.add(e.sessionID);
+   if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID)||offline){record('violation:'+(offline?'offline_http':http.has(e.sessionID)?'http_duplicate':'http_scope'));throw Error('HTTP_REQUEST_DENIED');}
+   const failure=nativeHttpViolation(e.request);
+   if(failure){record('violation:'+failure);throw Error('HTTP_REQUEST_DENIED');}
+   record('http:'+e.agent);http.add(e.sessionID);
   }));
-  registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{throw Error('WEBSOCKET_DENIED');}));
+  // Detect a redirect if surfaced by the native transport. This cannot undo
+  // a redirect already followed below the hook; external admission stays closed.
+  registrations.push(await ctx.session.hook('http.response',e=>{
+   if(!allowed(e)||!http.has(e.sessionID)||offline){record('violation:http_response_scope');throw Error('HTTP_RESPONSE_DENIED');}
+   if(!(e.response instanceof Response)){record('violation:http_response_shape');throw Error('HTTP_RESPONSE_DENIED');}
+   if(e.response.redirected||e.response.status>=300&&e.response.status<400){
+    record('violation:http_redirect');throw Error('HTTP_RESPONSE_DENIED');
+   }
+  }));
+  registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{record('violation:websocket');throw Error('WEBSOCKET_DENIED');}));
+  record('ready');
   return async()=>{for(const reg of registrations.reverse())await reg.dispose();};
  }};
 }
-export function pluginSource(config,ref,maxOutput,worker){
+export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false){
  if(!ROLES.includes(worker)||worker==='valera-ceo')throw Error('INVALID_WORKER');
- const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker});
- return 'const isFreeModel='+isFreeModel.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel});\n';
+ const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker,offline});
+ const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+auditViolation.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
+ const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
+ return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst nativeHttpViolation='+nativeHttpViolation.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
+}
+// The native CLI can merge duplicate wildcard denies and browser restrictions.
+// Accept only observed deny-only shapes; unknown rules fail closed.
+function verifyDenyPermissions(rules){
+ if(!Array.isArray(rules)||rules.length===0)return false;
+ let wildcard=false;
+ for(const r of rules){
+  if(!r||typeof r!=='object'||Array.isArray(r)||
+     Object.keys(r).sort().join(',')!=='action,effect,resource'||r.effect!=='deny')return false;
+  if(r.action==='*'&&r.resource==='*'){wildcard=true;continue;}
+  if(r.action==='browser'&&r.resource==='*')continue;
+  if(r.action==='skill'&&r.resource==='browser')continue;
+  return false;
+ }
+ return wildcard;
 }
 export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutput,plugin){
  const entries=plugins?.data,roster=agents?.data,catalog=models?.data;
@@ -97,8 +158,7 @@ export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutpu
     !ROLES.every(r=>roster.some(a=>a.id===r)))return false;
  if(!roster.every(a=>a.model?.providerID===ref.providerID&&a.model?.id===ref.id&&a.model.variant===undefined&&
     a.steps===1&&a.mode===config.agents[a.id].mode&&a.system===config.agents[a.id].system&&
-    Array.isArray(a.permissions)&&a.permissions.length===1&&a.permissions[0].action==='*'&&
-    a.permissions[0].resource==='*'&&a.permissions[0].effect==='deny'))return false;
+    verifyDenyPermissions(a.permissions)))return false;
  const active=Array.isArray(catalog)?catalog.filter(m=>m.enabled):[];
  return active.length===1&&isFreeModel(active[0],ref)&&active[0].limit.output<=maxOutput&&
   active[0].capabilities?.tools===false&&Array.isArray(active[0].variants)&&active[0].variants.length===0;

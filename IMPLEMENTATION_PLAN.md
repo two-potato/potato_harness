@@ -67,3 +67,159 @@ budget-confirmed Console profiles; the legacy executable integration is removed.
 All nine role definitions and the controller's existing security contracts stay
 unchanged. A full OMO integration with v2 remains pending, not emulated by the
 native profile. The earlier trial section is a historical snapshot.
+
+## Native free R2 first increment
+
+Shared native session/proposal flow and explicit synthetic-only runtime fixture
+are implemented in the candidate branch. The existing outbox and budget remain
+host-owned. CI covers contract and fault tests and actual host worker/runtime
+with a synthetic native client and injected sandbox seam; operator Bubblewrap
+verification is separate. Live native-free profile is intentionally rejected
+until R1 live inference, reconciliation and independent security review pass.
+No new provider integration or changes to agent roles.
+
+R2.4a candidate: actual native CLI connection through the trusted worker is
+restricted to an offline diagnostic profile. Its expected outcome is HOLD,
+not a proposal or live admission. Independent containment, prior external
+outcome reconciliation, and live inference are still required.
+
+R2 local-first refinement: native OpenCode owns upstream routing; no custom
+HTTPS proxy or hard-coded cloud endpoint. The private local server remains
+loopback HTTP. Native runtime diagnostic requests reject transport overrides
+and unknown fields before launch. Hook checks are not egress enforcement.
+Live adapter admission, independent review and prior-outcome reconciliation
+remain open; no real model execution is claimed.
+
+R2.5 preparation adds terminal idle failure handling and cumulative reported
+token accounting across coordinator and specialist. This is not live runtime
+admission or a wire-level usage guarantee. Live activation remains HOLD.
+
+R2.5b candidate proposal contract: pinned native model, host-selected model
+consistency, mandatory reservation/deadline and two-stage bounded proposal.
+Synthetic transport tests only; no live CLI binding or activation. Keep the
+explicit HOLD until independent review and real external evidence are available.
+
+## R3.1 — workflow-bound specialist selection
+
+The existing Scheduler now exposes a strict read-only workflow selector using
+schema 3.0.1, exact host-approved task/revision set, workflow/turn/repository
+identity, admitted specialist availability and existing dependency evidence
+checks in one SQLite read snapshot. The single-task trial uses this same path.
+Valera cannot expand task membership or choose unavailable roles; Explore is
+not admitted in this increment. The selector does not create tasks, grant
+rights, dispatch workers, or implement parallel workflow execution. Tests use
+real SQLite and explicit planning-state test guards. Live model admission is
+unchanged and remains HOLD. R3.2 will address durable multi-task dispatch.
+
+## R3.2a — atomic per-task dispatch reservation
+
+Reuse the existing Budget, Outbox and LeaseManager transaction primitives to
+reserve budget and claim the provider effect in one SQLite write transaction,
+with current task revision, row version, specialist and exact-scope lease
+validation. The existing bounded runtime uses the same preparation path.
+No provider call is made by the reservation function. Two independent task
+owners can prepare distinct dispatches in the same database, while duplicate
+claims, stale bindings and transaction failures fail closed. A crash after
+commit but before execution retains DISPATCHING for conservative recovery.
+This is per-task accounting, not an aggregate workflow budget or a complete
+multi-task executor. Multi-task workspace creation, scheduling transitions,
+dependency handoff, aggregate budgets and actual parallel dispatch remain open.
+
+## R3.2b — task-bound private source layouts
+
+Extract the existing pinned raw Git preparation into a host-only workspace
+module. The bounded runtime uses the same primitive. A new task-bound API
+creates a distinct private directory per persisted task/revision/owner/base
+binding, rejects stale or foreign bindings and duplicate preparation, and
+keeps the Git integration checkout separate from the source copy. Both copies
+contain raw tracked blobs, not filtered checkout bytes. The trial limits are
+1 MiB per file, 32 MiB total source and 4096 tracked entries per layout.
+Partial directories remain for inspection. Workspace receipts are descriptive;
+no grants, live dispatch, OS sandbox proof or cross-task artifact handoff are
+provided by preparation. Actual multi-task execution remains open.
+
+## R3.3a — verified dependency context handoff
+
+A host-only reader resolves an explicit path/digest allowlist for one direct
+DAG dependency. It checks same workflow/turn/repository and exact revisions,
+DONE and reconciled producer, full evidence bundle via a trusted collector,
+prior publication lease and target-pin event, private content-addressed object
+bytes and the exact verified Git blob. The result is bounded mandatory
+untrusted context data; the existing compiler performs redaction and context
+budget checks. No direct access to another agent's workspace, automatic merge,
+new grant or task dispatch. The workflow executor and dispatch-time revalidation
+remain to be integrated; independent evidence collection is host-supplied.
+
+## R3.3b — bounded sequential workflow coordinator
+
+Compose the existing Scheduler, task-bound workspace preparation, dependency
+handoff and completed-output verification through an explicitly trusted host
+executor callback. A durable SQLite workflow marker prevents automatic replay
+after HOLD or interruption; only one single target-pin revision per planned
+task is admitted. Every declared output is checked before selecting dependent
+work and again before workflow completion. No production worker binding,
+automatic merge, aggregate workflow budget, authenticated independent evidence
+collector or restart/resume protocol is added. Tests exercise real local Git,
+SQLite, Publisher and dispatch reservations with synthetic guards and executor.
+
+## R3.3c — bounded runtime binding (synthetic only)
+
+A host-only fixture API binds the sequential coordinator to the existing task
+runtime instead of reimplementing its gates. It uses one SQLite database and
+object store, unique task evidence/pin identities, task-specific leases and
+context including verified dependencies. The initial admitted roles are Backend
+and Frontend, LOW/BOUNDED existing-file edits with the configured-tests gate.
+Only an explicit trusted synthetic worker is accepted; the fallback command
+is /usr/bin/false. No live provider mode or public workflow CLI is added.
+Bubblewrap remains the default; tests inject sandbox/worker seams. Evidence
+collection is local deterministic host evidence, not independent QA. Workflow
+outputs remain separate commits with context-only dependency transfer; no
+aggregate budget, recovery/resume or automatic merge is claimed.
+
+## R3.4a — aggregate workflow reservation limits
+
+The existing Budget ledger can be configured by the trusted host before
+first dispatch with an immutable workflow/repository/turn and exact approved
+member revisions, total token/cost ceilings and maximum in-flight provider
+reservations/effects. The same SQLite write transaction checks the aggregate
+and per-task budget before registering a reservation and claiming Outbox.
+Unknown outcomes block new workflow reservations, and a slot is retained
+until both its reservation and effect are reconciled. This is not a cap on
+OS worker lifetime or an upstream wire/billing guarantee. Existing workflows
+without explicit aggregate configuration retain their previous behavior.
+The fixture runtime exercises the configured gate, including stopping the
+second task before its synthetic worker. Process contention tests cover
+atomicity. Actual parallel execution, workflow wall time and mandatory
+aggregate configuration for a future parallel profile remain open.
+
+## R3.4b — bounded parallel fixture dispatcher
+
+The sequential coordinator now shares one batch execution core with an
+explicit parallel fixture entry point (width 2–8). The host must configure
+matching aggregate budget membership and sufficient in-flight slots. Ready
+nodes with overlapping path resources are serialized using the existing lease
+conflict predicate. Persist all admitted task IDs before preparing workspaces;
+prepare and verify dependencies in the coordinator, then run distinct trusted
+callbacks concurrently. Wait for the admitted batch to finish; accept only
+verified outputs and stop on any HOLD. Keep unresolved batch IDs and prohibit
+replay. No new batch after failure; previously admitted callbacks may finish.
+Parallel fixture requires explicit injected sandbox seams: current Bubblewrap
+uses preexec_fn, unsafe from a multithreaded host. Real concurrent sandbox
+launch, workflow-wide wall time, interruption reconciliation, integration/merge
+and live model activation remain open. Tests use a two-worker barrier, real
+Git/SQLite and synthetic proposals/sandbox, not concurrent actual models.
+
+## R3.4c — fresh-process Bubblewrap launcher
+
+Replace the Python fork-time preexec callback with a private isolated
+interpreter invoked by absolute script path, empty environment and no shell.
+The fresh process applies CPU, address space, output file, descriptor and
+core limits without raising inherited soft/hard ceilings, then execs only
+/usr/bin/bwrap. The existing namespace/mount profile is unchanged. Timeout
+and interrupted waits kill the launch process group and reap its leader;
+this does not constitute independent descendant or kernel certification.
+Unit and child-process tests exercise the launcher and limit failures; the
+live concurrent sandbox test requires actual platform support and checks
+separate network namespaces, overlapping payloads, private outputs and
+limits. Keep the existing parallel workflow seam restriction until a live
+E2E run is confirmed. No inference or provider activation.

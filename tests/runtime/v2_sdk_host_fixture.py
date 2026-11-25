@@ -6,10 +6,10 @@ import sys
 import tempfile
 from harness.runtime import init, run, halo
 
-def main():
+def check(adapter):
     with tempfile.TemporaryDirectory() as temp:
         root=Path(temp)/'trial'
-        subprocess.run([sys.executable,'tools/create_trial.py','--directory',str(root),'--adapter','opencode-v2-fixture'],check=True)
+        subprocess.run([sys.executable,'tools/create_trial.py','--directory',str(root),'--adapter',adapter],check=True)
         cfg=json.loads((root/'config.json').read_text())
         state=root/'state'
         init(cfg,state)
@@ -21,9 +21,13 @@ def main():
         assert result['grant']['status']=='REVOKED'
         assert halo(state)['status']=='HOLD'
         output=json.loads((root/'result/result.json').read_text())
-        assert output['adapter']=='opencode-v2-fixture' and output['provider_mode']=='synthetic'
+        assert output['adapter']==adapter and output['provider_mode']=='synthetic'
         assert (root/'repo/calculation.py').read_text().endswith('unit_cents + quantity\n')
         assert (state/'workspace/calculation.py').read_text().endswith('unit_cents * quantity\n')
-        print(json.dumps({'status':'PASS','layer':'actual-v2-worker-runtime','synthetic_provider':True,'sandbox':'injected-seam'}))
+        print(json.dumps({'status':'PASS','layer':'actual-v2-worker-runtime','adapter':adapter,'synthetic_provider':True,'sandbox':'injected-seam'}))
+
+def main():
+    check('opencode-v2-fixture')
+    check('opencode-v2-native-free-fixture')
 
 if __name__=='__main__':main()

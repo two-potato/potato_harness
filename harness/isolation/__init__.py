@@ -6,10 +6,6 @@ sandbox certification or an atomic filesystem/lease boundary.
 import math
 import os
 from pathlib import Path
-try:
-    import resource
-except ImportError:  # Non-POSIX hosts must still be able to report unavailable.
-    resource = None
 import signal
 import stat
 import subprocess
@@ -27,33 +23,34 @@ class SandboxUnavailable(RuntimeError):
     """The required isolation profile cannot be established; no fallback allowed."""
 
 
-def _limits(timeout):
-    def apply():
-        resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
-        cpu = max(1, math.ceil(timeout))
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 1))
-        resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT, MEMORY_LIMIT))
-        resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    return apply
-
-
 def _execute(argv, timeout):
-    # Temporary regular files avoid unbounded PIPE capture and blocked pipe readers.
+    # Only trusted host code constructs the Bubblewrap command. Resource
+    # limits are installed in a fresh isolated interpreter, not preexec_fn:
+    # fork-time Python callbacks can deadlock in a multithreaded host.
+    if (type(argv) is not list or len(argv)<2 or argv[0]!=BWRAP or
+            BWRAP!='/usr/bin/bwrap' or any(type(arg) is not str or '\0' in arg for arg in argv)):
+        raise ValueError('Only the fixed Bubblewrap executable is admitted')
+    if type(timeout) not in (int,float) or not math.isfinite(timeout) or not 0<timeout<=120:
+        raise ValueError('Invalid sandbox timeout')
+    helper=Path(__file__).resolve().with_name('_launcher.py')
+    command=[sys.executable,'-I','-S',str(helper),str(max(1,math.ceil(timeout))),'--',*argv[1:]]
+    # Regular files avoid unbounded PIPE capture and blocked pipe readers.
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-        process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
                                    shell=False, close_fds=True, start_new_session=True,
-                                   env={}, cwd='/', preexec_fn=_limits(timeout))
+                                   env={}, cwd='/')
         timed_out = False
         try:
             process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        except BaseException as error:
+            timed_out=isinstance(error,subprocess.TimeoutExpired)
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             process.wait()
+            if not timed_out:
+                raise
         stdout.seek(0)
         stderr.seek(0)
         return {'returncode': process.returncode,

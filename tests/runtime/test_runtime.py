@@ -71,6 +71,74 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError): _config(dict(live,adapter='opencode-v1'))
         with self.assertRaises(ValueError): _config(base)
 
+    def test_native_free_fixture_profile_and_live_gate(self):
+        from harness.runtime import _config, _worker_command
+        base={k:v for k,v in self.config.items() if k!='worker_command'}
+        cfg=dict(base,adapter='opencode-v2-native-free-fixture',model='opencode/potato-runtime-fixture-free',
+                 scope=['calculation.py'],objective='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.')
+        self.assertEqual(_worker_command(_config(cfg))[-1],'native-free-fixture')
+        for patch in (dict(adapter='opencode-v2-native-free'),dict(model='opencode/beam-free'),
+                      dict(provider_budget_confirmed=True),dict(jev_provider='opencode'),dict(scope=['other.py'])):
+            with self.assertRaises(ValueError): _config(dict(cfg,**patch))
+        with self.assertRaisesRegex(ValueError,'live activation HOLD'):
+            _config(dict(cfg,adapter='opencode-v2-native-free',model='opencode/beam-free'))
+        with self.assertRaises(KeyError): _worker_command(dict(cfg,adapter='opencode-v2-native-free'))
+
+    def test_native_fixture_uncertainty_retains_outbox_and_never_replays(self):
+        import sqlite3
+        root=self.root/'native-trial'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),'--adapter','opencode-v2-native-free-fixture'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        calls=[]
+        def rate_limit(request,command,timeout):
+            self.assertEqual(command[-1],'native-free-fixture')
+            self.assertEqual(request['token_allowance'],json.loads((root/'config.json').read_text())['budget']['tokens'])
+            calls.append(request['model'])
+            raise RuntimeError('synthetic provider rate limit')
+        result=run(state,worker=rate_limit,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertEqual(result['provider_mode'],'synthetic')
+        self.assertEqual(len(result['unresolved_effects']),1)
+        self.assertEqual(result['grant']['status'],'REVOKED')
+        self.assertEqual((state/'workspace/calculation.py').read_text().splitlines()[-1],'    return unit_cents + quantity')
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchone()[0],'UNKNOWN')
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations WHERE settlement IS NULL').fetchone()[0],1)
+        self.assertEqual(recover(state)['state'],'HOLD')
+        with self.assertRaises(ValueError):run(state,worker=rate_limit)
+        self.assertEqual(calls,['opencode/potato-runtime-fixture-free'])
+        self.assertEqual(halo(state)['status'],'HOLD')
+
+    def test_native_offline_guard_and_no_publication(self):
+        from unittest.mock import patch
+        from harness.runtime import _config, _worker_command
+        for isolated in (False, True):
+            root=self.root/('offline-'+str(isolated))
+            subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),'--adapter','opencode-v2-native-free-offline','--model','opencode/beam-free'],check=True)
+            cfg=json.loads((root/'config.json').read_text())
+            self.assertEqual(_worker_command(_config(cfg))[-1],'native-free-offline')
+            for change in (dict(adapter='opencode-v2-native-free'),dict(model='opencode/paid'),
+                           dict(model='opencode/potato-runtime-fixture-free'),dict(provider_budget_confirmed=True)):
+                with self.assertRaises(ValueError):_config(dict(cfg,**change))
+            state=root/'state';init(cfg,state)
+            calls=[]
+            def worker(*args):
+                calls.append(1)
+                return {'edits':[{'path':'calculation.py','content':'unexpected'}],'summary':'unexpected','usage':{'input_tokens':1,'output_tokens':1,'cost_usd':0}}
+            with patch('harness.runtime.require_offline_network',side_effect=None if isolated else ValueError('Offline network namespace required')):
+                result=run(state,worker=worker,sandbox_probe=lambda:{'available':True})
+            self.assertEqual(result['state'],'HOLD')
+            self.assertEqual(result['provider_mode'],'offline')
+            self.assertEqual(len(calls),int(isolated))
+            self.assertEqual(len(result['unresolved_effects']),int(isolated))
+            import sqlite3
+            with sqlite3.connect(state/'state.db') as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],int(isolated))
+            self.assertFalse((state/'result.json').exists())
+            self.assertIn('unit_cents + quantity',(state/'workspace/calculation.py').read_text())
+            self.assertEqual(halo(state)['status'],'HOLD')
+            if isolated:self.assertEqual(result['grant']['status'],'REVOKED')
+
     def test_old_initialized_state_cannot_dispatch_after_upgrade(self):
         config=json.loads((self.state/'config.json').read_text())
         config.pop('worker_command')
