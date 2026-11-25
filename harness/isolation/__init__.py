@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from time import monotonic
 
 BWRAP = '/usr/bin/bwrap'
 OUTPUT_LIMIT = 1024 * 1024
@@ -130,11 +131,15 @@ def _arguments(argv, timeout):
 def run_private(workspace: Path, argv: list[str], timeout=10) -> dict:
     """Run direct argv inside the verified profile or raise; never execute on host."""
     _arguments(argv, timeout)
+    deadline = monotonic() + timeout
     workspace = _workspace(workspace)
     status = probe()
     if not status['available']:
         raise SandboxUnavailable(status['reason'])
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        raise SandboxUnavailable('Sandbox deadline exhausted before payload launch')
     try:
-        return _execute(_command(workspace, argv), timeout)
+        return _execute(_command(workspace, argv), remaining)
     except (OSError, subprocess.SubprocessError) as exc:
         raise SandboxUnavailable('Bubblewrap launch failed: ' + str(exc)) from exc

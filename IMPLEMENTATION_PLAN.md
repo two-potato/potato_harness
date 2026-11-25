@@ -235,3 +235,19 @@ two overlapping sandbox payloads, distinct network namespaces, task-local
 pinned inputs and persisted completion/evidence. CI requires the real backend
 rather than accepting a skipped test. Live provider activation, workflow-wide
 deadlines, interruption reconciliation and merge remain separate gates.
+
+## R4.1 — cooperative workflow deadline
+
+One host-owned monotonic deadline (default 300 seconds, explicit finite
+limit up to 3600) covers fixture configuration, scheduling, preparation,
+dispatch, bounded task work and workflow acceptance. Each task retains its
+own stricter budget; the worker and sandbox receive the smaller remaining
+allowance. Sandbox preparation/probe time consumes its payload allowance.
+Persist the declared duration, UTC start and observed expiry with the workflow
+marker. On expiry return HOLD/WORKFLOW_DEADLINE, preserve the outstanding batch
+and never schedule a new callback or accept a late result. Reconcile returned
+provider usage before rejecting late proposals; preserve uncertain effects.
+No hard thread cancellation, bound on blocking host IO/cleanup, or automatic
+recovery is claimed. Already-persisted side effects are not rolled back.
+R4.2 must reconcile persisted tasks, reservations, effects and leases before
+any recovery decision. No live inference or new provider admission.

@@ -105,6 +105,19 @@ class IsolationTests(unittest.TestCase):
                 self.assertEqual(execute.call_count, 1)
             self.assertEqual(check.call_count, 2)
 
+    def test_probe_consumes_payload_timeout(self):
+        with patch('harness.isolation.monotonic',side_effect=[10.,12.]):
+            with patch('harness.isolation.probe',return_value={'available':True}):
+                with patch('harness.isolation._execute',return_value={'returncode':0}) as execute:
+                    run_private(self.workspace,['/usr/bin/true'],timeout=5)
+                    self.assertEqual(execute.call_args.args[1],3.)
+        with patch('harness.isolation.monotonic',side_effect=[10.,15.]):
+            with patch('harness.isolation.probe',return_value={'available':True}):
+                with patch('harness.isolation._execute') as execute:
+                    with self.assertRaises(SandboxUnavailable):
+                        run_private(self.workspace,['/usr/bin/true'],timeout=5)
+                    execute.assert_not_called()
+
     def test_timeout_kills_process_group_then_waits(self):
         from harness.isolation import _execute
         process = Mock(pid=12345, returncode=-9)

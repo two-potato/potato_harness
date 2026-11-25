@@ -12,7 +12,7 @@ from threading import Lock
 from harness.controller import Controller, ControllerError
 from harness.isolation.backend import BubblewrapBackend
 from harness.runtime import _config, _lock, _run, _write
-from harness.runtime.workflow import run_sequential_workflow, run_parallel_workflow
+from harness.runtime.workflow import WorkflowDeadline, run_sequential_workflow, run_parallel_workflow
 from harness.verifier import TrustedEvidence
 
 CHECKS=['relevant_checks','basic_review','acceptance_coverage']
@@ -20,13 +20,15 @@ CHECKS=['relevant_checks','basic_review','acceptance_coverage']
 
 def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
                          approved_revisions,available_owners,repo,workspace_root,
-                         object_store,test_argv_by_task,worker,sandbox_probe=None,sandbox_run=None,max_parallel=1):
+                         object_store,test_argv_by_task,worker,sandbox_probe=None,sandbox_run=None,max_parallel=1,
+                         workflow_wall_time_s=300):
     """Bind one fresh sequential workflow to the real host pipeline.
 
     This fixture API accepts no external provider configuration. Every task is
     LOW/BOUNDED, uses the existing configured-tests gate and must publish exactly
     its own scope. The trusted callback substitutes only the proposal source.
     """
+    deadline=WorkflowDeadline(workflow_wall_time_s)
     if (not callable(worker) or type(approved_revisions) is not dict or
             type(test_argv_by_task) is not dict or set(test_argv_by_task)!=set(approved_revisions)):
         raise ControllerError('Explicit fixture worker and task test commands required')
@@ -77,6 +79,7 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
     evidence_lock=Lock()
 
     def execute(task,layout,segments):
+        deadline.remaining()
         key=task['task_id']
         if task!=initial[key]:
             raise ControllerError('Task changed since fixture configuration')
@@ -91,7 +94,8 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
                 'trace':[],'lease_id':None,'grant':None,'provider_mode':'synthetic'})
         with _lock(state):
             result=_run(state,worker,probe,sandbox,workflow_binding={
-                'database':database,'layout':layout,'task':task,'segments':segments,'object_store':store})
+                'database':database,'layout':layout,'task':task,'segments':segments,'object_store':store,
+                'deadline':deadline})
         if result['state']!='DONE' or result['task_status']!='DONE':
             raise ControllerError('Bounded runtime did not complete task')
         # The actual task runtime produced and verified these records. Resolve
@@ -113,5 +117,5 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
     result=coordinator(database,**width,dag=dag,workflow_id=workflow_id,user_turn_id=user_turn_id,
             repository_id=repository_id,approved_revisions=approved_revisions,available_owners=available_owners,
             repo=repo,workspace_root=root,object_store=store,output_paths=output_paths,
-            collector=attestations.__getitem__,trusted_issuers=frozenset({'trial-host'}),execute=execute)
+            collector=attestations.__getitem__,trusted_issuers=frozenset({'trial-host'}),execute=execute,deadline=deadline)
     return {**result,'provider_mode':'synthetic'}

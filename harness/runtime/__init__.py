@@ -256,13 +256,18 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
     outbox=Outbox(database);budget=Budget(database);leases=LeaseManager(database)
     workspace=state/'workspace';grant=None;effect=None;claimed=False;provider_returned=False
     deadline=time.monotonic()+config['budget']['wall_time_s']
+    workflow_deadline=None if workflow_binding is None else workflow_binding.get('deadline')
     def remaining():
         value=min(80,deadline-time.monotonic())
+        if workflow_deadline is not None:
+            value=min(value,workflow_deadline.remaining())
         if value<=0:raise ValueError('Hard wall time exhausted')
         return value
     def save():_write(state/'run.json',run)
     def move(target,reference=None):
         nonlocal task
+        if workflow_deadline is not None and target!='BLOCKED':
+            remaining()
         task=controller.transition(task['task_id'],task['row_version'],Event(uuid.uuid4().hex,uuid.uuid4().hex,target,reference=reference))
         run['trace'].append({'state':target,'revision':task['revision'],'row_version':task['row_version']});save()
     def cleanup():
@@ -273,11 +278,13 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         save()
     try:
         run['state']='RUNNING';save()
+        if workflow_deadline is not None:remaining()
         if config.get('adapter')=='opencode-v2-native-free-offline':require_offline_network()
         isolation=sandbox_probe();run['sandbox']=isolation;save()
         if isolation.get('available') is not True:raise RuntimeError('Sandbox unavailable: '+str(isolation.get('reason')))
         if config.get('adapter')=='opencode-v2-console' and not os.environ.get('OPENCODE_API_KEY'):
             raise ValueError('Console API key missing before dispatch')
+        if workflow_deadline is not None:remaining()
         jev=Jev(database,provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
         guard.ready=True
         if workflow_binding is None:
@@ -297,6 +304,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         run['grant']=grant;save()
         context={k:grant[k] for k in ('task_id','task_revision','agent_id','worker_session_id','workspace_id','policy_digest','fencing_token')};context['workspace_root']=str(workspace)
         def allowed(action,path):
+            if workflow_deadline is not None:remaining()
             leases.validate(lease['lease_id'],task['task_id'],task['revision'],session,workspace_id)
             authorize(grant['grant_id'],{'action':action,'path':path},context,lambda _:deepcopy(grant),lambda:datetime.now(timezone.utc))
         segments=[{'name':'task-contract','text':_json({'objective':config['objective'],'scope':config['scope'],'required_output':{'edits':[{'path':'exact scoped path','content':'replacement UTF-8 text'}],'summary':'brief explanation'}}),'mandatory':True,'trust':'untrusted'}]
@@ -319,6 +327,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
             request['token_allowance']=config['budget']['tokens']
         if config.get('adapter')=='opencode-v2-console':
             request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
+        if workflow_deadline is not None:remaining()
         dispatch=reserve_provider_dispatch(database,task_id=task['task_id'],
             revision=task['revision'],row_version=task['row_version'],owner=task['owner'],
             lease_id=lease['lease_id'],session=session,workspace=workspace_id,
@@ -355,14 +364,17 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         integration=state/'integration-repo'
         # Bypass attribute clean filters: the committed blobs are exactly tested bytes.
         for path in sorted(after):
+            if workflow_deadline is not None:remaining()
             _safe_edit(integration,path,(workspace/path).read_bytes())
             blob=_git(integration,'hash-object','-w','--no-filters','--',path)
             mode='100755' if (workspace/path).stat().st_mode & 0o111 else '100644'
             _git(integration,'update-index','--add','--cacheinfo',mode,blob,path)
         tree=_git(integration,'write-tree')
         target=_git(integration,'-c','user.name=Potato Trial Host','-c','user.email=trial@localhost.invalid','commit-tree',tree,'-p',config['base_sha'],'-m','Bounded trial candidate')
+        if workflow_deadline is not None:remaining()
         _git(integration,'update-ref','HEAD',target)
         cleanup();guard.artifact=True
+        if workflow_deadline is not None:remaining()
         task=controller.pin_target(task['task_id'],task['row_version'],{'hash_algorithm':'sha1' if len(target)==40 else 'sha256','value':target},event_id='pin' if workflow_binding is None else task['task_id']+':pin',idempotency_key='pin' if workflow_binding is None else task['task_id']+':pin')
         lease=leases.acquire(task['task_id'],task['row_version'],session,workspace_id,[{'kind':'path','key':p} for p in config['scope']]);run['lease_id']=lease['lease_id'];save()
         # Validation capability is fresh for the pinned revision and cannot edit.
