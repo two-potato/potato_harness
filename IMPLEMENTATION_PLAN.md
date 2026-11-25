@@ -110,3 +110,17 @@ not admitted in this increment. The selector does not create tasks, grant
 rights, dispatch workers, or implement parallel workflow execution. Tests use
 real SQLite and explicit planning-state test guards. Live model admission is
 unchanged and remains HOLD. R3.2 will address durable multi-task dispatch.
+
+## R3.2a — atomic per-task dispatch reservation
+
+Reuse the existing Budget, Outbox and LeaseManager transaction primitives to
+reserve budget and claim the provider effect in one SQLite write transaction,
+with current task revision, row version, specialist and exact-scope lease
+validation. The existing bounded runtime uses the same preparation path.
+No provider call is made by the reservation function. Two independent task
+owners can prepare distinct dispatches in the same database, while duplicate
+claims, stale bindings and transaction failures fail closed. A crash after
+commit but before execution retains DISPATCHING for conservative recovery.
+This is per-task accounting, not an aggregate workflow budget or a complete
+multi-task executor. Multi-task workspace creation, scheduling transitions,
+dependency handoff, aggregate budgets and actual parallel dispatch remain open.

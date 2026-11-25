@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.2a: atomically reserve a provider budget and claim its Outbox effect
+  under the existing current task and lease bindings; use this in the
+  bounded runtime and test multiple task owners and process contention.
+
 - R3.1: add workflow-bound, revision-checked specialist ready selection
   using the existing DAG schema and SQLite scheduler. Route the bounded
   runtime through it; keep selection separate from authorization/dispatch.

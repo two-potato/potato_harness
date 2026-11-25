@@ -18,6 +18,7 @@ import uuid
 from harness.controller import Controller,Event,initialize,ROOT,_json
 from harness.budget import Budget
 from harness.runtime.offline_network import require_offline_network
+from harness.runtime.dispatch import reserve_provider_dispatch
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
 from harness.scheduler import Scheduler
@@ -318,7 +319,6 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         input_ceiling=len(prompt.encode('utf-8'))
         if input_ceiling>=config['budget']['tokens']:raise ValueError('Mandatory prompt byte ceiling exceeds finite token reservation; increase budget')
         run['context']={'digest':pack['content_hash'],'role_prompt_hash':pack['role_prompt_hash'],'policy_digest':pack['policy_digest'],'input_utf8_bytes':input_ceiling,'count_method':'conservative UTF-8 byte ceiling; not exact model tokens','output_token_allowance':min(4096,config['budget']['tokens']-input_ceiling)};save()
-        attempt='provider-'+task['task_id'];budget.reserve(task['task_id'],config['budget']['tokens'],config['budget']['estimate_cost_usd'],attempt)
         provider_project=state/'provider-project';provider_project.mkdir(mode=0o700)
         command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
@@ -327,10 +327,13 @@ def _run(state,worker,sandbox_probe,sandbox_run):
             request['token_allowance']=config['budget']['tokens']
         if config.get('adapter')=='opencode-v2-console':
             request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
-        effect=outbox.reserve(task['task_id'],task['revision'],{'kind':'provider-proposal','model':config['model'],'context_digest':run['context']['digest'],**({'adapter':config['adapter']} if 'adapter' in config else {})},'provider:'+task['task_id'])
+        dispatch=reserve_provider_dispatch(state/'state.db',task_id=task['task_id'],
+            revision=task['revision'],row_version=task['row_version'],owner=task['owner'],
+            lease_id=lease['lease_id'],session=session,workspace='trial-workspace',
+            model=config['model'],context_digest=run['context']['digest'],
+            tokens=config['budget']['tokens'],cost=config['budget']['estimate_cost_usd'],adapter=config.get('adapter'))
+        effect=dispatch['effect_id'];attempt=dispatch['attempt_id'];claimed=True
         run['effect_id']=effect;run['attempt_id']=attempt;save()
-        claimed=outbox.claim(effect)
-        if not claimed:raise RuntimeError('Effect already claimed; reconcile external outcome')
         response=worker(request,command,remaining())
         if config.get('adapter')=='opencode-v2-native-free-offline':raise RuntimeError('Offline diagnostic cannot return a proposal')
         provider_returned=True

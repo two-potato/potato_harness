@@ -33,25 +33,28 @@ class Budget:
             db.execute('INSERT INTO budgets(budget_id,task_id,revision,used_cost,budget_json) VALUES(?,?,?,0,?)',(record['budget_id'],task_id,task['revision'],_json(record)))
 
     def reserve(self,task_id,tokens,cost_usd,attempt_id):
-        _amount(tokens,True);_amount(cost_usd);_text(attempt_id)
         with self.controller._connection(write=True) as db:
-            task=self.controller._read(db,task_id)
-            row=db.execute('SELECT * FROM budgets WHERE budget_id=?',(task['budget_id'],)).fetchone()
-            if not row or row['revision']!=task['revision'] or task['status'] in ('DONE','CANCELLED'):raise ControllerError('No current budget')
-            prior=db.execute('SELECT * FROM budget_reservations WHERE attempt_id=?',(attempt_id,)).fetchone()
-            receipt={'attempt_id':attempt_id,'budget_id':row['budget_id'],'tokens':tokens,'cost_usd':cost_usd}
-            if prior:
-                if (prior['budget_id'],prior['tokens'],prior['cost'])!=(row['budget_id'],tokens,cost_usd):raise ControllerError('Reservation identity substituted')
-                return receipt
-            record=json.loads(row['budget_json'])
-            clock=db.execute('SELECT started FROM budget_clocks WHERE budget_id=?',(row['budget_id'],)).fetchone()
-            active=db.execute('SELECT count(*) FROM budget_reservations WHERE budget_id=? AND settlement IS NULL',(row['budget_id'],)).fetchone()[0]
-            if record['status']!='ACTIVE' or (clock and time.time()-clock[0]>=record['wall_time_s_hard']) or active>=record['max_parallel_workers'] or row['used_tokens']+row['reserved_tokens']+tokens>record['token_hard'] or row['used_cost']+row['reserved_cost']+cost_usd>record['cost_usd_hard']:
-                raise ControllerError('Budget cannot authorize reservation')
-            db.execute('INSERT OR IGNORE INTO budget_clocks VALUES(?,?)',(row['budget_id'],time.time()))
-            db.execute('INSERT INTO budget_reservations VALUES(?,?,?,?,NULL)',(attempt_id,row['budget_id'],tokens,cost_usd))
-            db.execute('UPDATE budgets SET reserved_tokens=reserved_tokens+?,reserved_cost=reserved_cost+?,row_version=row_version+1 WHERE budget_id=?',(tokens,cost_usd,row['budget_id']))
+            return self._reserve(db,task_id,tokens,cost_usd,attempt_id)
+
+    def _reserve(self,db,task_id,tokens,cost_usd,attempt_id):
+        _amount(tokens,True);_amount(cost_usd);_text(attempt_id)
+        task=self.controller._read(db,task_id)
+        row=db.execute('SELECT * FROM budgets WHERE budget_id=?',(task['budget_id'],)).fetchone()
+        if not row or row['revision']!=task['revision'] or task['status'] in ('DONE','CANCELLED'):raise ControllerError('No current budget')
+        prior=db.execute('SELECT * FROM budget_reservations WHERE attempt_id=?',(attempt_id,)).fetchone()
+        receipt={'attempt_id':attempt_id,'budget_id':row['budget_id'],'tokens':tokens,'cost_usd':cost_usd}
+        if prior:
+            if (prior['budget_id'],prior['tokens'],prior['cost'])!=(row['budget_id'],tokens,cost_usd):raise ControllerError('Reservation identity substituted')
             return receipt
+        record=json.loads(row['budget_json'])
+        clock=db.execute('SELECT started FROM budget_clocks WHERE budget_id=?',(row['budget_id'],)).fetchone()
+        active=db.execute('SELECT count(*) FROM budget_reservations WHERE budget_id=? AND settlement IS NULL',(row['budget_id'],)).fetchone()[0]
+        if record['status']!='ACTIVE' or (clock and time.time()-clock[0]>=record['wall_time_s_hard']) or active>=record['max_parallel_workers'] or row['used_tokens']+row['reserved_tokens']+tokens>record['token_hard'] or row['used_cost']+row['reserved_cost']+cost_usd>record['cost_usd_hard']:
+            raise ControllerError('Budget cannot authorize reservation')
+        db.execute('INSERT OR IGNORE INTO budget_clocks VALUES(?,?)',(row['budget_id'],time.time()))
+        db.execute('INSERT INTO budget_reservations VALUES(?,?,?,?,NULL)',(attempt_id,row['budget_id'],tokens,cost_usd))
+        db.execute('UPDATE budgets SET reserved_tokens=reserved_tokens+?,reserved_cost=reserved_cost+?,row_version=row_version+1 WHERE budget_id=?',(tokens,cost_usd,row['budget_id']))
+        return receipt
 
     def settle(self,attempt_id,used_tokens,used_cost):
         _amount(used_tokens,True);_amount(used_cost)
