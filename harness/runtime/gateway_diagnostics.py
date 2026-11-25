@@ -12,11 +12,11 @@ STATUSES = frozenset({'start', 'ok', 'error'})
 MAX_STDERR_TAIL = 65536
 MAX_EVENTS = 64
 VALERA_STEPS = frozenset({'unknown', 'coordination', 'session', 'prompt', 'close', 'response', 'json', 'assignment'})
-VALERA_CODES = frozenset({'STEP_FAILED', 'DEADLINE', 'ABORTED', 'AUTH', 'RATE_LIMIT', 'RESPONSE_REJECTED', 'INVALID_JSON', 'INVALID_ASSIGNMENT'})
+VALERA_CODES = frozenset({'STEP_FAILED', 'DEADLINE', 'ABORTED', 'AUTH', 'RATE_LIMIT', 'RESPONSE_REJECTED', 'INVALID_JSON', 'INVALID_ASSIGNMENT', 'FREE_QUOTA', 'PROVIDER_UNAVAILABLE', 'RETRY_BLOCKED', 'MONITOR_FAILED'})
 
 
 def safe_gateway_event(event):
-    """Accept legacy events or exact allowlisted Valera error metadata."""
+    """Accept legacy events or exact allowlisted model-stage error metadata."""
     basic = {'phase', 'status', 'elapsed_ms'}
     if type(event) is not dict or set(event) not in (basic, basic | {'step', 'reason_code'}):
         return None
@@ -30,7 +30,7 @@ def safe_gateway_event(event):
     result = {'phase': phase, 'status': status, 'elapsed_ms': elapsed}
     if set(event) != basic:
         step, code = event['step'], event['reason_code']
-        if phase != 'valera' or status != 'error':
+        if phase not in ('valera', 'specialist') or status != 'error':
             return None
         if type(step) is not str or step not in VALERA_STEPS:
             return None

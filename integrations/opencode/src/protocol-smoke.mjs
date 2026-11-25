@@ -1,13 +1,17 @@
 // Real OpenCode+OMO with local provider fixture. No external model/key.
 import {createServer} from 'node:http';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import assert from 'node:assert/strict';
 import {createOpencodeServer,createOpencodeClient} from '@opencode-ai/sdk';import {prepareProject} from './profile.mjs';
-const temp=fs.mkdtempSync(path.join(os.tmpdir(),'potato-provider-smoke-'));let server;let count=0;let invalidPlan=false;
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'potato-provider-smoke-'));let server;let count=0;let invalidPlan=false;let rejectStatus=0;
 const fixture=createServer(async(req,res)=>{
  let input='';for await(const chunk of req)input+=chunk;
  if(req.url?.endsWith('/chat/completions')){
   count++;const body=JSON.parse(input);assert.ok(body.messages.some(m=>m.role==='user'));assert.ok((body.max_tokens??body.max_completion_tokens)<=64);
   const lastUser=JSON.stringify(body.messages.filter(m=>m.role==='user').at(-1)?.content);
   const isPlan=lastUser.includes('fixture JSON coordination')||lastUser.includes('approved_owner');
+  if(rejectStatus&&(rejectStatus!==503||!isPlan)){
+   res.writeHead(rejectStatus,{'Content-Type':'application/json','Retry-After':'5'});
+   res.end(JSON.stringify({error:{message:rejectStatus===429?'FreeUsageLimitError':rejectStatus===503?'503 service unavailable':'Unauthorized',type:rejectStatus===429?'RateLimit.FreeUsageLimitError':'fixture_error',code:'fixture_error'}}));return;
+  }
   const content=isPlan&&invalidPlan?'not-json':JSON.stringify(isPlan?{owner:'backend',reason:'fixture routing'}:{edits:[{path:'example.py',content:'result = 42\n'}],summary:'fixture proposal'});
   if(body.stream){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write('data: '+JSON.stringify({id:'fixture',object:'chat.completion.chunk',created:1,model:'fixture',choices:[{index:0,delta:{role:'assistant',content},finish_reason:null}]})+'\n\n');res.write('data: '+JSON.stringify({id:'fixture',object:'chat.completion.chunk',created:1,model:'fixture',choices:[{index:0,delta:{},finish_reason:'stop'}],usage:{prompt_tokens:10,completion_tokens:10,total_tokens:20}})+'\n\n');res.end('data: [DONE]\n\n');}
   else{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({id:'fixture',object:'chat.completion',created:1,model:'fixture',choices:[{index:0,message:{role:'assistant',content},finish_reason:'stop'}],usage:{prompt_tokens:10,completion_tokens:10,total_tokens:20}}));}
@@ -56,5 +60,17 @@ try{
  assert.equal(await bad.exited,2);assert.equal(badOutput,'');assert.equal(count,5);
  assert.match(badError,/"phase":"valera","status":"error","elapsed_ms":\d+,"step":"json","reason_code":"INVALID_JSON"/);
  assert.doesNotMatch(badError,/"phase":"specialist"/);assert.doesNotMatch(badError,/not-json/);
+ invalidPlan=false;
+ for(const [status,phase,code,requests] of [[429,'valera','FREE_QUOTA',1],[401,'valera','AUTH',1],[503,'specialist','PROVIDER_UNAVAILABLE',2]]){
+  rejectStatus=status;const before=count;
+  const rejected=Bun.spawn([process.execPath,workerPath],{env:{PATH:process.env.PATH,POTATO_PROVIDER_FIXTURE_URL:`http://127.0.0.1:${fixture.address().port}/v1`},stdin:'pipe',stdout:'pipe',stderr:'pipe'});
+  rejected.stdin.write(JSON.stringify({role:'backend',model:'fixture/test',prompt:'Return fixture JSON proposal.',output_token_allowance:128,coordination:{objective:'Fixture repair',scope:['example.py']}}));rejected.stdin.end();
+  const [output,errors]=await Promise.all([new Response(rejected.stdout).text(),new Response(rejected.stderr).text()]);
+  assert.equal(await rejected.exited,2);assert.equal(output,'');
+  assert.equal(count-before,requests,'unexpected provider replay for '+status);
+  assert.match(errors,new RegExp('"phase":"'+phase+'","status":"error","elapsed_ms":\\d+,"step":"(?:prompt|response)","reason_code":"'+code+'"'));
+  if(phase==='valera')assert.doesNotMatch(errors,/"phase":"specialist"/);
+  assert.doesNotMatch(errors,/FreeUsageLimitError|fixture_error|Unauthorized/);
+ }
  console.log(JSON.stringify({status:'PASS',layer:'real-opencode-omo-local-provider-fixture',provider_requests:count,proposal,live_inference:false}));
 }finally{server?.close();await new Promise(r=>fixture.close(r));fs.rmSync(temp,{recursive:true,force:true});}

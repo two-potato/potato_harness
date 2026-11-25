@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Stop on the first observed OpenCode session retry, request bounded abort,
+  and retain allowlisted provider failure categories for both model stages.
+  Added mocked retry tests and real SDK local HTTP rejection fixtures.
+
 - Fixed direct trial diagnostics CLI imports and added subprocess coverage.
 - Added allowlisted Valera failure step/reason metadata, typed bridge deadlines,
   and negative fixture coverage; no raw provider errors or automatic replay.

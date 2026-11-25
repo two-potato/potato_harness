@@ -8,6 +8,7 @@ test('fixed deadline and SDK status categories never include raw text',()=>{
  assert.deepEqual(valeraFailure('prompt',{name:'AbortError',message:secret}),{step:'prompt',reason_code:'ABORTED'});
  assert.deepEqual(valeraFailure('response',{data:{statusCode:401,message:secret}}),{step:'response',reason_code:'AUTH'});
  assert.deepEqual(valeraFailure('response',{data:{statusCode:429,message:secret}}),{step:'response',reason_code:'RATE_LIMIT'});
+ assert.deepEqual(valeraFailure('response',{data:{statusCode:503,message:secret}}),{step:'response',reason_code:'PROVIDER_UNAVAILABLE'});
  assert.deepEqual(valeraFailure('prompt',Error(secret)),{step:'prompt',reason_code:'STEP_FAILED'});
  assert.deepEqual(valeraFailure('json',SyntaxError(secret)),{step:'json',reason_code:'INVALID_JSON'});
  assert.deepEqual(valeraFailure('assignment',Error(secret)),{step:'assignment',reason_code:'INVALID_ASSIGNMENT'});
