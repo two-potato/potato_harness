@@ -114,7 +114,7 @@ Git-репозитории. Исходный Potato Harness не перепис�
 ## 4. Получить отчёт без секретов и не делать повторный dispatch
 
 ```bash
-.venv-demo/bin/python tools/trial_diagnostics.py --state "$trial/state"
+.venv-demo/bin/python -m tools.trial_diagnostics --state "$trial/state"
 .venv-demo/bin/python -m harness.runtime status --state "$trial/state"
 ```
 
@@ -141,6 +141,17 @@ Git-репозитории. Исходный Potato Harness не перепис�
 `trial_diagnostics.py`, версии `main` и результата readiness.
 Не публиковать `config.json`, `.env`, API-ключи, произвольный stderr
 или необработанные промпты.
+
+### Ошибка Valera (после 25.11.2026)
+
+Новые записи `valera/error` могут содержать фиксированные `step` и
+`reason_code`. `session`, `prompt`, `close`, `response`, `json`,
+`assignment` отделяют этапы; `DEADLINE` и `ABORTED` обозначают ограничение
+времени/отмену, `AUTH` и `RATE_LIMIT` — только явно полученные числовые
+статусы SDK, `INVALID_JSON` и `INVALID_ASSIGNMENT` — отказ проверки.
+`STEP_FAILED` не доказывает конкретную причину. Старые записи не содержат
+этих деталей. Диагностика не восстанавливает неизвестный внешний эффект,
+не разрешает повтор и не меняет лимиты lease/grant.
 
 ## 5. Критерий готовности
 

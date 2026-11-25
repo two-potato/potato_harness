@@ -24,6 +24,15 @@ class GatewayDiagnosticsTests(unittest.TestCase):
             {'phase': 'valera', 'status': 'error', 'elapsed_ms': 3},
         ])
 
+    def test_valera_failure_detail_survives_only_fixed_allowlists(self):
+        event = {'phase': 'valera', 'status': 'error', 'elapsed_ms': 5,
+                 'step': 'json', 'reason_code': 'INVALID_JSON'}
+        entries = [event, {**event, 'reason_code': 'PRIVATE'},
+                   {**event, 'step': 'PRIVATE'}, {**event, 'status': 'ok'},
+                   {**event, 'phase': 'server'}, {**event, 'extra': 'PRIVATE'}]
+        raw = ''.join('POTATO_GATEWAY_PHASE ' + json.dumps(e) + '\n' for e in entries)
+        self.assertEqual(parse_gateway_events(io.BytesIO(raw.encode())), [event])
+
     def test_host_passes_bounded_bridge_deadline(self):
         code = 'import json,sys;print(json.dumps({"bridge_timeout_ms":json.loads(sys.stdin.read())["bridge_timeout_ms"]}))'
         response = _worker({}, [sys.executable, '-c', code], 8)

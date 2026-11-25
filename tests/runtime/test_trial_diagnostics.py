@@ -1,5 +1,8 @@
 """Safe, read-only trial reporting: never dump prompt, token or provider stderr."""
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,6 +12,34 @@ from tools import trial_diagnostics
 
 
 class TrialDiagnosticTests(unittest.TestCase):
+    def test_direct_script_help_from_outside_repo(self):
+        root = Path(__file__).resolve().parents[2]
+        env = dict(os.environ)
+        env.pop('PYTHONPATH', None)
+        with tempfile.TemporaryDirectory() as cwd:
+            result = subprocess.run(
+                [sys.executable, str(root / 'tools/trial_diagnostics.py'), '--help'],
+                cwd=cwd, env=env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--state', result.stdout)
+
+    def test_safe_valera_detail_and_unknown_detail_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            event = {'phase': 'valera', 'status': 'error', 'elapsed_ms': 10,
+                     'step': 'prompt', 'reason_code': 'DEADLINE'}
+            (root / 'gateway-phases.json').write_text(json.dumps({
+                'outcome': 'ERROR', 'events': [
+                    event, {**event, 'reason_code': 'SECRET'},
+                    {**event, 'step': 'SECRET'}, {**event, 'api_key': 'SECRET'},
+                ]}))
+            with patch.object(trial_diagnostics, 'status', return_value={
+                'state': 'HOLD', 'task_status': 'BLOCKED', 'unresolved_effects': ['id']
+            }):
+                report = trial_diagnostics.summarize(root)
+            self.assertEqual(report['gateway']['events'], [event])
+            self.assertNotIn('SECRET', json.dumps(report))
+
     def test_no_provider_call_and_no_sensitive_state_fields(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
