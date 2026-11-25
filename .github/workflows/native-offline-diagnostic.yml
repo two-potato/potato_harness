@@ -22,7 +22,8 @@ jobs:
           unshare --user --map-root-user --net -- sh -ec '
             ip link set lo up
             test "$(readlink /proc/self/ns/net)" != "$1"
-            test "$(ls /sys/class/net)" = lo
+            test "$(grep -c : /proc/net/dev)" -eq 1
+            grep -Eq "^[[:space:]]*lo:" /proc/net/dev
           ' sh "$outer"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
