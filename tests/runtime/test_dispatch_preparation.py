@@ -116,3 +116,32 @@ class DispatchPreparationTests(unittest.TestCase):
             results = pool.map(contender,[(str(self.db),task,lease)]*2)
         self.assertEqual(sorted(results),['denied','reserved'])
         self.assertEqual(self.counts(),(1,1))
+
+    def test_foreign_budget_identity_rejected_by_both_reservation_paths(self):
+        api,a = self.add_task('api','backend','api.py')
+        ui,b = self.add_task('ui','frontend','ui.py')
+        # Inject a malformed persisted task binding to exercise the guard.
+        api['budget_id'] = ui['budget_id']
+        with sqlite3.connect(self.db) as db:
+            db.execute('UPDATE tasks SET task_json=? WHERE task_id=?',(json.dumps(api),'api'))
+        with self.assertRaises(ControllerError):
+            self.budget.reserve('api',10,.1,'foreign')
+        with self.assertRaises(ControllerError):
+            reserve(self.db,api,a)
+        self.assertEqual(self.counts(),(0,0))
+
+    def test_effect_receipt_binds_lease_owner_context_and_reservation(self):
+        task,lease = self.add_task('api','backend','api.py')
+        receipt=reserve(self.db,task,lease)
+        with sqlite3.connect(self.db) as db:
+            payload=json.loads(db.execute('SELECT payload_json FROM outbox WHERE effect_id=?',
+                                         (receipt['effect_id'],)).fetchone()[0])
+        self.assertEqual(payload['owner'],'backend')
+        self.assertEqual(payload['lease_id'],lease['lease_id'])
+        self.assertEqual(payload['fencing_token'],lease['fencing_token'])
+        self.assertEqual(payload['session'],lease['worker_session_id'])
+        self.assertEqual(payload['workspace'],lease['workspace_id'])
+        self.assertEqual(payload['attempt_id'],receipt['attempt_id'])
+        self.assertEqual(payload['context_digest'],'sha256:'+'a'*64)
+        self.assertEqual(payload['token_allowance'],10)
+        self.assertEqual(payload['cost_allowance_usd'],.1)

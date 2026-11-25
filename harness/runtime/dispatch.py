@@ -42,7 +42,10 @@ def reserve_provider_dispatch(database, *, task_id, revision, row_version, owner
         if db.execute('SELECT 1 FROM budget_reservations WHERE attempt_id=?',(attempt,)).fetchone():
             raise ControllerError('Prior reservation; reconcile before new task')
         budget._reserve(db,task_id,tokens,cost,attempt)
-        action={'kind':'provider-proposal','model':model,'context_digest':context_digest}
+        action={'kind':'provider-proposal','model':model,'context_digest':context_digest,
+                'owner':owner,'lease_id':lease_id,'fencing_token':lease['fencing_token'],
+                'session':session,'workspace':workspace,'attempt_id':attempt,
+                'token_allowance':tokens,'cost_allowance_usd':cost}
         if adapter is not None:action['adapter']=adapter
         effect=outbox._reserve(db,task_id,revision,action,key)
         if not outbox._claim(db,effect):

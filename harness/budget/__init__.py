@@ -40,7 +40,7 @@ class Budget:
         _amount(tokens,True);_amount(cost_usd);_text(attempt_id)
         task=self.controller._read(db,task_id)
         row=db.execute('SELECT * FROM budgets WHERE budget_id=?',(task['budget_id'],)).fetchone()
-        if not row or row['revision']!=task['revision'] or task['status'] in ('DONE','CANCELLED'):raise ControllerError('No current budget')
+        if not row or row['task_id']!=task_id or row['revision']!=task['revision'] or task['status'] in ('DONE','CANCELLED'):raise ControllerError('No current budget')
         prior=db.execute('SELECT * FROM budget_reservations WHERE attempt_id=?',(attempt_id,)).fetchone()
         receipt={'attempt_id':attempt_id,'budget_id':row['budget_id'],'tokens':tokens,'cost_usd':cost_usd}
         if prior:
