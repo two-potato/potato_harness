@@ -35,7 +35,8 @@ npm install --ignore-scripts --no-audit --no-fund
 ../opencode/node_modules/.bin/bun src/smoke.mjs
 ```
 
-The unit tests exercise contracts, transport boundaries and hooks with injected
+The unit tests exercise contracts, transport boundaries, bounded asynchronous
+plugin initialization and hooks with injected
 fixtures. The smoke test uses the actual v2 SDK with synthetic HTTP responses;
 it checks the two-stage path and 401/429/503 rejection without redispatch.
 No external inference, no OMO v2 certification. Direct SDK version is pinned;
@@ -47,3 +48,7 @@ execution and auxiliary model requests, verified token/cost accounting,
 bounded cancellation, external provider transport and credential isolation,
 independent security review, and a separately authorized live trial. Preserve
 unknown effects from previous trials; do not replay them.
+
+Upstream OMO 5.1.83 (November 24) still has the same v2 placeholder.
+The initial CI failed closed on asynchronous plugin activation; the candidate
+now waits at most ten seconds for a complete deny-only roster before dispatch.

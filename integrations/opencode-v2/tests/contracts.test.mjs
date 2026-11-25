@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {candidateConfig,validateRequest,parseAssistant,combine,FIXTURE_URL} from '../src/contracts.mjs';
-import {fixtureTransport,restrictivePlugin} from '../src/policy.mjs';
+import {fixtureTransport,restrictivePlugin,awaitPolicy,safeRoster} from '../src/policy.mjs';
 const request={role:'backend',model:'fixture/test',prompt:'repair',coordination:{objective:'repair',scope:['a.py']},output_token_allowance:128};
 test('v2 is explicitly fixture-only; all nine roles preserved; deny by default',()=>{
  assert.equal(validateRequest(request),64);
@@ -46,4 +46,16 @@ test('retry hook denies retry before execution; permission and tool transforms d
  const removed=[];callbacks.tools({list:()=>[{id:'shell'},{id:'read'}],remove:id=>removed.push(id)});assert.deepEqual(removed,['shell','read']);
  const context={tools:{shell:{}},options:{}};callbacks.context(context);assert.deepEqual(context.tools,{});assert.equal(context.options.maxOutputTokens,64);
  await close();
+});
+
+test('async plugin initialization is bounded and unsafe roster never admits a model request',async()=>{
+ const c=candidateConfig(64);
+ const agents=Object.entries(c.agents).map(([id,a])=>({...a,id,model:{providerID:'fixture',id:'test'}}));
+ assert.equal(safeRoster(agents),true);
+ assert.equal(safeRoster([...agents,{id:'build'}]),false);
+ assert.equal(safeRoster(agents.map((a,i)=>i? a:{...a,permissions:[{effect:'allow'}]})),false);
+ let now=0,reads=0;const observe={ready:false};
+ await awaitPolicy(async()=>{reads++;if(reads===3)observe.ready=true;return {data:reads===1?[]:agents};},observe,{now:()=>now,pause:async()=>{now+=10;},timeout:100});
+ assert.equal(reads,3);
+ await assert.rejects(awaitPolicy(async()=>({data:agents.slice(1)}),observe,{now:()=>now,pause:async()=>{now+=10;},timeout:30}),/V2_PLUGIN_NOT_ACTIVE/);
 });

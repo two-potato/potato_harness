@@ -5,7 +5,7 @@ import path from 'node:path';
 import {bridgeBudget,withTimeout} from '../../opencode/src/bridge_limits.mjs';
 import {validateAssignment} from '../../opencode/src/contracts.mjs';
 import {validateRequest,candidateConfig,MODEL_REF,deny,parseAssistant,combine} from './contracts.mjs';
-import {fixtureTransport,restrictivePlugin} from './policy.mjs';
+import {fixtureTransport,restrictivePlugin,awaitPolicy} from './policy.mjs';
 
 export async function runCandidate(request,{OpenCode,respond,observe={retries:0,ready:false}}){
  const maxOutput=validateRequest(request);
@@ -24,8 +24,7 @@ export async function runCandidate(request,{OpenCode,respond,observe={retries:0,
    const session=await budget.stage(()=>sdk.sessions.create({location:{directory},agent:role,model:MODEL_REF,permissions:deny(),title:'Potato fixture'}));
    sessionID=session.id;
    // The location's agent/tool registries must initialize the plugin before dispatch.
-   const agents=await budget.stage(()=>sdk.agent.list({location:{directory}}));
-   if(!observe.ready||!agents.data?.some(a=>a.id===role)||agents.data.some(a=>!['valera-ceo','architect','backend','frontend','search','ml-recommendations','qa','devops-sre','security'].includes(a.id)))throw Error('V2_PLUGIN_NOT_ACTIVE');
+   await budget.stage(()=>awaitPolicy(()=>sdk.agent.list({location:{directory}}),observe));
    transport.begin(phase);
    await budget.stage(()=>sdk.sessions.prompt({sessionID,text}));
    await budget.stage(()=>sdk.experimental.session.wait({sessionID}));

@@ -30,6 +30,7 @@ try{
   await assert.rejects(runCandidate(request,{OpenCode,observe,respond:phase=>{rejected.push(phase);return Response.json({error:{message:'fixture rejected',type:'fixture_error',code:'fixture_error'}},{status,headers:{'Retry-After':'1'}});}}));
   assert.deepEqual(rejected,['valera']);
   assert.ok(observe.ready);
+  if(status===429||status===503)assert.ok(observe.retries>0,'real SDK retry hook must be observed');
  }
  console.log(JSON.stringify({status:'PASS',layer:'real-v2-sdk-synthetic-http',external_inference:false,omo:false,provider_requests:5}));
 }finally{fs.rmSync(home,{recursive:true,force:true});}
