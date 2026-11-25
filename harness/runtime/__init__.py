@@ -121,8 +121,13 @@ def init(config,state):
 
 
 def status(state):
-    state=Path(state).absolute();run=json.loads((state/'run.json').read_text());task=Controller(state/'state.db').get_task(run['task_id'])
-    return {**run,'task_status':task['status'],'revision':task['revision'],'unresolved_effects':Outbox(state/'state.db').unresolved(task['task_id'])}
+    state=Path(state).absolute()
+    return _status(state,state/'state.db')
+
+
+def _status(state,database):
+    run=json.loads((state/'run.json').read_text());task=Controller(database).get_task(run['task_id'])
+    return {**run,'task_status':task['status'],'revision':task['revision'],'unresolved_effects':Outbox(database).unresolved(task['task_id'])}
 
 
 @contextmanager
@@ -228,14 +233,27 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
                     sandbox_run if sandbox_run is not None else backend.run)
 
 
-def _run(state,worker,sandbox_probe,sandbox_run):
+def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
+    # Private trusted-host entry point; no workflow binding is accepted by CLI.
+    database=state/'state.db' if workflow_binding is None else workflow_binding['database']
+    workspace_id='trial-workspace' if workflow_binding is None else workflow_binding['layout']['workspace_id']
+    object_store=state/'objects' if workflow_binding is None else workflow_binding['object_store']
     saved=json.loads((state/'config.json').read_text());run=json.loads((state/'run.json').read_text())
     if run['state']!='INITIALIZED':raise ValueError('Run already started; inspect status/recover, never auto-replay')
     if 'adapter' not in saved and 'worker_command' not in saved:raise ValueError('Old initialized state cannot migrate in place; create a new v2 trial')
     config=_config(saved)
     if config.get('adapter')!=run.get('adapter'):raise ValueError('Saved adapter does not match initialized run; create a new trial')
-    guard=_Guard();controller=Controller(state/'state.db',guard=guard);task=controller.get_task(run['task_id'])
-    outbox=Outbox(state/'state.db');budget=Budget(state/'state.db');leases=LeaseManager(state/'state.db')
+    guard=_Guard();controller=Controller(database,guard=guard);task=controller.get_task(run['task_id'])
+    role=task['owner']
+    if workflow_binding is not None:
+        if (task!=workflow_binding['task'] or task['status']!='PLANNED' or role not in ('backend','frontend') or
+                config['model']!='fixture/workflow' or config.get('worker_command')!=['/usr/bin/false'] or
+                'adapter' in config or config.get('jev_provider') or config.get('completion_jev') or
+                run.get('provider_mode')!='synthetic'):
+            raise ValueError('Invalid synthetic workflow execution binding')
+    elif role!='backend':
+        raise ValueError('Single-task trial requires Backend')
+    outbox=Outbox(database);budget=Budget(database);leases=LeaseManager(database)
     workspace=state/'workspace';grant=None;effect=None;claimed=False;provider_returned=False
     deadline=time.monotonic()+config['budget']['wall_time_s']
     def remaining():
@@ -260,31 +278,34 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         if isolation.get('available') is not True:raise RuntimeError('Sandbox unavailable: '+str(isolation.get('reason')))
         if config.get('adapter')=='opencode-v2-console' and not os.environ.get('OPENCODE_API_KEY'):
             raise ValueError('Console API key missing before dispatch')
-        jev=Jev(state/'state.db',provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
+        jev=Jev(database,provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
         guard.ready=True
-        for target in ('CLASSIFIED','PLANNED'):move(target)
-        dag={'schema_version':'3.0.1','workflow_id':task['workflow_id'],'nodes':[{'id':'trial','task_id':task['task_id'],'needs':[]}]}
-        if Scheduler(state/'state.db').ready_workflow(dag,workflow_id=task['workflow_id'],
-                user_turn_id=task['user_turn_id'],repository_id=task['repository_id'],
-                approved_revisions={task['task_id']:task['revision']},available_owners=('backend',))!=[task['task_id']]:
-            raise ValueError('Task not in bounded ready queue')
+        if workflow_binding is None:
+            for target in ('CLASSIFIED','PLANNED'):move(target)
+            dag={'schema_version':'3.0.1','workflow_id':task['workflow_id'],'nodes':[{'id':'trial','task_id':task['task_id'],'needs':[]}]}
+            if Scheduler(database).ready_workflow(dag,workflow_id=task['workflow_id'],
+                    user_turn_id=task['user_turn_id'],repository_id=task['repository_id'],
+                    approved_revisions={task['task_id']:task['revision']},available_owners=('backend',))!=[task['task_id']]:
+                raise ValueError('Task not in bounded ready queue')
         for target in ('ASSIGNED','EXECUTING'):move(target)
         before=_snapshot(workspace)
         session=uuid.uuid4().hex
-        lease=leases.acquire(task['task_id'],task['row_version'],session,'trial-workspace',[{'kind':'path','key':p} for p in config['scope']])
+        lease=leases.acquire(task['task_id'],task['row_version'],session,workspace_id,[{'kind':'path','key':p} for p in config['scope']])
         run['lease_id']=lease['lease_id']
         grant=json.loads((ROOT/'fixtures/valid/capability-grant.json').read_text())
-        grant.update(grant_id='trial-edit',task_id=task['task_id'],task_revision=task['revision'],agent_id='backend',worker_session_id=session,workspace_id='trial-workspace',actions=['read','edit','test'],paths=config['scope'],policy_digest=digest_bytes((ROOT/'policy/checks.json').read_bytes()),fencing_token=lease['fencing_token'],expires_at=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat())
+        grant.update(grant_id='trial-edit' if workflow_binding is None else task['task_id']+':edit',task_id=task['task_id'],task_revision=task['revision'],agent_id=role,worker_session_id=session,workspace_id=workspace_id,actions=['read','edit','test'],paths=config['scope'],policy_digest=digest_bytes((ROOT/'policy/checks.json').read_bytes()),fencing_token=lease['fencing_token'],expires_at=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat())
         run['grant']=grant;save()
         context={k:grant[k] for k in ('task_id','task_revision','agent_id','worker_session_id','workspace_id','policy_digest','fencing_token')};context['workspace_root']=str(workspace)
         def allowed(action,path):
-            leases.validate(lease['lease_id'],task['task_id'],task['revision'],session,'trial-workspace')
+            leases.validate(lease['lease_id'],task['task_id'],task['revision'],session,workspace_id)
             authorize(grant['grant_id'],{'action':action,'path':path},context,lambda _:deepcopy(grant),lambda:datetime.now(timezone.utc))
         segments=[{'name':'task-contract','text':_json({'objective':config['objective'],'scope':config['scope'],'required_output':{'edits':[{'path':'exact scoped path','content':'replacement UTF-8 text'}],'summary':'brief explanation'}}),'mandatory':True,'trust':'untrusted'}]
         for name in config['scope']:
             allowed('read',name)
             segments.append({'name':name,'text':(workspace/name).read_text(),'mandatory':True,'trust':'untrusted'})
-        pack=compile_context(task,{'role':'backend','session_id':session},segments,config['budget']['tokens']-1,lambda text:len(text.encode('utf-8')),domain_profile=config.get('domain_profile'))
+        if workflow_binding is not None:
+            segments.extend(deepcopy(workflow_binding['segments']))
+        pack=compile_context(task,{'role':role,'session_id':session},segments,config['budget']['tokens']-1,lambda text:len(text.encode('utf-8')),domain_profile=config.get('domain_profile'))
         # This host counter is a conservative byte ceiling, never an exact tokenizer.
         prompt=pack['text']
         input_ceiling=len(prompt.encode('utf-8'))
@@ -293,14 +314,14 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         provider_project=state/'provider-project';provider_project.mkdir(mode=0o700)
         command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
-        request={'role':'backend','prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
+        request={'role':role,'prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
         if config.get('adapter') in ('opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
             request['token_allowance']=config['budget']['tokens']
         if config.get('adapter')=='opencode-v2-console':
             request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
-        dispatch=reserve_provider_dispatch(state/'state.db',task_id=task['task_id'],
+        dispatch=reserve_provider_dispatch(database,task_id=task['task_id'],
             revision=task['revision'],row_version=task['row_version'],owner=task['owner'],
-            lease_id=lease['lease_id'],session=session,workspace='trial-workspace',
+            lease_id=lease['lease_id'],session=session,workspace=workspace_id,
             model=config['model'],context_digest=run['context']['digest'],
             tokens=config['budget']['tokens'],cost=config['budget']['estimate_cost_usd'],adapter=config.get('adapter'))
         effect=dispatch['effect_id'];attempt=dispatch['attempt_id'];claimed=True
@@ -325,10 +346,10 @@ def _run(state,worker,sandbox_probe,sandbox_run):
             allowed('edit',edit['path']);_safe_edit(workspace,edit['path'],content)
         after=_snapshot(workspace);changed=sorted(p for p in set(before)|set(after) if before.get(p)!=after.get(p))
         if not changed or any(p not in config['scope'] for p in changed):raise ValueError('Review: no change or change outside scope')
-        publisher=Publisher(state/'state.db',state/'objects');publications=[]
+        publisher=Publisher(database,object_store);publications=[]
         for path in changed:
             allowed('read',path);artifact=(workspace/path).read_bytes()
-            publications.append(publisher.publish(lease_id=lease['lease_id'],worker_session_id=session,workspace_id='trial-workspace',fencing_token=lease['fencing_token'],path=path,artifact=artifact,expected_digest=digest_bytes(artifact)))
+            publications.append(publisher.publish(lease_id=lease['lease_id'],worker_session_id=session,workspace_id=workspace_id,fencing_token=lease['fencing_token'],path=path,artifact=artifact,expected_digest=digest_bytes(artifact)))
         run['publications']=publications
         # Commit in the separate host-only checkout; no .git reaches worker.
         integration=state/'integration-repo'
@@ -342,8 +363,8 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         target=_git(integration,'-c','user.name=Potato Trial Host','-c','user.email=trial@localhost.invalid','commit-tree',tree,'-p',config['base_sha'],'-m','Bounded trial candidate')
         _git(integration,'update-ref','HEAD',target)
         cleanup();guard.artifact=True
-        task=controller.pin_target(task['task_id'],task['row_version'],{'hash_algorithm':'sha1' if len(target)==40 else 'sha256','value':target},event_id='pin',idempotency_key='pin')
-        lease=leases.acquire(task['task_id'],task['row_version'],session,'trial-workspace',[{'kind':'path','key':p} for p in config['scope']]);run['lease_id']=lease['lease_id'];save()
+        task=controller.pin_target(task['task_id'],task['row_version'],{'hash_algorithm':'sha1' if len(target)==40 else 'sha256','value':target},event_id='pin' if workflow_binding is None else task['task_id']+':pin',idempotency_key='pin' if workflow_binding is None else task['task_id']+':pin')
+        lease=leases.acquire(task['task_id'],task['row_version'],session,workspace_id,[{'kind':'path','key':p} for p in config['scope']]);run['lease_id']=lease['lease_id'];save()
         # Validation capability is fresh for the pinned revision and cannot edit.
         grant.update(task_revision=task['revision'],actions=['read','test'],status='ACTIVE',fencing_token=lease['fencing_token'],expires_at=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat())
         context.update(task_revision=task['revision'],fencing_token=lease['fencing_token']);run['grant']=grant;save()
@@ -357,7 +378,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         artifacts={'relevant_checks':test_bytes,'basic_review':_json({'changed':changed,'scope_verified':True,'reviewer':'deterministic-host-review'}).encode(),'acceptance_coverage':_json({'configured-tests':config['test_argv'],'contract':'User-supplied test command is acceptance for this bounded trial'}).encode()}
         records=[];attestations={}
         for check,artifact in artifacts.items():
-            record={'schema_version':'3.0.1','evidence_id':check,'task_id':task['task_id'],'task_revision':task['revision'],'repository_id':task['repository_id'],'acceptance_ids':['configured-tests'],'commit':task['target_commit'],'kind':'test' if check=='relevant_checks' else 'basic_review' if check=='basic_review' else 'contract_check','check_id':check,'source':'persistent-trial-host','issuer_id':'trial-host','attestation_ref':'host:'+check,'run_id':uuid.uuid4().hex,'result':'PASS' if check!='relevant_checks' or test.get('returncode')==0 and test.get('timed_out') is False else 'FAIL','artifact_digest':digest_bytes(artifact),'created_at':datetime.now(timezone.utc).isoformat(),'policy_version':task['policy_version']}
+            record={'schema_version':'3.0.1','evidence_id':check if workflow_binding is None else task['task_id']+':'+check,'task_id':task['task_id'],'task_revision':task['revision'],'repository_id':task['repository_id'],'acceptance_ids':['configured-tests'],'commit':task['target_commit'],'kind':'test' if check=='relevant_checks' else 'basic_review' if check=='basic_review' else 'contract_check','check_id':check,'source':'persistent-trial-host','issuer_id':'trial-host','attestation_ref':'host:'+check if workflow_binding is None else 'host:'+task['task_id']+':'+check,'run_id':uuid.uuid4().hex,'result':'PASS' if check!='relevant_checks' or test.get('returncode')==0 and test.get('timed_out') is False else 'FAIL','artifact_digest':digest_bytes(artifact),'created_at':datetime.now(timezone.utc).isoformat(),'policy_version':task['policy_version']}
             records.append(record);attestations[record['attestation_ref']]=TrustedEvidence(deepcopy(record),artifact)
             (state/(check+'.artifact')).write_bytes(artifact)
         _write(state/'evidence.json',records)
@@ -370,7 +391,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         guard.audit=True;move('ACCEPTED');cleanup();guard.clean=True
         if outbox.unresolved(task['task_id']):raise ValueError('Unresolved effects prevent completion')
         run.update(reason='Pinned source passed configured tests and deterministic bounded review')
-        result={'target_commit':task['target_commit'],'publications':publications,'checks':[r['check_id'] for r in records],**({'adapter':run['adapter'],'provider_mode':run['provider_mode']} if 'adapter' in run else {})}
+        result={'target_commit':task['target_commit'],'publications':publications,'checks':[r['check_id'] for r in records],**({k:run[k] for k in ('adapter','provider_mode') if k in run})}
         _write(state/'result.json',result)
         output=Path(config['output']).absolute();output.mkdir(parents=True,exist_ok=False,mode=0o700)
         _write(output/'result.json',result)
@@ -387,7 +408,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         cleanup()
         if task['status'] not in ('DONE','CANCELLED','BLOCKED'):move('BLOCKED','runtime-hold')
         run.update(state='HOLD',reason=_redact(str(error)))
-    save();return status(state)
+    save();return _status(state,database)
 
 
 def recover(state):

@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.3c: bind the sequential coordinator to the actual bounded task runtime
+  using shared SQLite/object store, task-specific identity and dependency
+  context. Explicit synthetic worker only, Backend/Frontend, no live admission.
+
 - R3.3b: compose a bounded sequential workflow coordinator using existing
   scheduler, workspace and handoff primitives, with durable no-replay marker
   and fresh completed-output verification. Trusted synthetic executor tests;

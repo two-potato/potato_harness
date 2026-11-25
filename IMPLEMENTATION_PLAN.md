@@ -161,3 +161,17 @@ work and again before workflow completion. No production worker binding,
 automatic merge, aggregate workflow budget, authenticated independent evidence
 collector or restart/resume protocol is added. Tests exercise real local Git,
 SQLite, Publisher and dispatch reservations with synthetic guards and executor.
+
+## R3.3c — bounded runtime binding (synthetic only)
+
+A host-only fixture API binds the sequential coordinator to the existing task
+runtime instead of reimplementing its gates. It uses one SQLite database and
+object store, unique task evidence/pin identities, task-specific leases and
+context including verified dependencies. The initial admitted roles are Backend
+and Frontend, LOW/BOUNDED existing-file edits with the configured-tests gate.
+Only an explicit trusted synthetic worker is accepted; the fallback command
+is /usr/bin/false. No live provider mode or public workflow CLI is added.
+Bubblewrap remains the default; tests inject sandbox/worker seams. Evidence
+collection is local deterministic host evidence, not independent QA. Workflow
+outputs remain separate commits with context-only dependency transfer; no
+aggregate budget, recovery/resume or automatic merge is claimed.
