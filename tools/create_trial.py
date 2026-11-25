@@ -8,11 +8,14 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--directory',type=Path,required=True);p.add_argument('--model');p.add_argument('--adapter',choices=('opencode-v2-fixture','opencode-v2-console'));p.add_argument('--confirm-provider-budget',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--directory',type=Path,required=True);p.add_argument('--model');p.add_argument('--adapter',choices=('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture'));p.add_argument('--confirm-provider-budget',action='store_true');a=p.parse_args()
     if a.adapter is None:a.adapter='opencode-v2-console' if a.model and a.model!='fixture/test' else 'opencode-v2-fixture'
     if a.adapter=='opencode-v2-fixture':
         if a.model not in (None,'fixture/test') or a.confirm_provider_budget:p.error('Fixture uses fixture/test without provider budget')
         a.model='fixture/test'
+    elif a.adapter=='opencode-v2-native-free-fixture':
+        if a.model not in (None,'opencode/potato-runtime-fixture-free') or a.confirm_provider_budget:p.error('Native free fixture requires the synthetic model without provider budget')
+        a.model='opencode/potato-runtime-fixture-free'
     elif a.adapter=='opencode-v2-console':
         if a.model!='opencode/minimax-m3' or not a.confirm_provider_budget:p.error('Explicit paid model and confirmed provider budget required')
 

@@ -67,3 +67,13 @@ budget-confirmed Console profiles; the legacy executable integration is removed.
 All nine role definitions and the controller's existing security contracts stay
 unchanged. A full OMO integration with v2 remains pending, not emulated by the
 native profile. The earlier trial section is a historical snapshot.
+
+## Native free R2 first increment
+
+Shared native session/proposal flow and explicit synthetic-only runtime fixture
+are implemented in the candidate branch. The existing outbox and budget remain
+host-owned. CI covers contract and fault tests and actual host worker/runtime
+with a synthetic native client and injected sandbox seam; operator Bubblewrap
+verification is separate. Live native-free profile is intentionally rejected
+until R1 live inference, reconciliation and independent security review pass.
+No new provider integration or changes to agent roles.

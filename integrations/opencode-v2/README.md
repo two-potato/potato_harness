@@ -179,3 +179,33 @@ empty, other named variants and alternate model/provider IDs remain denied.
 Diagnostic labels never expose raw observed identifiers. A privileged host may use `sudo unshare --net` solely to create the
 namespace and bring up loopback, then drop to its normal unprivileged operator
 before executing the probe. Never run the CLI or candidate code as root.
+
+## R2 native runtime fixture (no live activation)
+
+The explicit `opencode-v2-native-free-fixture` profile uses the same native
+session/proposal/audit flow as R1 with an in-process client fixture. It does
+not start a real CLI, import the SDK in that worker mode, send network traffic,
+or accept a real model. The synthetic model ID is
+`opencode/potato-runtime-fixture-free`. The real `opencode-v2-native-free`
+profile remains rejected. Existing embedded fixture and Console profiles are
+unchanged. Runtime Outbox, budget, grants, leases, publication and HALO's
+synthetic exclusion are reused. A failed worker remains UNKNOWN; no replay.
+
+After CI, from the repository root as an ordinary user:
+
+```sh
+trial="$(mktemp -d)/trial"
+python3 tools/create_trial.py --directory "$trial" --adapter opencode-v2-native-free-fixture &&
+.venv-demo/bin/python -m harness.runtime init --config "$trial/config.json" --state "$trial/state" &&
+.venv-demo/bin/python -m harness.runtime run --state "$trial/state"
+.venv-demo/bin/python -m tools.trial_diagnostics --state "$trial/state"
+```
+
+Expected DONE and synthetic provenance. CI uses a sandbox seam; operator
+Bubblewrap testing remains separate. This does not prove actual native CLI
+HTTP delivery, provider billing or independent review. R1 manual attempts with
+Beam and DeepSeek returned RATE_LIMIT (operator reports); their external
+outcomes remain unresolved. Before any live admission, reconcile them,
+complete independent human review, enforce verified network/budget limits,
+and confirm successful native inference. Never switch models or retry to evade
+provider restrictions. No activation by environment variable or flag.

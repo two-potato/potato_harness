@@ -75,13 +75,15 @@ def _config(config):
             raise ValueError('Provider budget confirmation is only valid for Console profile')
         return config
     adapter=config.setdefault('adapter','opencode-v2-console')
-    if adapter not in ('opencode-v2-fixture','opencode-v2-console'):
+    if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture'):
         raise ValueError('Unknown provider adapter; create a new v2 trial')
     if adapter.startswith('opencode-v2'):
         if config.get('jev_provider') or config.get('completion_jev'):
             raise ValueError('V2 bounded profile does not admit separate Jev calls')
         if adapter=='opencode-v2-fixture' and (config['model']!='fixture/test' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
             raise ValueError('V2 fixture is restricted to the generated subtotal trial')
+        if adapter=='opencode-v2-native-free-fixture' and (config['model']!='opencode/potato-runtime-fixture-free' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
+            raise ValueError('Native free fixture is restricted to the synthetic subtotal trial')
         if adapter=='opencode-v2-console' and (config['model']!='opencode/minimax-m3' or config.get('provider_budget_confirmed') is not True):
             raise ValueError('V2 Console requires the explicit paid model and operator-confirmed provider budget')
     if 'provider_budget_confirmed' in config and (adapter!='opencode-v2-console' or config['provider_budget_confirmed'] is not True):
@@ -93,8 +95,8 @@ def _worker_command(config):
     if 'worker_command' in config:return config['worker_command']
     bun=str(ROOT/'integrations/opencode-v2/node_modules/.bin/bun')
     adapter=config['adapter']
-    return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),
-            'fixture' if adapter=='opencode-v2-fixture' else 'console']
+    mode={'opencode-v2-fixture':'fixture','opencode-v2-console':'console','opencode-v2-native-free-fixture':'native-free-fixture'}[adapter]
+    return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),mode]
 
 
 def init(config,state):
@@ -137,7 +139,7 @@ def init(config,state):
     record.update(task_id=task['task_id'],revision=0,budget_id=task['budget_id'],token_soft=b['tokens'],token_hard=b['tokens'],cost_usd_soft=b['cost_usd'],cost_usd_hard=b['cost_usd'],wall_time_s_soft=math.ceil(b['wall_time_s']),wall_time_s_hard=math.ceil(b['wall_time_s']),max_parallel_workers=1)
     Budget(state/'state.db').configure(task['task_id'],record)
     _write(state/'config.json',config)
-    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None,**({'adapter':config['adapter'],'provider_mode':'synthetic' if config['adapter']=='opencode-v2-fixture' else 'external'} if 'adapter' in config else {})})
+    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None,**({'adapter':config['adapter'],'provider_mode':'synthetic' if config['adapter'] in ('opencode-v2-fixture','opencode-v2-native-free-fixture') else 'external'} if 'adapter' in config else {})})
     return status(state)
 
 

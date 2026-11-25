@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- R2: share the native two-stage flow with an explicit synthetic-only runtime
+  fixture, reuse durable effect/budget and provenance contracts, and add
+  regression/host integration tests. Real native-free runtime admission remains
+  disabled; no provider calls or automatic fallback.
+
 - Match native OpenCode 2.4.1's exact `default` variant sentinel in request
   hooks and response validation, while preserving model identity, empty
   variant catalog and deny-by-default rules. Reproduce the sentinel in
