@@ -1,4 +1,4 @@
-"""Real bounded runtime under the sequential coordinator; synthetic worker/sandbox seams."""
+"""Bounded workflow runtime: synthetic proposals with real or injected isolation."""
 import json
 from pathlib import Path
 import sqlite3
@@ -196,7 +196,7 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.assertEqual(result['status'],'DONE',result)
         self.assertEqual(self.calls,['backend','frontend'])
 
-    def test_parallel_requires_aggregate_budget_and_explicit_sandbox_seams(self):
+    def test_parallel_requires_aggregate_budget_and_complete_sandbox_binding(self):
         with self.assertRaises(ControllerError):
             self.run_flow(max_parallel=2)
         self.parallel_budget(slots=1)
@@ -209,6 +209,76 @@ class IntegratedWorkflowTests(unittest.TestCase):
                 self.run_flow(**changes)
         self.assertEqual(self.calls,[])
         self.assertEqual(list(self.spaces.iterdir()),[])
+
+
+    def test_parallel_rejects_mixed_sandbox_binding_with_valid_budget(self):
+        self.prepare(independent=True)
+        self.parallel_budget()
+        for change in (dict(sandbox_probe=None),dict(sandbox_run=None),
+                       dict(sandbox_probe=False,sandbox_run=False)):
+            with self.assertRaises(ControllerError):
+                self.run_flow(max_parallel=2,**change)
+        self.assertEqual(self.calls,[])
+        self.assertEqual(list(self.spaces.iterdir()),[])
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM outbox').fetchone()[0],0)
+
+    def test_live_parallel_workflow_real_bubblewrap(self):
+        import os
+        import threading
+        from harness.isolation.backend import BubblewrapBackend
+        status=BubblewrapBackend().probe()
+        if not status['available']:
+            if os.environ.get('POTATO_REQUIRE_LIVE_WORKFLOW')=='1':
+                self.fail('Required live Bubblewrap unavailable: '+status['reason'])
+            self.skipTest('Live Bubblewrap unavailable: '+status['reason'])
+        self.prepare(independent=True)
+        self.parallel_budget()
+        barrier=threading.Barrier(2,timeout=15)
+        def worker(request,command,timeout):
+            role=request['role']
+            barrier.wait()
+            return {'edits':[{'path':'api.py' if role=='backend' else 'ui.py',
+                              'content':'value = 2\n'}],'summary':'fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        code="""from pathlib import Path
+import os, resource, sys, time
+own, other = sys.argv[1:]
+assert Path(own).read_text() == 'value = 2\\n'
+assert Path(other).read_text() == 'value = 1\\n'
+assert not Path('/etc/passwd').exists()
+assert resource.getrlimit(resource.RLIMIT_NOFILE)[0] <= 64
+start=time.monotonic_ns()
+time.sleep(2)
+print(os.readlink('/proc/self/ns/net'),start,time.monotonic_ns())
+"""
+        tests={key:['/usr/bin/python3','-c',code,key+'.py',other+'.py']
+               for key,other in [('api','ui'),('ui','api')]}
+        result=self.run_flow(max_parallel=2,worker=worker,
+                             sandbox_probe=None,sandbox_run=None,test_argv_by_task=tests)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(result['provider_mode'],'synthetic')
+        self.assertEqual(result['completed'],['api','ui'])
+        host_network=os.readlink('/proc/self/ns/net')
+        spans=[]
+        for directory in self.spaces.iterdir():
+            artifact=json.loads((directory/'relevant_checks.artifact').read_text())
+            self.assertEqual(artifact['returncode'],0,artifact)
+            self.assertFalse(artifact['timed_out'])
+            network,start,end=artifact['stdout'].strip().split()
+            self.assertNotEqual(network,host_network)
+            spans.append((network,int(start),int(end)))
+        self.assertEqual(len(spans),2)
+        self.assertNotEqual(spans[0][0],spans[1][0])
+        self.assertLess(max(s[1] for s in spans),min(s[2] for s in spans),
+                        'Real workflow sandbox payloads must overlap')
+        for name in ('api.py','ui.py'):
+            self.assertEqual((self.repo/name).read_text(),'value = 1\n')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],6)
+            self.assertEqual(db.execute("SELECT count(*) FROM leases WHERE status IN ('ACTIVE','SUSPECT')").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],2)
+            self.assertEqual(db.execute('SELECT active_json FROM workflow_active_batches').fetchone()[0],'[]')
 
     def test_parallel_unknown_effect_holds_after_already_admitted_batch(self):
         import threading

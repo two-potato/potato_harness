@@ -223,3 +223,15 @@ live concurrent sandbox test requires actual platform support and checks
 separate network namespaces, overlapping payloads, private outputs and
 limits. Keep the existing parallel workflow seam restriction until a live
 E2E run is confirmed. No inference or provider activation.
+
+## R3.4d — parallel fixture with real Bubblewrap
+
+Allow the existing synthetic-proposal workflow to use the default Bubblewrap
+backend for parallel tests after the R3.4c launcher change. Explicit test
+seams remain supported only as a complete pair in parallel mode. The same
+aggregate budget, task leases, durable batch marker and evidence gates apply;
+no model access or fallback is introduced. The integrated live test requires
+two overlapping sandbox payloads, distinct network namespaces, task-local
+pinned inputs and persisted completion/evidence. CI requires the real backend
+rather than accepting a skipped test. Live provider activation, workflow-wide
+deadlines, interruption reconciliation and merge remain separate gates.
