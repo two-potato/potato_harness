@@ -8,12 +8,34 @@ crash recovery and automatic replay are deliberately not implemented.
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 import json
+from datetime import datetime, timezone
+from time import monotonic
 
 from harness.controller import Controller, ControllerError, _json
 from harness.leases import _overlap
 from harness.runtime.handoff import dependency_segments, verify_task_outputs
 from harness.runtime.workspace import prepare_task_workspace, repository_identity
 from harness.scheduler import Scheduler
+
+
+class WorkflowDeadline:
+    """Trusted host monotonic admission bound, not forcible thread cancellation."""
+
+    def __init__(self, seconds=300):
+        if type(seconds) not in (int,float) or not 0<seconds<=3600:
+            raise ControllerError('Workflow wall time must be finite and in (0, 3600] seconds')
+        self.seconds=seconds
+        self.started_utc=datetime.now(timezone.utc).isoformat()
+        self._end=monotonic()+seconds
+
+    def expired(self):
+        return monotonic()>=self._end
+
+    def remaining(self):
+        seconds=self._end-monotonic()
+        if seconds<=0:
+            raise ControllerError('Workflow deadline exhausted')
+        return seconds
 
 
 def run_sequential_workflow(database, **bindings):
@@ -29,7 +51,7 @@ def run_parallel_workflow(database, *, max_parallel, **bindings):
 
 def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
                   approved_revisions, available_owners, repo, workspace_root,
-                  object_store, output_paths, collector, trusted_issuers, execute,max_parallel):
+                  object_store, output_paths, collector, trusted_issuers, execute,max_parallel,deadline=None):
     """Run one bounded workflow via a trusted host callback, never a worker tool.
 
     execute(task, layout, dependency_segments) returns a host-verified candidate
@@ -38,6 +60,9 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
     The callback must compile its final scoped context and authorize dispatch;
     no automatic merge or filesystem access to producer workspaces is granted.
     """
+    deadline=WorkflowDeadline() if deadline is None else deadline
+    if type(deadline) is not WorkflowDeadline:
+        raise ControllerError('Trusted workflow deadline required')
     if not callable(execute) or not callable(collector) or type(trusted_issuers) is not frozenset or not trusted_issuers:
         raise ControllerError('Trusted host executor and evidence resolver required')
     if repository_identity(repo)!=repository_id:
@@ -86,16 +111,26 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
         db.execute("CREATE TABLE IF NOT EXISTS workflow_active_batches(workflow_id TEXT PRIMARY KEY REFERENCES sequential_workflows(workflow_id),active_json TEXT NOT NULL CHECK(json_valid(active_json)))")
         db.execute('INSERT INTO sequential_workflows VALUES(?,?,?,?)',(workflow_id,'RUNNING',None,'[]'))
         db.execute('INSERT INTO workflow_active_batches VALUES(?,?)',(workflow_id,'[]'))
+        db.execute("CREATE TABLE IF NOT EXISTS workflow_deadlines("
+                   "workflow_id TEXT PRIMARY KEY REFERENCES sequential_workflows(workflow_id),"
+                   "limit_s REAL NOT NULL,started_utc TEXT NOT NULL,expired INTEGER NOT NULL CHECK(expired IN (0,1)))")
+        db.execute('INSERT INTO workflow_deadlines VALUES(?,?,?,0)',
+                   (workflow_id,deadline.seconds,deadline.started_utc))
 
     active=[]
     def save(status):
         first=active[0] if active else None
         with c._connection(write=True) as db:
+            expired=deadline.expired()
+            if expired:
+                status='HOLD'
+            db.execute('UPDATE workflow_deadlines SET expired=? WHERE workflow_id=?',
+                       (int(expired),workflow_id))
             db.execute('UPDATE sequential_workflows SET status=?,active_task=?,completed_json=? WHERE workflow_id=?',
                        (status,first,_json(list(completed)),workflow_id))
             db.execute('UPDATE workflow_active_batches SET active_json=? WHERE workflow_id=?',
                        (_json(active),workflow_id))
-        return {'status':status,'active_task':first,'active_tasks':list(active),'completed':list(completed)}
+        return {'status':status,'active_task':first,'active_tasks':list(active),'completed':list(completed),**({'reason':'WORKFLOW_DEADLINE'} if expired else {})}
 
     def check_output(task_id):
         previous=completed[task_id]
@@ -118,6 +153,7 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
         return batch
 
     def prepare(key):
+        deadline.remaining()
         task=c.get_task(key)
         if task!=initial[key]:
             raise ControllerError('Unexpected task change before execution')
@@ -134,6 +170,7 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
         return task,layout,segments
 
     def accept(key,prepared,result):
+        deadline.remaining()
         task,layout,_=prepared
         after=c.get_task(key)
         mutable={'status','revision','row_version','target_commit'}
@@ -144,12 +181,15 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
         verify_task_outputs(database,producer_id=key,producer_revision=after['revision'],
             producer_repo=layout['integration_repo'],object_store=object_store,
             expected_artifacts=result,collector=collector,trusted_issuers=trusted_issuers)
+        deadline.remaining()
         revisions[key]=after['revision']
         completed[key]={'repo':layout['integration_repo'],'artifacts':deepcopy(result)}
 
     try:
         while len(completed)<len(initial):
+            deadline.remaining()
             batch=select(ready())
+            deadline.remaining()
             if not batch:
                 return save('HOLD')
             active=list(batch)
@@ -160,20 +200,27 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
             for key in batch:
                 if c.get_task(key)!=prepared[key][0]:
                     raise ControllerError('Batch task changed before execution')
+            def invoke(key):
+                deadline.remaining()
+                return execute(*deepcopy(prepared[key]))
+            deadline.remaining()
             outcomes={}
             if len(batch)==1:
                 key=batch[0]
-                outcomes[key]=execute(*deepcopy(prepared[key]))
+                outcomes[key]=invoke(key)
             else:
                 # No new batch while any admitted callback is running.
                 # BaseException leaves the durable active list for reconciliation.
                 with ThreadPoolExecutor(max_workers=max_parallel) as pool:
-                    futures={key:pool.submit(execute,*deepcopy(prepared[key])) for key in batch}
+                    futures={key:pool.submit(invoke,key) for key in batch}
                     for key in batch:
                         try:
                             outcomes[key]=futures[key].result()
                         except Exception:
                             continue
+            # Do not accept a late batch. Retain all unresolved admission IDs
+            # even if a callback persisted DONE, for explicit recovery.
+            deadline.remaining()
             # Only coordinator mutates completed and revisions, in DAG order.
             for key in batch:
                 if key not in outcomes:
@@ -187,7 +234,9 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
                 return save('HOLD')
             save('RUNNING')
         for key in completed:
+            deadline.remaining()
             check_output(key)
+        deadline.remaining()
         return save('DONE')
     except Exception:
         # Never infer that an interrupted effect was not sent or replay it.

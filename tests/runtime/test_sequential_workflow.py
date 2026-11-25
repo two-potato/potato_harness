@@ -14,7 +14,7 @@ from harness.leases import LeaseManager
 from harness.publisher import Publisher
 from harness.runtime.dispatch import reserve_provider_dispatch
 from harness.runtime.workspace import repository_identity, _git
-from harness.runtime.workflow import run_sequential_workflow
+from harness.runtime.workflow import WorkflowDeadline, run_sequential_workflow
 from harness.state import Outbox
 from harness.verifier import TrustedEvidence, digest_bytes
 
@@ -157,6 +157,45 @@ class SequentialTests(unittest.TestCase):
         self.assertEqual(row,('RUNNING','api'))
         with self.assertRaises(ControllerError):
             self.run_flow()
+
+    def test_deadline_expiry_preserves_late_completed_task_without_replay(self):
+        from unittest.mock import patch
+        now=[10.]
+        def execute(*args):
+            result=self.execute(*args)
+            now[0]=12.
+            return result
+        with patch('harness.runtime.workflow.monotonic',side_effect=lambda:now[0]):
+            result=self.run_flow(execute=execute,deadline=WorkflowDeadline(2))
+        self.assertEqual(result['status'],'HOLD')
+        self.assertEqual(result['reason'],'WORKFLOW_DEADLINE')
+        self.assertEqual(result['active_tasks'],['api'])
+        self.assertEqual(result['completed'],[])
+        self.assertEqual(self.calls,['api'])
+        self.assertEqual(self.controller.get_task('api')['status'],'DONE')
+        self.assertEqual(self.controller.get_task('ui')['status'],'PLANNED')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT limit_s,expired FROM workflow_deadlines').fetchone(),(2,1))
+        with self.assertRaises(ControllerError):
+            self.run_flow()
+
+    def test_deadline_after_preparation_prevents_callback(self):
+        from unittest.mock import patch
+        from harness.runtime.workspace import prepare_task_workspace
+        now=[10.]
+        def prepare(*args,**kwargs):
+            layout=prepare_task_workspace(*args,**kwargs)
+            now[0]=11.
+            return layout
+        with patch('harness.runtime.workflow.monotonic',side_effect=lambda:now[0]), \
+                patch('harness.runtime.workflow.prepare_task_workspace',side_effect=prepare):
+            result=self.run_flow(deadline=WorkflowDeadline(1))
+        self.assertEqual(result['status'],'HOLD')
+        self.assertEqual(result['reason'],'WORKFLOW_DEADLINE')
+        self.assertEqual(result['active_tasks'],['api'])
+        self.assertEqual(self.calls,[])
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM outbox').fetchone()[0],0)
 
     def test_wrong_artifact_allowlist_is_rejected_before_execution(self):
         with self.assertRaises(ControllerError):

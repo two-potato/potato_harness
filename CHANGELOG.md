@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R4.1: shared monotonic workflow deadline, bounded per-stage allowances,
+  durable expiry marker and fail-closed late-batch handling; no automatic
+  replay or forcible trusted callback termination.
+
 - R3.4d: admit default real Bubblewrap in parallel synthetic workflows, reject
   mixed sandbox bindings and require an integrated concurrent live test in CI.
   No live model admission or automatic merge.

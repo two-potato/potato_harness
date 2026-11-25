@@ -280,6 +280,64 @@ print(os.readlink('/proc/self/ns/net'),start,time.monotonic_ns())
             self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],2)
             self.assertEqual(db.execute('SELECT active_json FROM workflow_active_batches').fetchone()[0],'[]')
 
+    def test_workflow_deadline_rejects_invalid_bounds_before_claim(self):
+        for limit in (None,True,0,-1,float('nan'),float('inf'),3601):
+            with self.assertRaises(ControllerError):
+                self.run_flow(workflow_wall_time_s=limit)
+        self.assertEqual(self.calls,[])
+        self.assertEqual(list(self.spaces.iterdir()),[])
+
+    def test_workflow_deadline_caps_worker_and_sandbox(self):
+        from unittest.mock import patch
+        now=[10.]
+        observed=[]
+        def worker(request,command,timeout):
+            observed.append(timeout)
+            if request['role']=='backend':
+                now[0]=12.
+            return self.worker(request,command,timeout)
+        def sandbox(*args,**kwargs):
+            observed.append(kwargs['timeout'])
+            return {'returncode':0,'stdout':'ok','stderr':'','timed_out':False}
+        with patch('harness.runtime.workflow.monotonic',side_effect=lambda:now[0]):
+            result=self.run_flow(workflow_wall_time_s=8,worker=worker,sandbox_run=sandbox)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(observed,[8.,6.,6.,6.])
+
+    def test_parallel_late_proposals_reconcile_without_publication(self):
+        from unittest.mock import patch
+        import threading
+        self.prepare(independent=True)
+        self.parallel_budget()
+        now=[10.]
+        barrier=threading.Barrier(2,action=lambda:now.__setitem__(0,12.),timeout=15)
+        def worker(request,command,timeout):
+            self.assertEqual(timeout,2.)
+            barrier.wait()
+            return {'edits':[{'path':'api.py' if request['role']=='backend' else 'ui.py',
+                              'content':'value = 2\n'}],'summary':'late fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        with patch('harness.runtime.workflow.monotonic',side_effect=lambda:now[0]):
+            result=self.run_flow(max_parallel=2,workflow_wall_time_s=2,worker=worker)
+        self.assertEqual(result['status'],'HOLD',result)
+        self.assertEqual(result['reason'],'WORKFLOW_DEADLINE')
+        self.assertEqual(result['active_tasks'],['api','ui'])
+        self.assertEqual(result['completed'],[])
+        for key in ('api','ui'):
+            self.assertEqual(self.c.get_task(key)['status'],'BLOCKED')
+            self.assertEqual(Outbox(self.db).unresolved(key),[])
+        for directory in self.spaces.iterdir():
+            self.assertFalse((directory/'result.json').exists())
+            self.assertEqual((directory/'workspace'/'api.py').read_text(),'value = 1\n')
+            self.assertEqual((directory/'workspace'/'ui.py').read_text(),'value = 1\n')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],2)
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations WHERE settlement IS NULL').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT expired FROM workflow_deadlines').fetchone()[0],1)
+        with self.assertRaises(ControllerError):
+            self.run_flow(max_parallel=2)
+
     def test_parallel_unknown_effect_holds_after_already_admitted_batch(self):
         import threading
         self.prepare(independent=True)
