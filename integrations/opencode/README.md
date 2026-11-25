@@ -53,3 +53,7 @@ Sources checked 2026-11-05: https://opencode.ai/docs/plugins/,
 https://opencode.ai/docs/sdk/,
 https://github.com/code-yeongyu/oh-my-openagent and the installed package types.
 Upstream limit behavior checked in v1.19.5 session/llm/request.ts and transform.
+
+An isolated, non-activated [OpenCode 2.4.1 migration candidate](../opencode-v2/README.md)
+uses the new embedded SDK against a synthetic fixture only. OMO 5.1.60's v2
+entrypoint is a placeholder, not the full v1 runtime. The default stays 1.19.5.

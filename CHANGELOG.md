@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Add a separate fixture-only OpenCode 2.4.1 SDK migration candidate, with
+  v2 retry hook, restrictive roles and bounded synthetic HTTP transport.
+  Default OpenCode/OMO 1.x is unchanged; full OMO v2 is not available in the
+  pinned upstream entrypoint. Candidate is not authorized for live dispatch.
+
 - Stop on the first observed OpenCode session retry, request bounded abort,
   and retain allowlisted provider failure categories for both model stages.
   Added mocked retry tests and real SDK local HTTP rejection fixtures.
