@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Add an opt-in native free inference candidate with two synthetic role
+  sessions, ordered deny-by-default hook audit, strict reported usage and
+  bounded transcript validation. No runtime wiring, external CI requests or
+  claimed live inference. Independent review and manual trial required.
+
 - Fix native CLI preflight rejection of the observed OpenCode 2.4.1 merged
   deny-only agent permissions. Preserve wildcard denial and reject unknown
   shapes and non-deny effects; add positive and negative snapshot tests.

@@ -1,6 +1,7 @@
 // Policy for a dedicated official OpenCode CLI server, not the operator's existing server.
 import {candidateConfig} from './contracts.mjs';
 import {ROLES} from './profile.mjs';
+import {auditSequence,readAudit,recordAudit} from './server-audit.mjs';
 
 export const POLICY_ID='potato-harness-native-server';
 export function modelRef(name){
@@ -29,7 +30,7 @@ export function nativeConfig(model,maxOutput,plugin){
  return config;
 }
 // Self-contained: the CLI loads this from a private generated directory.
-export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck}){
+export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{}}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
  const same=m=>m?.providerID===ref.providerID&&m.id===ref.id&&m.variant===undefined;
  const resolved=new Map(),sent=new Set(),http=new Set();
@@ -56,16 +57,16 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    if(editor.get(ref.providerID,ref.id))editor.default.set(ref.providerID,ref.id);
   }));
   registrations.push(await ctx.tool.transform(editor=>{for(const t of editor.list())editor.remove(t.id);}));
-  registrations.push(await ctx.permission.hook('evaluate',e=>{e.effect='deny';}));
+  registrations.push(await ctx.permission.hook('evaluate',e=>{e.effect='deny';record('violation');}));
   registrations.push(await ctx.session.hook('title',e=>{e.result='Potato bounded proposal';}));
-  registrations.push(await ctx.session.hook('retry',e=>{e.decision={retry:false};}));
+  registrations.push(await ctx.session.hook('retry',e=>{e.decision={retry:false};record('violation');}));
   registrations.push(await ctx.session.hook('experimental.model.resolve',e=>{
    // Resolution for the title can precede the title hook. Any title HTTP request
    // is still rejected by the model.request/http.request guards below.
    if(e.kind==='title'&&same(e.model))return;
    const role=admitted===0?'valera-ceo':admitted===1?worker:null;
    if(e.kind!=='primary'||!same(e.model)||e.agent!==role||resolved.has(e.sessionID)){
-    e.model={providerID:'potato-denied',id:'denied'};return;
+    e.model={providerID:'potato-denied',id:'denied'};record('violation');return;
    }
    admitted++;resolved.set(e.sessionID,e.agent);
   }));
@@ -73,21 +74,24 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    e.tools={};e.options.maxTokens=Math.min(maxOutput,e.options.maxTokens??maxOutput);
   }));
   registrations.push(await ctx.session.hook('model.request',e=>{
-   if(!allowed(e)||sent.has(e.sessionID))throw Error('MODEL_REQUEST_DENIED');
-   sent.add(e.sessionID);
+   if(!allowed(e)||sent.has(e.sessionID)){record('violation');throw Error('MODEL_REQUEST_DENIED');}
+   record('model:'+e.agent);sent.add(e.sessionID);
   }));
   registrations.push(await ctx.session.hook('http.request',e=>{
-   if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID))throw Error('HTTP_REQUEST_DENIED');
-   http.add(e.sessionID);
+   if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID)){record('violation');throw Error('HTTP_REQUEST_DENIED');}
+   record('http:'+e.agent);http.add(e.sessionID);
   }));
-  registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{throw Error('WEBSOCKET_DENIED');}));
+  registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{record('violation');throw Error('WEBSOCKET_DENIED');}));
+  record('ready');
   return async()=>{for(const reg of registrations.reverse())await reg.dispose();};
  }};
 }
-export function pluginSource(config,ref,maxOutput,worker){
+export function pluginSource(config,ref,maxOutput,worker,auditFile){
  if(!ROLES.includes(worker)||worker==='valera-ceo')throw Error('INVALID_WORKER');
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker});
- return 'const isFreeModel='+isFreeModel.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel});\n';
+ const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
+ const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
+ return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
 }
 // The native CLI can merge duplicate wildcard denies and browser restrictions.
 // Accept only observed deny-only shapes; unknown rules fail closed.

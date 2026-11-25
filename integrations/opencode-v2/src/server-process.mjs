@@ -5,6 +5,7 @@ import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {withTimeout} from './bridge_limits.mjs';
+import {readAudit} from './server-audit.mjs';
 import {modelRef,nativeConfig,pluginSource,verifyServerSnapshot} from './server-policy.mjs';
 
 export function parseEndpoint(line){
@@ -56,7 +57,7 @@ function checkVersion(binary,env,cwd){
   p.once('close',code=>{clearTimeout(timer);if(code===0&&/^(?:opencode v?)?2\.4\.1$/.test(out.trim()))resolve();else reject(Error('CLI_VERSION_MISMATCH'));});
  });
 }
-export async function launchPrivateServer({binary,operatorHome,model,worker='backend',maxOutput=2048,clientFactory}){
+export async function launchPrivateServer({binary,operatorHome,model,worker='backend',maxOutput=2048,clientFactory,audit=false}){
  if(typeof binary!=='string'||!path.isAbsolute(binary)||!fs.statSync(binary).isFile())throw Error('ABSOLUTE_CLI_REQUIRED');
  if(typeof operatorHome!=='string'||!path.isAbsolute(operatorHome))throw Error('ABSOLUTE_HOME_REQUIRED');
  const ref=modelRef(model);
@@ -66,7 +67,9 @@ export async function launchPrivateServer({binary,operatorHome,model,worker='bac
  const directory=fs.mkdtempSync(path.join(root,'run-'));
  const plugin=privateDir(path.join(directory,'policy'));
  const config=nativeConfig(model,maxOutput,plugin);
- fs.writeFileSync(path.join(plugin,'server.mjs'),pluginSource(config,ref,maxOutput,worker),{mode:0o600});
+ const auditFile=audit?path.join(directory,'audit.log'):undefined;
+ if(auditFile)fs.writeFileSync(auditFile,'',{mode:0o600,flag:'wx'});
+ fs.writeFileSync(path.join(plugin,'server.mjs'),pluginSource(config,ref,maxOutput,worker,auditFile),{mode:0o600});
  const password=randomBytes(32).toString('base64url'),abort=new AbortController();
  const env={PATH:'/usr/bin:/bin',HOME:root,XDG_DATA_HOME:data,XDG_CACHE_HOME:cache,XDG_STATE_HOME:state,
   XDG_CONFIG_HOME:directory,OPENCODE_CONFIG_DIR:directory,OPENCODE_CONFIG_CONTENT:JSON.stringify(config),
@@ -80,6 +83,7 @@ export async function launchPrivateServer({binary,operatorHome,model,worker='bac
     child.stdin.end();
     try{await withTimeout(()=>exited,1000);}catch{child.kill('SIGKILL');await withTimeout(()=>exited,1000);}
    }
+   if(auditFile)return readAudit(auditFile);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
  };
  try{
@@ -91,7 +95,7 @@ export async function launchPrivateServer({binary,operatorHome,model,worker='bac
   const client=clientFactory({baseUrl:endpoint,fetch:localFetch(endpoint,password,abort.signal)});
   const health=await withTimeout(()=>client.server.info(),5000);
   if(health?.version!=='2.4.1')throw Error('SERVER_VERSION_MISMATCH');
-  return {client,directory,config,ref,plugin,maxOutput,close};
+  return {client,directory,config,ref,plugin,maxOutput,close,readAudit:auditFile?()=>readAudit(auditFile):undefined};
  }catch(e){await close();throw e;}
 }
 export async function awaitServerPolicy(server,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,100)),timeout=15000}={}){

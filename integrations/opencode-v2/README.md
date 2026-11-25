@@ -97,3 +97,28 @@ their actual CLI execution must be validated before enabling inference.
 The preflight path is not yet a runtime profile and does not replace the
 existing fixture/default config. Do not run the Console profile as part
 of this migration. Full runtime wiring and real-model validation are separate.
+
+## Native free inference R1 candidate (manual, not runtime)
+
+After the preflight PASS, independent review and explicit authorization for
+external inference, run from the repository root:
+
+```sh
+integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-inference-probe.mjs \
+  opencode/<available-free-model> --confirm-external-inference
+```
+
+One private server, two separate sessions, fixed inert synthetic proposal only.
+No project files or model output are published. A strict policy audit allows
+one model-request hook and one HTTP-request hook per role, in order, with no
+retry, permission attempt, unexpected dispatch or WebSocket. The audit records
+fixed local event labels and is deleted on cleanup. PASS requires validated
+assignment, exact synthetic edit, complete bounded transcripts and explicit
+zero reported cost with positive bounded token counts (1024 output per stage).
+Hook counts are not independently measured network traffic; zero reported cost
+is not a provider billing guarantee. HOLD after dispatch means an unknown
+external outcome; do not retry automatically or reset provider state.
+The probe is not installed/run by CI, does not enable the runtime profile, and
+is not production or sandbox certification. No real inference is claimed until
+an operator supplies evidence from the manual trial.
