@@ -89,6 +89,18 @@ python3 tools/verify_manifest.py
 
 [Основной GitHub Actions прогон](https://github.com/two-potato/potato_harness/actions/runs/43167323426) · [Marketplace CI](https://github.com/two-potato/potato_harness/actions/runs/43167323539) · [Подробные результаты и исторические снимки](VALIDATION.md)
 
+### Обновление экспериментальной ветки (25.11.2026)
+
+Ветка `feat/native-free-runtime-r2`, коммит
+[`e89cc78`](https://github.com/two-potato/potato_harness/commit/e89cc7875e6fec6a35bedc25ec505e273c4bb30f),
+не слита в main. CI подтвердил 284 Python-теста, 63 JS-теста и обязательные
+E2E с двумя синтетическими предложениями и реально пересекающимися по времени
+тестами в отдельных Bubblewrap PID/NET namespaces. Ошибка реального теста
+блокирует зависимую задачу. Это не проверка внешнего inference, полного
+восьмиагентного runtime, автоматического merge или независимая сертификация.
+Подробности: [VALIDATION.md](VALIDATION.md).
+OMO остаётся необязательным: [решение R4.1](adapters/OMO_COMPATIBILITY.md).
+
 ## Что пока не готово
 
 Это важнее бейджей:

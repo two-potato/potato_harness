@@ -183,3 +183,19 @@ test('native HTTP hook denies invalid protocol and observed redirects without ex
  assert.ok(!JSON.stringify(events).includes('private.test'));
  await cleanup();
 });
+
+test('native policy refuses OMO composition and duplicated policy identity',()=>{
+ for(const extra of [
+  {id:'oh-my-openagent',state:{status:'active'},source:{type:'package'}},
+  {id:'oh-my-opencode',state:{status:'active'},source:{type:'local',path:'/other'}},
+  {id:POLICY_ID,state:{status:'active'},source:{type:'package'}},
+  {id:POLICY_ID,state:{status:'active'},source:{type:'builtin'}},
+  {id:POLICY_ID,state:{status:'active'},source:{type:'local',path:plugin}},
+  {id:POLICY_ID,state:{status:'failed'},source:{type:'local',path:'/other'}}
+ ]){
+  const s=snapshot();s.plugins.data.push(extra);
+  assert.equal(verifyServerSnapshot(s,config,ref,cap,plugin),false);
+ }
+ const s=snapshot();s.plugins.data.push({id:'built-in-test',state:{status:'active'},source:{type:'builtin'}});
+ assert.equal(verifyServerSnapshot(s,config,ref,cap,plugin),true);
+});

@@ -236,3 +236,12 @@ outputs. A separate live failed-check test blocks a dependent task. The proposal
 source is still synthetic and the profile has no live model or public workflow
 CLI binding. No merged project result, aggregate OS resource guarantee or
 independent security review is claimed.
+
+## R4.1 — OMO compatibility source audit and exclusion regression
+
+Pinned upstream v5.1.83 (2026-11-24) only registers its OpenCode V2 plugin;
+full agents/tools/hooks are absent. The standalone OmO Native engine is a
+separate adapter candidate, not a drop-in plugin. See adapters/OMO_COMPATIBILITY.md.
+No installation, config migration or fallback. Retain the native gateway and
+require a unique trusted policy identity in its snapshot. R4 live admission
+remains HOLD; source inspection does not establish runtime compatibility.

@@ -100,3 +100,18 @@ fresh evidence. The workflow checks the dependency lock, preserved role prompts,
 unit tests, actual SDK synthetic responses and actual SDK worker/runtime with
 an injected sandbox seam. External inference and independent containment remain
 separate verification gates. No automatic paid requests are part of CI.
+
+## Parallel fixture workflow — 2026-11-25
+
+Exact draft-branch commit `e89cc7875e6fec6a35bedc25ec505e273c4bb30f`:
+[branch CI](https://github.com/two-potato/potato_harness/actions/runs/45595867663),
+[PR CI](https://github.com/two-potato/potato_harness/actions/runs/45595880815),
+[native offline](https://github.com/two-potato/potato_harness/actions/runs/45595867558)
+all completed successfully. Branch logs: 284 Python tests, 63/63 JS, manifest
+269 listed files. Mandatory live workflow tests ran again: 2 tests in 2.460s,
+with LIVE_PARALLEL_WORKFLOW_PASS and LIVE_PARALLEL_WORKFLOW_HOLD. Actual
+project test payloads overlap in distinct PID/NET namespaces; synthetic model
+proposals only. Local operator reported 23/23 isolation tests on the prior
+launcher revision (screenshot, exact SHA not visible); current workflow
+E2E on the operator host remains unconfirmed. Main is unchanged. No independent
+security review or external inference confirmation.

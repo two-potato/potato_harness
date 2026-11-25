@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R4.1: document pinned OMO V2 compatibility blockers and standalone native
+  candidate; add duplicate policy identity/OMO exclusion regression. No OMO
+  dependency or activation. Record actual parallel fixture CI evidence.
+
 - R3.4d: bind parallel fixture workflows to the real Bubblewrap backend;
   require live overlapping project-test and failure-path E2E in CI, reject
   mixed sandbox seams and preserve synthetic-only provider provenance.

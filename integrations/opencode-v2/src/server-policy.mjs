@@ -152,8 +152,13 @@ function verifyDenyPermissions(rules){
 }
 export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutput,plugin){
  const entries=plugins?.data,roster=agents?.data,catalog=models?.data;
- if(!Array.isArray(entries)||!entries.some(p=>p.id===POLICY_ID&&p.state?.status==='active'&&p.source?.type==='local'&&p.source.path===plugin)||
-    entries.some(p=>p.state?.status==='active'&&p.source?.type!=='builtin'&&p.id!==POLICY_ID))return false;
+ if(!Array.isArray(entries))return false;
+ // A matching ID alone cannot establish exclusive policy ownership.
+ const policyEntries=entries.filter(p=>p.id===POLICY_ID);
+ if(policyEntries.length!==1)return false;
+ const policy=policyEntries[0];
+ if(policy.state?.status!=='active'||policy.source?.type!=='local'||policy.source.path!==plugin||
+    entries.some(p=>p!==policy&&p.state?.status==='active'&&p.source?.type!=='builtin'))return false;
  if(!Array.isArray(roster)||roster.length!==ROLES.length||new Set(roster.map(a=>a.id)).size!==ROLES.length||
     !ROLES.every(r=>roster.some(a=>a.id===r)))return false;
  if(!roster.every(a=>a.model?.providerID===ref.providerID&&a.model?.id===ref.id&&a.model.variant===undefined&&
