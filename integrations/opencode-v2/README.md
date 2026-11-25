@@ -31,7 +31,7 @@ From repository root:
 ```bash
 node --test integrations/opencode-v2/tests/*.test.mjs
 cd integrations/opencode-v2
-npm install --ignore-scripts --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund
 ../opencode/node_modules/.bin/bun src/smoke.mjs
 ```
 
@@ -40,10 +40,11 @@ plugin initialization and hooks with injected
 fixtures. The smoke test uses the actual v2 SDK with synthetic HTTP responses;
 it checks the two-stage path and 401/429/503 rejection without redispatch.
 No external inference, no OMO v2 certification. Direct SDK version is pinned;
-the candidate does not yet have a reviewed committed transitive lockfile.
-CI must verify actual package resolution and runtime behavior before promotion.
+the candidate now commits the transitive npm lockfile resolved on CI, with
+registry origins and integrity fields checked. This is not an independent
+supply-chain audit. CI must verify the locked install and runtime behavior.
 
-Promotion gates: actual SDK smoke, committed lockfile, negative tests for tool
+Promotion gates: actual SDK smoke, review of the committed lockfile, negative tests for tool
 execution and auxiliary model requests, verified token/cost accounting,
 bounded cancellation, external provider transport and credential isolation,
 independent security review, and a separately authorized live trial. Preserve

@@ -3,19 +3,23 @@ import {ROLES} from '../../opencode/src/profile.mjs';
 
 // Never forward to the network. One synthetic HTTP response per authorized stage.
 export function fixtureTransport(respond,maxOutput){
- let phase=null,calls=0,violation=false;
+ let phase=null,calls=0,violation=false,reason='NONE';
+ const fail=code=>{violation=true;if(reason==='NONE')reason=code;throw Error(code);};
  return {
   begin(next){if(phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
-  end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY');},
+  end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY: '+reason+'; calls='+n);},
   get violated(){return violation;},
   async fetch(input,init){
    const req=new Request(input,init);
-   if(req.url!==FIXTURE_URL||req.method!=='POST'||!phase||calls!==0){violation=true;throw Error('FIXTURE_REQUEST_BOUNDARY');}
+   if(req.url!==FIXTURE_URL){const u=new URL(req.url);fail(u.origin==='https://potato-fixture.invalid'?'FIXTURE_WRONG_PATH':u.hostname==='opencode.ai'?'BLOCKED_CONSOLE':u.hostname==='models.dev'?'BLOCKED_CATALOG':'BLOCKED_OTHER_ORIGIN');}
+   if(req.method!=='POST')fail('FIXTURE_METHOD');
+   if(!phase)fail('FIXTURE_BEFORE_ADMISSION');
+   if(calls!==0)fail('FIXTURE_DUPLICATE');
    calls++;
    const body=await req.json();
    const cap=body.max_tokens??body.max_completion_tokens;
    if(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput||body.model!==MODEL_REF.id||!Array.isArray(body.messages)||(body.tools!==undefined&&(!Array.isArray(body.tools)||body.tools.length!==0))){
-    violation=true;throw Error('FIXTURE_REQUEST_CONTRACT');
+    fail(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput?'FIXTURE_OUTPUT_CAP':body.model!==MODEL_REF.id?'FIXTURE_MODEL':!Array.isArray(body.messages)?'FIXTURE_MESSAGES':'FIXTURE_TOOLS');
    }
    return respond(phase,body);
   }
@@ -41,6 +45,15 @@ export async function awaitPolicy(read,observe,{now=()=>performance.now(),pause=
   await pause();
  }while(now()<deadline);
  throw Error('V2_PLUGIN_NOT_ACTIVE');
+}
+export async function awaitModel(read,maxOutput,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,50)),timeout=10000}={}){
+ const deadline=now()+timeout;
+ do{
+  const result=await read();
+  if(result?.data?.some(m=>m.providerID===MODEL_REF.providerID&&m.id===MODEL_REF.id&&m.enabled===true&&m.limit?.output===maxOutput&&m.capabilities?.tools===false))return;
+  await pause();
+ }while(now()<deadline);
+ throw Error('V2_MODEL_NOT_READY');
 }
 export function restrictivePlugin(observed,maxOutput){
  const definitions=candidateConfig(maxOutput).agents;

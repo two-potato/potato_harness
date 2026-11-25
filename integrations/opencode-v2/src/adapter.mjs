@@ -5,7 +5,7 @@ import path from 'node:path';
 import {bridgeBudget,withTimeout} from '../../opencode/src/bridge_limits.mjs';
 import {validateAssignment} from '../../opencode/src/contracts.mjs';
 import {validateRequest,candidateConfig,MODEL_REF,deny,parseAssistant,combine} from './contracts.mjs';
-import {fixtureTransport,restrictivePlugin,awaitPolicy} from './policy.mjs';
+import {fixtureTransport,restrictivePlugin,awaitPolicy,awaitModel} from './policy.mjs';
 
 export async function runCandidate(request,{OpenCode,respond,observe={retries:0,ready:false}}){
  const maxOutput=validateRequest(request);
@@ -16,7 +16,7 @@ export async function runCandidate(request,{OpenCode,respond,observe={retries:0,
  try{
   sdk=await budget.stage(()=>OpenCode.create({
    config:{directory,project:false,claude:false,content:JSON.stringify(candidateConfig(maxOutput))},
-   instructions:{claude:false},database:{path:':memory:'},models:{fetch:false},
+   instructions:{claude:false},database:{path:':memory:'},models:{fetch:false,snapshot:false},
    fs:{filewatcher:false,fff:false},fetch:transport.fetch,
    plugins:[restrictivePlugin(observe,maxOutput)]
   }));
@@ -25,11 +25,18 @@ export async function runCandidate(request,{OpenCode,respond,observe={retries:0,
    sessionID=session.id;
    // The location's agent/tool registries must initialize the plugin before dispatch.
    await budget.stage(()=>awaitPolicy(()=>sdk.agent.list({location:{directory}}),observe));
+   await budget.stage(()=>awaitModel(()=>sdk.model.list({location:{directory}}),maxOutput));
    transport.begin(phase);
    await budget.stage(()=>sdk.sessions.prompt({sessionID,text}));
    await budget.stage(()=>sdk.experimental.session.wait({sessionID}));
    const page=await budget.stage(()=>sdk.message.list({sessionID,limit:100}));
-   transport.end();
+   try{transport.end();}catch(error){
+    const messages=Array.isArray(page.data)?page.data:[];
+    const answers=messages.filter(m=>m.type==='assistant');
+    const status=answers[0]?.error?.status;
+    // Fixture-only diagnostic; no prompt, body, header, URL or arbitrary error message.
+    throw Error(error.message+'; messages='+messages.length+'; assistants='+answers.length+'; provider_status='+(Number.isInteger(status)?status:'unknown'));
+   }
    if(page.cursor?.next||page.cursor?.previous)throw Error('UNEXPECTED_MESSAGE_PAGINATION');
    const answer=parseAssistant(page.data,role);
    sessionID=undefined;

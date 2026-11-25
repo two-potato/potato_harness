@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {candidateConfig,validateRequest,parseAssistant,combine,FIXTURE_URL} from '../src/contracts.mjs';
-import {fixtureTransport,restrictivePlugin,awaitPolicy,safeRoster} from '../src/policy.mjs';
+import {fixtureTransport,restrictivePlugin,awaitPolicy,safeRoster,awaitModel} from '../src/policy.mjs';
 const request={role:'backend',model:'fixture/test',prompt:'repair',coordination:{objective:'repair',scope:['a.py']},output_token_allowance:128};
 test('v2 is explicitly fixture-only; all nine roles preserved; deny by default',()=>{
  assert.equal(validateRequest(request),64);
@@ -58,4 +58,11 @@ test('async plugin initialization is bounded and unsafe roster never admits a mo
  await awaitPolicy(async()=>{reads++;if(reads===3)observe.ready=true;return {data:reads===1?[]:agents};},observe,{now:()=>now,pause:async()=>{now+=10;},timeout:100});
  assert.equal(reads,3);
  await assert.rejects(awaitPolicy(async()=>({data:agents.slice(1)}),observe,{now:()=>now,pause:async()=>{now+=10;},timeout:30}),/V2_PLUGIN_NOT_ACTIVE/);
+});
+
+test('fixture model readiness waits for the configured bounded capability',async()=>{
+ let n=0,time=0;const model={id:'test',providerID:'fixture',enabled:true,limit:{output:64},capabilities:{tools:false}};
+ await awaitModel(async()=>({data:[++n===1?{...model,limit:{output:128}}:model]}),64,{now:()=>time,pause:async()=>{time+=10;},timeout:50});
+ assert.equal(n,2);
+ await assert.rejects(awaitModel(async()=>({data:[{...model,capabilities:{tools:true}}]}),64,{now:()=>time,pause:async()=>{time+=10;},timeout:30}),/V2_MODEL_NOT_READY/);
 });
