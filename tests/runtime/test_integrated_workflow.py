@@ -16,15 +16,18 @@ class IntegratedWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.prepare()
 
-    def prepare(self,*,independent=False,overlap=False):
+    def prepare(self,*,independent=False,overlap=False,team=False):
         tmp=tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root=Path(tmp.name)
         self.repo=self.root/'source'
         self.repo.mkdir()
         _git(self.repo,'init')
-        for name in ('api.py','ui.py'):
-            (self.repo/name).write_text('value = 1\n')
+        from harness.scheduler import SPECIALISTS
+        roster=[(role,role,[]) for role in sorted(SPECIALISTS)] if team else [
+            ('api','backend',[]),('ui','frontend',[] if independent else ['api'])]
+        for key,_,_ in roster:
+            (self.repo/(key+'.py')).write_text('value = 1\n')
         _git(self.repo,'add','.')
         _git(self.repo,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','base')
         self.base=_git(self.repo,'rev-parse','HEAD')
@@ -37,7 +40,7 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.objects=self.root/'objects'
         self.objects.mkdir(mode=0o700)
         self.calls=[]
-        for key,role,deps in [('api','backend',[]),('ui','frontend',[] if independent else ['api'])]:
+        for key,role,deps in roster:
             task=json.loads((ROOT/'fixtures/valid/task.json').read_text())
             commit={'hash_algorithm':'sha1','value':self.base}
             task.update(task_id=key,owner=role,scope=['api.py' if overlap else key+'.py'],depends_on=deps,
@@ -55,12 +58,11 @@ class IntegratedWorkflowTests(unittest.TestCase):
                 token_hard=100000,cost_usd_soft=1,cost_usd_hard=1,wall_time_s_soft=60,wall_time_s_hard=60)
             self.budget.configure(key,record)
         self.args=dict(dag={'schema_version':'3.0.1','workflow_id':'flow','nodes':[
-                           {'id':'a','task_id':'api','needs':[]},{'id':'b','task_id':'ui','needs':[] if independent else ['a']}]},
+                           {'id':key,'task_id':key,'needs':deps} for key,_,deps in roster]},
             workflow_id='flow',user_turn_id='turn',repository_id=repository_identity(self.repo),
-            approved_revisions={'api':0,'ui':0},available_owners=('backend','frontend'),
+            approved_revisions={key:0 for key,_,_ in roster},available_owners=tuple(role for _,role,_ in roster),
             repo=self.repo,workspace_root=self.spaces,object_store=self.objects,
-            test_argv_by_task={'api':['/usr/bin/python3','-c','assert True'],
-                               'ui':['/usr/bin/python3','-c','assert True']},
+            test_argv_by_task={key:['/usr/bin/python3','-c','assert True'] for key,_,_ in roster},
             worker=self.worker,sandbox_probe=lambda:{'available':True,'reason':'injected test seam'},
             sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
 
@@ -100,6 +102,72 @@ class IntegratedWorkflowTests(unittest.TestCase):
             self.assertEqual(result['provider_mode'],'synthetic')
         with self.assertRaises(ControllerError):
             self.run_flow()
+
+    def test_all_eight_specialists_use_bounded_synthetic_runtime(self):
+        from harness.scheduler import SPECIALISTS
+        import threading
+        self.prepare(team=True)
+        self.budget.configure_workflow(workflow_id='flow',repository_id=self.args['repository_id'],
+                user_turn_id='turn',approved_revisions=self.args['approved_revisions'],
+                token_hard=800000,cost_usd_hard=8,max_in_flight=2)
+        lock=threading.Lock()
+        def worker(request,command,timeout):
+            role=request['role']
+            self.assertIn(role,SPECIALISTS)
+            self.assertEqual(command,['/usr/bin/false'])
+            self.assertEqual(request['model'],'fixture/workflow')
+            self.assertEqual(request['coordination']['scope'],[role+'.py'])
+            with lock:
+                self.calls.append(role)
+            return {'edits':[{'path':role+'.py','content':'value = 2\n'}],
+                    'summary':'synthetic role fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        result=self.run_flow(max_parallel=2,worker=worker)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(set(result['completed']),SPECIALISTS)
+        self.assertEqual(len(self.calls),8)
+        self.assertEqual(set(self.calls),SPECIALISTS)
+        self.assertEqual(result['provider_mode'],'synthetic')
+        for role in SPECIALISTS:
+            self.assertEqual((self.repo/(role+'.py')).read_text(),'value = 1\n')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],24)
+            self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],8)
+            self.assertEqual(db.execute("SELECT count(*) FROM provider_attempts WHERE kind='PREFLIGHT'").fetchone()[0],1)
+
+    def test_crashed_worker_recovery_fences_effect_and_keeps_budget(self):
+        import os
+        from harness.runtime.workflow_lifecycle import recover_workflow
+        pid=os.fork()
+        if pid==0:
+            try:
+                self.run_flow(worker=lambda *args:os._exit(71))
+            finally:
+                os._exit(72)
+        _,status=os.waitpid(pid,0)
+        self.assertEqual(os.waitstatus_to_exitcode(status),71)
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchone()[0],'DISPATCHING')
+            self.assertEqual(db.execute("SELECT count(*) FROM leases WHERE status='ACTIVE'").fetchone()[0],1)
+        first=recover_workflow(self.db,workflow_id='flow')
+        self.assertEqual(first['status'],'HOLD')
+        self.assertEqual(first['active_tasks'],['api'])
+        self.assertEqual(first['tasks']['api']['effects'][0]['state'],'UNKNOWN')
+        self.assertEqual(first['tasks']['api']['leases'][0]['status'],'SUSPECT')
+        self.assertEqual(len(first['tasks']['api']['reservations']),1)
+        self.assertEqual(first['tasks']['ui']['status'],'PLANNED')
+        self.assertEqual(first,recover_workflow(self.db,workflow_id='flow'))
+        with self.assertRaises(ControllerError):
+            self.run_flow()
+
+    def test_recovery_cannot_run_inside_active_coordinator(self):
+        from harness.runtime.workflow_lifecycle import recover_workflow
+        def worker(*args):
+            with self.assertRaises(ControllerError):
+                recover_workflow(self.db,workflow_id='flow')
+            return self.worker(*args)
+        result=self.run_flow(worker=worker)
+        self.assertEqual(result['status'],'DONE',result)
 
     def test_uncertain_first_worker_stops_second(self):
         def interrupted(*args):

@@ -14,6 +14,7 @@ from harness.isolation.backend import BubblewrapBackend
 from harness.runtime import _config, _lock, _run, _write
 from harness.runtime.workflow import WorkflowDeadline, run_sequential_workflow, run_parallel_workflow
 from harness.verifier import TrustedEvidence
+from harness.scheduler import SPECIALISTS
 
 CHECKS=['relevant_checks','basic_review','acceptance_coverage']
 
@@ -52,7 +53,7 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
         for key,revision in approved_revisions.items():
             task=c._read(db,key)
             if (task['status']!='PLANNED' or task['revision']!=revision or
-                    task['owner'] not in ('backend','frontend') or task['risk']!='LOW' or
+                    task['owner'] not in SPECIALISTS or task['risk']!='LOW' or
                     task['task_class']!='BOUNDED' or task['policy_version']!='bounded-trial-3.0' or
                     task['required_checks']!=CHECKS or task['acceptance']!=[
                         {'id':'configured-tests','expected':task['objective'],'requires':CHECKS}]):
