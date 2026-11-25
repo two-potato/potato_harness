@@ -49,7 +49,7 @@ def main():
     c['credentials']={'status':'CONFIGURED' if os.environ.get('OPENCODE_API_KEY') else 'MISSING_KEY','opencode':bool(os.environ.get('OPENCODE_API_KEY')),'typesafe':bool(os.environ.get('TYPESAFE_API_KEY'))}
     if args.verify:
         for name,command,cwd in [('python_suite',[python,'-m','unittest','discover','-s','tests','-v'],ROOT),('contracts',[python,'tools/validate_pack.py'],ROOT),('v2_unit',['npm','test'],INTEGRATION),('v2_sdk_fixture',[INTEGRATION/'node_modules/.bin/bun','src/smoke.mjs'],INTEGRATION),('manifest',[python,'tools/verify_manifest.py'],ROOT)]:
-            env=dict(os.environ);env['PATH']=str(INTEGRATION/'node_modules/.bin')+os.pathsep+os.defpath
+            env=dict(os.environ);env['PATH']=str(INTEGRATION/'node_modules/.bin')+os.pathsep+env.get('PATH',os.defpath)
             try:c[name]={'status':'PASS','output':call(command,cwd=cwd,env=env)[-3000:]}
             except Exception as e:c[name]={'status':'FAIL','reason':str(e)}
     blockers=[name for name,value in c.items() if value['status'] in ('BLOCKED','BLOCKED_HOST','FAIL')]

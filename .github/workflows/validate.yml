@@ -37,7 +37,7 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           node node_modules/bun/install.js
           test "$(node_modules/.bin/bun --version)" = 1.4.4
-          test "$(node -p 'require(\"./node_modules/@opencode/sdk/package.json\").version')" = 2.4.1
+          test "$(node -p 'require("./node_modules/@opencode/sdk/package.json").version')" = 2.4.1
       - name: Real V2 embedded SDK synthetic HTTP fixture
         working-directory: integrations/opencode-v2
         run: node_modules/.bin/bun src/smoke.mjs

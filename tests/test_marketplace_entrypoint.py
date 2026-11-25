@@ -61,7 +61,10 @@ class MarketplaceEntrypointTests(unittest.TestCase):
 
     def test_root_opencode_profile_denies_untrusted_tools(self):
         config=json.loads((ROOT/'opencode.json').read_text())
-        self.assertEqual(config['permission'].get('*'),'deny')
+        self.assertEqual(config['permissions'],[{'action':'*','resource':'*','effect':'deny'}])
+        self.assertNotIn('permission',config)
+        self.assertEqual(config['update'],'disable')
+        self.assertFalse(config['automations'])
         self.assertIn('AGENTS.md',config['instructions'])
         self.assertEqual(config['share'],'disabled')
 
