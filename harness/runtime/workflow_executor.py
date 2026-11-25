@@ -21,7 +21,7 @@ CHECKS=['relevant_checks','basic_review','acceptance_coverage']
 def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
                          approved_revisions,available_owners,repo,workspace_root,
                          object_store,test_argv_by_task,worker,sandbox_probe=None,sandbox_run=None,max_parallel=1):
-    """Bind one fresh sequential workflow to the real host pipeline.
+    """Bind one fresh sequential or parallel fixture workflow to the host pipeline.
 
     This fixture API accepts no external provider configuration. Every task is
     LOW/BOUNDED, uses the existing configured-tests gate and must publish exactly
@@ -32,10 +32,11 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
         raise ControllerError('Explicit fixture worker and task test commands required')
     if type(max_parallel) is not int or not 1<=max_parallel<=8:
         raise ControllerError('Workflow width must be an integer from 1 to 8')
-    if max_parallel>1 and (not callable(sandbox_probe) or not callable(sandbox_run)):
-        # Current Bubblewrap launch uses preexec_fn, unsafe in threaded hosts.
-        # No parallel production sandbox binding until the launcher is replaced.
-        raise ControllerError('Parallel fixture requires explicit synthetic sandbox seams')
+    # Use either the complete real backend or a complete explicit test seam.
+    # Do not mix a fake readiness result with a real test or vice versa.
+    if max_parallel>1 and not ((sandbox_probe is None and sandbox_run is None) or
+                               (callable(sandbox_probe) and callable(sandbox_run))):
+        raise ControllerError('Parallel fixture requires both sandbox seams or neither')
     database=Path(database).resolve(strict=True)
     root=Path(workspace_root).absolute()
     store=Path(object_store).absolute()
@@ -112,4 +113,5 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
             repository_id=repository_id,approved_revisions=approved_revisions,available_owners=available_owners,
             repo=repo,workspace_root=root,object_store=store,output_paths=output_paths,
             collector=attestations.__getitem__,trusted_issuers=frozenset({'trial-host'}),execute=execute)
-    return {**result,'provider_mode':'synthetic'}
+    return {**result,'provider_mode':'synthetic',
+            'sandbox_binding':'bubblewrap' if sandbox_probe is None and sandbox_run is None else 'injected-seam'}

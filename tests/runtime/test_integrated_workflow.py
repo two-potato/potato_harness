@@ -1,5 +1,6 @@
 """Real bounded runtime under the sequential coordinator; synthetic worker/sandbox seams."""
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -196,7 +197,7 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.assertEqual(result['status'],'DONE',result)
         self.assertEqual(self.calls,['backend','frontend'])
 
-    def test_parallel_requires_aggregate_budget_and_explicit_sandbox_seams(self):
+    def test_parallel_requires_aggregate_budget_and_consistent_sandbox_binding(self):
         with self.assertRaises(ControllerError):
             self.run_flow(max_parallel=2)
         self.parallel_budget(slots=1)
@@ -230,3 +231,122 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.assertEqual(Outbox(self.db).unresolved('ui'),[])
         with self.assertRaises(ControllerError):
             self.run_flow(max_parallel=2,worker=worker)
+
+    def require_live_sandbox(self):
+        from harness.isolation import probe
+        report=probe()
+        if not report['available']:
+            if os.environ.get('POTATO_REQUIRE_LIVE_WORKFLOW')=='1':
+                self.fail('Required Bubblewrap unavailable: '+report['reason'])
+            self.skipTest('Live Bubblewrap unavailable: '+report['reason'])
+
+    def test_live_parallel_workflow_real_sandbox(self):
+        from threading import Barrier
+        self.require_live_sandbox()
+        self.prepare(independent=True)
+        self.parallel_budget()
+        barrier=Barrier(2,timeout=15)
+        host_net=os.readlink('/proc/self/ns/net')
+        host_pid=os.readlink('/proc/self/ns/pid')
+        code="""
+import os, resource, sys, time
+from pathlib import Path
+own, other=sys.argv[1:]
+assert Path(own).read_text()=='value = 2\\n'
+assert Path(other).read_text()=='value = 1\\n'
+assert not Path('/etc/passwd').exists()
+assert not Path('/root').exists()
+assert not Path('/work/.git').exists()
+assert resource.getrlimit(resource.RLIMIT_NOFILE)[0]<=64
+assert resource.getrlimit(resource.RLIMIT_AS)[0]<=1073741824
+assert resource.getrlimit(resource.RLIMIT_CORE)==(0,0)
+start=time.monotonic_ns()
+time.sleep(1.5)
+end=time.monotonic_ns()
+print(os.readlink('/proc/self/ns/net'),os.readlink('/proc/self/ns/pid'),start,end)
+"""
+        def worker(request,command,timeout):
+            self.assertEqual(request['model'],'fixture/workflow')
+            self.assertEqual(command,['/usr/bin/false'])
+            self.calls.append(request['role'])
+            barrier.wait()
+            return {'edits':[{'path':'api.py' if request['role']=='backend' else 'ui.py',
+                              'content':'value = 2\n'}],'summary':'synthetic fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        commands={key:['/usr/bin/python3','-c',code,own,other]
+                  for key,own,other in [('api','api.py','ui.py'),('ui','ui.py','api.py')]}
+        result=self.run_flow(max_parallel=2,worker=worker,test_argv_by_task=commands,
+                             sandbox_probe=None,sandbox_run=None)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(result['provider_mode'],'synthetic')
+        self.assertEqual(result['sandbox_binding'],'bubblewrap')
+        self.assertEqual(result['completed'],['api','ui'])
+        self.assertEqual(sorted(self.calls),['backend','frontend'])
+        spans=[]
+        for directory in self.spaces.iterdir():
+            binding=json.loads((directory/'binding.json').read_text())
+            run=json.loads((directory/'run.json').read_text())
+            self.assertTrue(run['sandbox']['available'])
+            self.assertEqual(run['grant']['status'],'REVOKED')
+            self.assertIsNone(run['lease_id'])
+            self.assertEqual(run['state'],'DONE')
+            artifact=json.loads((directory/'relevant_checks.artifact').read_text())
+            self.assertEqual(artifact['returncode'],0,artifact)
+            self.assertFalse(artifact['timed_out'])
+            net,pid,start,end=artifact['stdout'].strip().split()
+            self.assertNotEqual(net,host_net)
+            self.assertNotEqual(pid,host_pid)
+            spans.append((net,pid,int(start),int(end)))
+            self.assertEqual((directory/'workspace'/binding['scope'][0]).read_text(),'value = 2\n')
+            self.assertEqual(_git(directory/'integration-repo','rev-parse','HEAD'),
+                             self.c.get_task(binding['task_id'])['target_commit']['value'])
+        self.assertEqual(len(spans),2)
+        self.assertNotEqual(spans[0][0],spans[1][0])
+        self.assertNotEqual(spans[0][1],spans[1][1])
+        self.assertLess(max(s[2] for s in spans),min(s[3] for s in spans),
+                        'Actual project test payloads must overlap')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],6)
+            self.assertEqual(db.execute("SELECT count(*) FROM leases WHERE status IN ('ACTIVE','SUSPECT')").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],2)
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations WHERE settlement IS NULL').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT sum(used_tokens),sum(used_cost) FROM budgets').fetchone(),(40,0))
+            self.assertEqual(db.execute('SELECT active_json FROM workflow_active_batches').fetchone()[0],'[]')
+        self.assertEqual(_git(self.repo,'rev-parse','HEAD'),self.base)
+        self.assertEqual(_git(self.repo,'status','--porcelain'),'')
+        print('LIVE_PARALLEL_WORKFLOW_PASS synthetic proposals, real overlapping Bubblewrap tests')
+
+    def test_live_parallel_workflow_failed_check_blocks_dependency(self):
+        self.require_live_sandbox()
+        self.parallel_budget()
+        result=self.run_flow(max_parallel=2,sandbox_probe=None,sandbox_run=None,
+            test_argv_by_task={'api':['/usr/bin/python3','-c','raise AssertionError("fixture failure")'],
+                               'ui':['/usr/bin/true']})
+        self.assertEqual(result['status'],'HOLD',result)
+        self.assertEqual(result['sandbox_binding'],'bubblewrap')
+        self.assertEqual(self.calls,['backend'])
+        self.assertEqual(self.c.get_task('api')['status'],'BLOCKED')
+        self.assertEqual(self.c.get_task('ui')['status'],'PLANNED')
+        self.assertEqual(Outbox(self.db).unresolved('api'),[])
+        self.assertEqual(Outbox(self.db).unresolved('ui'),[])
+        directory=next(self.spaces.iterdir())
+        artifact=json.loads((directory/'relevant_checks.artifact').read_text())
+        self.assertNotEqual(artifact['returncode'],0)
+        self.assertFalse(artifact['timed_out'])
+        self.assertIn('fixture failure',artifact['stderr'])
+        print('LIVE_PARALLEL_WORKFLOW_HOLD real failed sandbox check blocks dependent task')
+
+    def test_real_parallel_binding_unavailable_does_not_fall_back(self):
+        from unittest.mock import patch
+        self.prepare(independent=True)
+        self.parallel_budget()
+        with patch('harness.runtime.workflow_executor.BubblewrapBackend.probe',
+                   return_value={'available':False,'reason':'fixture unavailable'}), \
+             patch('harness.runtime.workflow_executor.BubblewrapBackend.run') as sandbox:
+            result=self.run_flow(max_parallel=2,sandbox_probe=None,sandbox_run=None)
+        self.assertEqual(result['status'],'HOLD')
+        self.assertEqual(self.calls,[])
+        sandbox.assert_not_called()
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM outbox').fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],0)

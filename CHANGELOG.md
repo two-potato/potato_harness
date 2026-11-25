@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.4d: bind parallel fixture workflows to the real Bubblewrap backend;
+  require live overlapping project-test and failure-path E2E in CI, reject
+  mixed sandbox seams and preserve synthetic-only provider provenance.
+
 - R3.4c: replace Bubblewrap preexec_fn with a fresh isolated resource-limit
   helper that execs only the fixed Bubblewrap binary; preserve stricter
   inherited limits and reap interrupted launches. Add concurrent live test.

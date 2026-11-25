@@ -223,3 +223,16 @@ live concurrent sandbox test requires actual platform support and checks
 separate network namespaces, overlapping payloads, private outputs and
 limits. Keep the existing parallel workflow seam restriction until a live
 E2E run is confirmed. No inference or provider activation.
+
+## R3.4d — real sandbox binding for parallel fixture workflows
+
+The host fixture accepts either the full default Bubblewrap backend or both
+explicit sandbox test seams for parallel execution; mixed bindings fail closed.
+The result identifies the binding, not a sandbox certification. Mandatory CI
+live tests fail if Bubblewrap is unavailable; they require overlapping real
+project tests in distinct network/PID namespaces, exact private source edits,
+settled budgets, revoked grants, reconciled leases/effects and verified Git
+outputs. A separate live failed-check test blocks a dependent task. The proposal
+source is still synthetic and the profile has no live model or public workflow
+CLI binding. No merged project result, aggregate OS resource guarantee or
+independent security review is claimed.
