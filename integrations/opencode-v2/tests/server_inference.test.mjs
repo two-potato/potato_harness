@@ -124,3 +124,16 @@ test('native response admits exact default variant but rejects all other explici
   assert.equal(r.diagnostics.response.assistant.variant_base,false);assert.deepEqual(bad.calls,['valera-ceo']);
  }
 });
+
+test('durable host callback runs before each prompt; failure blocks dispatch',async()=>{
+ const f=fake(),events=[];
+ const r=await runNativeProbe({...f.opts,beforePrompt:role=>{
+  events.push('reserve:'+role);assert.equal(f.calls.length,events.length===1?0:1);
+ },onValidatedStage:(role,usage)=>{events.push('validated:'+role);assert.equal(usage.cost_usd,0);}});
+ assert.equal(r.status,'PASS');
+ assert.deepEqual(events,['reserve:valera-ceo','validated:valera-ceo','reserve:backend','validated:backend']);
+ const bad=fake(),held=await runNativeProbe({...bad.opts,beforePrompt:()=>{throw Error('disk failure');}});
+ assert.equal(held.status,'HOLD');assert.deepEqual(bad.calls,[]);assert.equal(held.attempted_prompts,0);
+ const late=fake(),lateHeld=await runNativeProbe({...late.opts,onValidatedStage:()=>{throw Error('disk failure');}});
+ assert.equal(lateHeld.status,'HOLD');assert.deepEqual(late.calls,['valera-ceo']);
+});

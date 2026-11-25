@@ -23,7 +23,7 @@ export function probeUsage(info,cap=PROBE_CAP){
 }
 // The common flow has no transport of its own. The manual probe and runtime
 // diagnostics bind their own launchers; the future candidate has no CLI binding.
-async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{}}){
+async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{},beforePrompt=()=>{},onValidatedStage=()=>{}}){
  const {worker,scope,objective,prompt,cap,synthetic,checkProposal,tokenAllowance,assignmentInstruction='Return only JSON with owner and reason. No tools. This is an inert test, not a real assignment.'}=task;
  let reportedTokens=0;
  let observedPhase=null,started=0;
@@ -50,8 +50,11 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
    sessionID=session.id;ids.add(sessionID);
    check='audit_before_prompt';assertAudit(server.readAudit(),worker,count-2);
    phase=role+'_prompt';check='dispatch';
-   attempts++;
-   await budget.stage(()=>server.client.session.prompt({sessionID,text}));
+   await budget.stage(()=>{
+    beforePrompt(role); // Durable host reservation must commit before the prompt.
+    attempts++;
+    return server.client.session.prompt({sessionID,text});
+   });
    check='wait';await budget.stage(()=>server.client.experimental.session.wait({sessionID}));
    phase=role+'_response';check='message_page';
    const page=await budget.stage(()=>readBoundedMessages(input=>server.client.message.list(input),sessionID));
@@ -78,11 +81,13 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
   // Two positive usage counters are required for the next stage. This is a
   // reported-usage gate, not a pre-dispatch guarantee of actual wire tokens.
   if(tokenAllowance!==undefined&&tokenAllowance-reportedTokens<2){check='usage';throw Error('NATIVE_TOKEN_BUDGET_EXHAUSTED');}
+  onValidatedStage('valera-ceo',plan.usage);
   stages.push({role:'valera-ceo',usage:plan.usage});end('ok');
   const proposal=await call(worker,prompt,5);
   phase='proposal';check='proposal_contract';
   const combined=combine(plan.answer,proposal.answer,worker,scope);
   checkProposal(combined);
+  onValidatedStage(worker,proposal.usage);
   stages.push({role:worker,usage:proposal.usage});
   result=combined;end('ok');
  }catch(error){
