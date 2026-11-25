@@ -122,3 +122,10 @@ external outcome; do not retry automatically or reset provider state.
 The probe is not installed/run by CI, does not enable the runtime profile, and
 is not production or sandbox certification. No real inference is claimed until
 an operator supplies evidence from the manual trial.
+
+On HOLD, the report includes a fixed failure checkpoint, a sanitized response
+shape (counts and boolean/enum checks only), final hook audit counts, and
+cleanup status. It never prints model text, raw provider errors, session IDs
+or credentials. These diagnostics do not establish provider delivery or billing
+and do not authorize replay of a prior unknown attempt. Reconcile the prior
+outcome separately before any newly authorized manual trial.

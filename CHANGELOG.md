@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Distinguish native inference response checkpoints and report sanitized
+  response shape and final hook audit on HOLD without changing admission.
+  Keep unknown external outcomes and preserve the original failure on cleanup.
+
 - Add an opt-in native free inference candidate with two synthetic role
   sessions, ordered deny-by-default hook audit, strict reported usage and
   bounded transcript validation. No runtime wiring, external CI requests or

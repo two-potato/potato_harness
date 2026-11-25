@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {auditSequence,readAudit,recordAudit,assertAudit} from '../src/server-audit.mjs';
 import {probeArgs,probeUsage,runNativeProbe,PROBE_CAP} from '../src/server-inference.mjs';
+import {responseShape,auditShape,errorCategory} from '../src/server-inference-diagnostics.mjs';
 const model='opencode/test-free',ref={providerID:'opencode',id:'test-free'},seq=auditSequence('backend');
 test('probe requires explicit external consent and a free native model',()=>{
  for(const args of [[],[model],[model,'--auto'],['opencode/paid','--confirm-external-inference'],[model,'--confirm-external-inference','extra']])assert.throws(()=>probeArgs(args));
@@ -54,4 +55,23 @@ test('wrong proposal or late policy violation never passes',async()=>{
   const f=fake(options),r=await runNativeProbe(f.opts);
   assert.equal(r.status,'HOLD');assert.equal(f.calls.length,2);assert.equal(f.counts().closed,1);
  }
+});
+
+test('failed response diagnostics distinguish usage, assistant contract and audit without leaking content',async()=>{
+ for(const [options,check] of [[{badCost:true},'usage'],[{badTool:true},'assistant_contract'],[{badAudit:true},'audit_after_response'],[{timeout:true},'dispatch']]){
+  const f=fake(options),r=await runNativeProbe(f.opts);
+  assert.equal(r.status,'HOLD');assert.equal(r.diagnostics.failure.check,check);
+  assert.equal(r.diagnostics.audit.http_hooks,1);
+  assert.equal(r.external_inference,'unknown');assert.equal(f.calls.length,1);
+  assert.ok(!JSON.stringify(r).includes('private provider text'));
+ }
+});
+test('diagnostic projection never emits raw provider data or unknown event labels',()=>{
+ const secret='DO_NOT_LEAK_PRIVATE_TEXT';
+ const d=responseShape([{type:secret},{type:'assistant',agent:secret,model:{id:secret},finish:secret,content:[{type:secret,text:secret}],error:{message:secret,status:429},cost:secret}], 'valera-ceo',ref);
+ assert.equal(d.counts.other,1);assert.equal(d.assistant.error,'RATE_LIMIT');
+ assert.equal(d.assistant.finish,'ABSENT_OR_OTHER');assert.equal(d.assistant.parts_valid,false);
+ assert.ok(!JSON.stringify(d).includes(secret));
+ assert.deepEqual(auditShape(['ready',secret],'backend'),{ready:true,model_hooks:0,http_hooks:0,violation:false,valid_prefix:false});
+ assert.equal(errorCategory(Error(secret)),'REJECTED');
 });
