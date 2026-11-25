@@ -250,20 +250,29 @@ advisory boundary marker. An earlier HOLD without the marker is not a passed
 diagnostic. Do not reuse this trial state for inference. This is an offline
 network boundary, not full native transport containment or a billing proof.
 
-## R2.4c first increment: hook-level outbound admission
+## R2.4c: local-first transport boundary and closed runtime contract
 
-The native policy admits only the exact documented candidate HTTPS endpoint
-`https://opencode.ai/inference/openai/v1/chat/completions`, POST, and a fresh
-JSON body. No query, other port, other host, Go/legacy/alternate API route or
-unknown request shape is admitted. See the [official inference API endpoint
-reference](https://opencode.ai/docs/console/api/inference) and the pinned
-[v2.4.1 hook contract](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/plugin/src/promise/session.ts).
-The route is a conservative candidate, not an observed live native route.
-A different actual route must HOLD, not be rewritten or automatically retried.
-Fixed audit labels report denial without URLs, headers or body. Synthetic
-requests in tests are never sent. The response hook rejects visible redirects,
-not redirects already followed inside upstream transport. The native hook
-rebuilds its request before the actual HTTP handler; Web Request redirect
-options are not sufficient evidence of network enforcement. Independent egress
-containment, actual serialized body/model/token validation, redirect prevention
-and live review remain open. The real runtime profile stays unavailable.
+The Harness connects to its private OpenCode server via authenticated loopback
+HTTP. No local HTTPS service, proxy, alternate provider or upstream URL
+override is introduced. The prior hard-coded candidate cloud endpoint was
+not observed in the native CLI and has been removed. Native OpenCode owns
+its model route. The upstream model hook still validates primary session,
+model identity, request count, POST, HTTPS and fresh JSON-body shape;
+observable redirects, retries and WebSocket remain rejected. The HTTPS
+check applies only to an upstream model call, not the local client.
+It is not an origin allowlist, wire-payload check or proof of egress control.
+The hook cannot undo a redirect already followed by the upstream transport.
+
+Both native runtime diagnostic modes share a closed host request contract:
+explicit mode/model match, bounded subtotal objective and scope, existing
+output allowance, bounded host deadline, and no provider/URL/key/fallback/
+tool/permission/activation overrides. Only the trusted launch binding
+chooses the transport. A host project directory is not forwarded to native
+OpenCode. Unknown fields fail before launch. Synthetic fixture requests use
+an inert .invalid URL object and never send it.
+
+Live native-free runtime admission remains disabled. The previously observed
+RATE_LIMIT attempts are not reconciled by these changes. Independent review,
+verified billing/limits and evidence of actual upstream behavior are still
+required for live activation. Keep the confirmed offline namespace and
+Bubblewrap checks, Outbox reconciliation and deny-by-default control.

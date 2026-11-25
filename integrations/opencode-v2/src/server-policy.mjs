@@ -32,15 +32,15 @@ export function nativeConfig(model,maxOutput,plugin){
 // OpenCode 2.4.1 ModelResolver.withVariant maps exactly 'default' to undefined.
 // https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/model-resolver.ts
 export function isNativeBaseVariant(variant){return variant===undefined||variant==='default';}
-// Candidate route subset from https://opencode.ai/docs/console/api/inference.
-// This is a hook-level admission check, not an OS egress filter. No direct
-// Console API client, provider override or alternate quota route is introduced.
+// The local client uses authenticated loopback HTTP (server-process.mjs).
+// Only the upstream model hook sees this request. OpenCode owns routing;
+// no fixed provider URL, endpoint rewrite or custom proxy. These shape checks
+// are NOT independent destination authorization or network containment.
 export function nativeHttpViolation(request){
  if(!(request instanceof Request))return 'http_request_shape';
  if(request.method!=='POST')return 'http_method';
- // Deliberately admit just one documented path. Unknown native routes HOLD
- // pending evidence; never rewrite the request or try another destination.
- if(request.url!=='https://opencode.ai/inference/openai/v1/chat/completions')return 'http_destination';
+ const url=new URL(request.url);
+ if(url.protocol!=='https:'||url.username||url.password||url.hash)return 'http_destination';
  const type=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
  if(type!=='application/json'||!request.body||request.bodyUsed)return 'http_payload';
  return null;

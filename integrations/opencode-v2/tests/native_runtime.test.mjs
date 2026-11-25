@@ -68,3 +68,32 @@ test('offline marker rejects unexpected HTTP, early denial and cleanup failure',
   assert.ok(!events.some(e=>e.phase==='offline_boundary'));
  }
 });
+
+test('native runtime modes reject transport overrides and malformed contract before launch',async()=>{
+ const runners=[
+  [runNativeRuntimeFixture,request,{}],
+  [runNativeRuntimeOffline,{...request,model:'opencode/beam-free'},{verifyNetwork:()=>{}}]
+ ];
+ for(const [run,input,extra] of runners){
+  for(const patch of [
+   {baseURL:'https://private.invalid'},{apiKey:'secret'},{provider_budget:{tokens:100,cost_usd:0}},
+   {provider:'other'},{fallback:'opencode/other-free'},{retry:true},{tools:['shell']},
+   {permissions:[{action:'*',effect:'allow'}]},{live:true},{mode:'native-free'},
+   {coordination:{...input.coordination,provider:'other'}},
+   {bridge_timeout_ms:4000},{bridge_timeout_ms:120001},{bridge_timeout_ms:null},
+   {projectDir:123},{output_token_allowance:4097}
+  ]){
+   let calls=0;
+   await assert.rejects(()=>run({...input,...patch},{...extra,launch:async()=>{calls++;throw Error('unexpected launch');},awaitPolicy:async()=>{}}));
+   assert.equal(calls,0);
+  }
+ }
+});
+test('native fixture accepts host request fields without forwarding workspace or selecting a transport',async()=>{
+ const calls=[];
+ const result=await runNativeRuntimeFixture({...request,projectDir:'/private/host-only',bridge_timeout_ms:9000},{
+  launch:options=>{calls.push(options);return launchNativeFixture(options);},awaitPolicy:awaitNativeFixture
+ });
+ assert.deepEqual(calls,[{model:NATIVE_FIXTURE_MODEL,worker:'backend',maxOutput:2048,audit:true,offline:false}]);
+ assert.equal(result.usage.cost_usd,0);
+});

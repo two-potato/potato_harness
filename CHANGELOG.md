@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R2: remove the guessed fixed cloud endpoint, retain native OpenCode routing
+  and authenticated loopback HTTP; validate a closed native runtime request
+  contract before launch. Fixture and offline modes remain non-live.
+
 - R2.4c: deny unexpected native model HTTP methods, destinations and request
   shapes; reject observable redirects and record fixed diagnostic labels.
   Keep live runtime admission disabled pending independent egress controls.

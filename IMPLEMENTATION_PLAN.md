@@ -82,3 +82,10 @@ R2.4a candidate: actual native CLI connection through the trusted worker is
 restricted to an offline diagnostic profile. Its expected outcome is HOLD,
 not a proposal or live admission. Independent containment, prior external
 outcome reconciliation, and live inference are still required.
+
+R2 local-first refinement: native OpenCode owns upstream routing; no custom
+HTTPS proxy or hard-coded cloud endpoint. The private local server remains
+loopback HTTP. Native runtime diagnostic requests reject transport overrides
+and unknown fields before launch. Hook checks are not egress enforcement.
+Live adapter admission, independent review and prior-outcome reconciliation
+remain open; no real model execution is claimed.

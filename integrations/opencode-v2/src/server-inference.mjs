@@ -22,7 +22,7 @@ export function probeUsage(info,cap=PROBE_CAP){
  return u;
 }
 // The common flow has no transport of its own. Only the fixed manual probe
-// and the explicitly synthetic runtime fixture can invoke it.
+// and the explicitly synthetic/offline runtime diagnostics can invoke it.
 async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{}}){
  const {worker,scope,objective,prompt,cap,synthetic,checkProposal}=task;
  let observedPhase=null,started=0;
@@ -103,13 +103,27 @@ export async function runNativeProbe(options){
  return report;
 }
 export const NATIVE_FIXTURE_MODEL='opencode/potato-runtime-fixture-free';
+// A trusted host request is data, never transport configuration or activation.
+// Both native runtime diagnostics share the same closed, bounded contract.
+function prepareNativeRuntime(request,offline){
+ const fields=['role','model','prompt','coordination','output_token_allowance','projectDir','bridge_timeout_ms'];
+ if(!request||typeof request!=='object'||Array.isArray(request)||
+    Object.keys(request).some(key=>!fields.includes(key))||
+    ('projectDir' in request&&(typeof request.projectDir!=='string'||!request.projectDir.startsWith('/')||request.projectDir.includes('\0')))||
+    !request.coordination||Object.keys(request.coordination).sort().join(',')!=='objective,scope'||
+    request.role!=='backend'||request.coordination.objective!==OBJECTIVE||
+    JSON.stringify(request.coordination.scope)!=='["calculation.py"]')throw Error('NATIVE_RUNTIME_CONTRACT');
+ const model=request.model,ref=modelRef(model);
+ if(offline?model===NATIVE_FIXTURE_MODEL:model!==NATIVE_FIXTURE_MODEL)throw Error('NATIVE_RUNTIME_MODE_MODEL');
+ const cap=validateRequest(request,{requestModel:model,modelRef:ref});
+ const budget=bridgeBudget('bridge_timeout_ms' in request?request.bridge_timeout_ms:75000);
+ return {model,cap,budget};
+}
 // Not a live adapter. The model identifier is synthetic, and the host worker
 // supplies only the in-process fixture client. No live CLI launch is wired.
 export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhase}){
- if(request?.model!==NATIVE_FIXTURE_MODEL||request.role!=='backend'||request.coordination?.objective!==OBJECTIVE||
-    JSON.stringify(request.coordination?.scope)!=='["calculation.py"]'||'provider_budget' in request)throw Error('NATIVE_FIXTURE_TRIAL_ONLY');
- const cap=validateRequest(request,{requestModel:NATIVE_FIXTURE_MODEL,modelRef:modelRef(NATIVE_FIXTURE_MODEL)});
- const {report,proposal}=await nativeFlow({model:NATIVE_FIXTURE_MODEL,launch,awaitPolicy,onPhase,budget:bridgeBudget(request.bridge_timeout_ms??75000),
+ const {model,cap,budget}=prepareNativeRuntime(request,false);
+ const {report,proposal}=await nativeFlow({model,launch,awaitPolicy,onPhase,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:request.prompt+'\nReturn only JSON {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No tools.',
    cap,synthetic:true,checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
@@ -120,11 +134,8 @@ export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhas
 // Real CLI with the offline guard. Never return a proposal to the runtime.
 export async function runNativeRuntimeOffline(request,{launch,awaitPolicy,onPhase=()=>{},verifyNetwork=requireOfflineNetwork}){
  verifyNetwork();
- const model=request?.model,ref=modelRef(model);
- if(model===NATIVE_FIXTURE_MODEL||request.role!=='backend'||request.coordination?.objective!==OBJECTIVE||
-    JSON.stringify(request.coordination?.scope)!=='["calculation.py"]'||'provider_budget' in request)throw Error('NATIVE_OFFLINE_TRIAL_ONLY');
- const cap=validateRequest(request,{requestModel:model,modelRef:ref});
- const {report}=await nativeFlow({model,launch,awaitPolicy,onPhase,offline:true,budget:bridgeBudget(request.bridge_timeout_ms??75000),
+ const {model,cap,budget}=prepareNativeRuntime(request,true);
+ const {report}=await nativeFlow({model,launch,awaitPolicy,onPhase,offline:true,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:'Offline diagnostic only; no specialist dispatch permitted.',cap,synthetic:false,
    checkProposal:()=>{throw Error('OFFLINE_PROPOSAL_DENIED');}}});

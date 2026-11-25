@@ -24,7 +24,7 @@ export async function launchNativeFixture({model,worker,maxOutput,audit,offline}
     const e={sessionID,agent:session.agent,kind:'primary',model:{...ref,variant:'default'}};
     hooks['experimental.model.resolve'](e);hooks['model.request'](e);
     // A Web Request object only; never executed or passed to fetch.
-    hooks['http.request']({...e,request:new Request('https://opencode.ai/inference/openai/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})});
+    hooks['http.request']({...e,request:new Request('https://potato-native-fixture.invalid/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})});
     const first=session.agent==='valera-ceo';
     const error=first&&fault==='rate_limit'?{type:'provider.rate-limit',message:'PRIVATE_PROVIDER_TEXT'}:undefined;
     if(error||first&&fault==='audit')hooks.retry({});
