@@ -1,5 +1,5 @@
 import {FIXTURE_URL,MODEL_REF,deny,candidateConfig,FIXTURE_PROFILE} from './contracts.mjs';
-import {ROLES} from '../../opencode/src/profile.mjs';
+import {ROLES} from './profile.mjs';
 
 // Never forward to the network. One synthetic HTTP response per authorized stage.
 export function fixtureTransport(respond,maxOutput,modelRef=MODEL_REF){
@@ -61,7 +61,7 @@ export async function awaitModel(read,maxOutput,{now=()=>performance.now(),pause
 }
 export function restrictivePlugin(observed,maxOutput,profile=FIXTURE_PROFILE){
  const definitions=candidateConfig(maxOutput,profile).agents;
- return {id:'potato-harness-v2-candidate',async setup(ctx){
+ return {id:'potato-harness-v2',async setup(ctx){
   const registrations=[];
   registrations.push(await ctx.agent.transform(editor=>{
    for(const agent of editor.list())if(!ROLES.includes(agent.id))editor.remove(agent.id);

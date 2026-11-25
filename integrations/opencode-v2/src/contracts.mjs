@@ -1,7 +1,7 @@
-// Candidate only. Keep the existing host wire contract and refuse live requests.
-import {ROLES,harnessConfig} from '../../opencode/src/profile.mjs';
-import {validateAssignment} from '../../opencode/src/contracts.mjs';
-import {combineModelUsage} from '../../opencode/src/bridge_accounting.mjs';
+// Native v2 profiles; the trusted host selects fixture or Console.
+import {ROLES,rolePrompts} from './profile.mjs';
+import {validateAssignment} from './assignment.mjs';
+import {combineModelUsage} from './bridge_accounting.mjs';
 export const FIXTURE_MODEL='fixture/test';
 export const MODEL_REF=Object.freeze({providerID:'fixture',id:'test'});
 export const FIXTURE_URL='https://potato-fixture.invalid/v1/chat/completions';
@@ -18,10 +18,10 @@ export function validateRequest(request,profile=FIXTURE_PROFILE){
 }
 export function candidateConfig(maxOutput,profile=FIXTURE_PROFILE){
  const modelRef=profile.modelRef,modelName=modelRef.providerID+'/'+modelRef.id;
- const old=harnessConfig(modelName);
+ const prompts=rolePrompts();
  const agents=Object.fromEntries(ROLES.map(role=>[role,{
   model:modelName,mode:role==='valera-ceo'?'primary':'subagent',
-  description:'Potato Harness v2 candidate '+role,system:old.agent[role].prompt,
+  description:'Potato Harness '+role,system:prompts[role],
   permissions:deny(),steps:1
  }]));
  return {model:modelName,default_agent:'valera-ceo',update:'disable',share:'disabled',
@@ -69,7 +69,7 @@ export function combine(plan,answer,role,scope){
   if(!e||Object.keys(e).sort().join(',')!=='content,path'||typeof e.path!=='string'||!scope.includes(e.path)||seen.has(e.path)||typeof e.content!=='string'||Buffer.byteLength(e.content)>65536)throw Error('INVALID_EDIT');
   seen.add(e.path);
  }
- // The SDK contract differs from v1, but its token fields map to the same host counters.
+ // Map SDK fixture token fields to the host counters.
  // Missing cost must remain null; fixture zero prices do not establish live cost.
  return {...p,usage:combineModelUsage(plan.info,answer.info)};
 }
