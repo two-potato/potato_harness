@@ -1,98 +1,68 @@
-# OpenCode 2.4.1 migration candidate (not activated)
+# Native OpenCode SDK 2.4.1 gateway
 
-The existing 1.19.5 + OMO adapter remains the default and is not modified.
-OpenCode v2 changes package names, session admission/wait/message APIs,
-configuration fields, plugin registration and permissions. This separate
-candidate implements the two-stage proposal path against the embedded
-`@opencode/sdk@2.4.1` API, with the existing role prompts and host wire contract.
+The single built-in gateway uses pinned `@opencode/sdk@2.4.1` and Bun 1.4.4.
+There is no installed older SDK, executable fallback or OMO plugin. Valera and
+all eight specialist prompts are preserved; host assignment, grant, lease,
+budget, evidence and outbox contracts remain unchanged.
 
-**Fixture mode:** `fixture/test` is the sole admitted synthetic model. A synthetic HTTP
-transport never forwards requests to the network. It allows one bounded request
-per stage and rejects additional/foreign requests. The v2 retry hook sets
-`decision={retry:false}` before retry scheduling. No external key is needed.
-The fixture can now be selected explicitly by the bounded runtime using\n`--adapter opencode-v2-fixture`; this runs the generated subtotal trial only.
-
-**OMO blocker:** the upstream OMO 5.1.60
-[server-entry](https://github.com/code-yeongyu/oh-my-openagent/blob/v5.1.60/packages/omo-opencode/src/opencode-v2/server-entry.ts)
-explicitly registers a v2 placeholder without the full v1 runtime. Do not claim
-OMO composition on v2. OpenCode/OMO 1.x remains available until a compatible
-full integration is tested or a separate OMO-free production profile is approved.
-
-Source references (pinned):
-- [SDK README](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/sdk/README.md)
-- [Retry policy](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/session/runner/retry.ts)
-- [Plugin session hooks](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/plugin/src/promise/session.ts)
-- [Session protocol](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/protocol/src/groups/session.ts)
-
-## Verification
+## Install and verify
 
 From repository root:
 
-```bash
-node --test integrations/opencode-v2/tests/*.test.mjs
-cd integrations/opencode-v2
-npm ci --ignore-scripts --no-audit --no-fund
-../opencode/node_modules/.bin/bun src/smoke.mjs
+```sh
+python3 tools/prepare_trials.py --install --verify
 ```
 
-The unit tests exercise contracts, transport boundaries, bounded asynchronous
-plugin initialization and hooks with injected
-fixtures. The smoke test uses the actual v2 SDK with synthetic HTTP responses;
-it checks the two-stage path and 401/429/503 rejection without redispatch.
-No external inference, no OMO v2 certification. Direct SDK version is pinned;
-the candidate now commits the transitive npm lockfile resolved on CI, with
-registry origins and integrity fields checked. This is not an independent
-supply-chain audit. CI must verify the locked install and runtime behavior.
-
-Promotion gates: actual SDK smoke, review of the committed lockfile, negative tests for tool
-execution and auxiliary model requests, verified token/cost accounting,
-bounded cancellation, external provider transport and credential isolation,
-independent security review, and a separately authorized live trial. Preserve
-unknown effects from previous trials; do not replay them.
-
-Upstream OMO 5.1.83 (November 24) still has the same v2 placeholder.
-The initial CI failed closed on asynchronous plugin activation; the candidate
-now waits at most ten seconds for a complete deny-only roster before dispatch.
-
-The locked SDK smoke initially observed a denied startup request to 127.0.0.1.
-Upstream v2 local provider plugins probe Ollama, LM Studio and vLLM by default.
-The candidate explicitly removes these three discovery plugins using documented
-negative plugin directives. All non-fixture HTTP traffic remains blocked.
-
-## Explicit runtime profiles (no default switch)
+Or verify only the native integration:
 
 ```sh
-trial=$(mktemp -u /tmp/potato-v2-fixture.XXXXXXXX)
-python3 tools/create_trial.py --directory "$trial" --adapter opencode-v2-fixture
-.venv-demo/bin/python -m harness.runtime init --config "$trial/config.json" --state "$trial/state"
-.venv-demo/bin/python -m harness.runtime run --state "$trial/state"
+cd integrations/opencode-v2
+npm ci --ignore-scripts --no-audit --no-fund
+node node_modules/bun/install.js
+npm test
+node_modules/.bin/bun src/smoke.mjs
 ```
 
-This requires actual Bubblewrap on the host; no key, no external inference.
-CI uses the real SDK/host subprocess and an explicitly injected sandbox seam.
-Synthetic results carry provenance and are excluded from actual HALO traces.
+Only the locked Bun install script is explicitly run. The SDK smoke uses real
+SDK sessions with synthetic HTTP and mocked Console transport, no credentials
+or external inference. CI also uses the actual SDK worker and runtime with an
+explicitly injected sandbox seam. Actual Bubblewrap is needed on the operator
+host for a complete local fixture. No untrusted test code receives secrets.
 
-The optional `opencode-v2-console` profile is a trial path only, not certified
-for live use. It admits exactly `opencode/minimax-m3` (paid), and requires
-`--confirm-provider-budget` after the operator has configured a provider-wide
-spend cap no larger than the dispatch reservation, and explicitly authorized
-this cost. The host cannot verify the remote cap itself. Do not run it until
-these prerequisites and independent security review are satisfied. The original
-1.x profile stays the default. No automatic fallback or subscription purchase.
+## Runtime profiles
 
-The SDK uses a private synthetic URL/model alias; the host transport alone maps
-it to the fixed Console HTTPS endpoint, attaches the environment key, refuses
-redirects, strips nontext/tools, admits one request per stage and reads bounded
-stream usage. Actual Console balance cost and billed tokens replace SDK catalog
-cost; incomplete billing fails closed, never becomes zero. See
-https://opencode.ai/docs/console/api/inference/ for the cost and authentication
-contract. Free chat models are restricted to the official client; no spoofing.
-The test uses an injected HTTP responder, not the external service. The transport
-boundary is in the trusted host process, not an OS-wide network containment proof.
+- `opencode-v2-fixture`: default trial generator, exact generated subtotal
+  fixture, no key or external request. Synthetic provenance is recorded and
+  excluded from actual HALO inference evidence.
+- `opencode-v2-console`: explicit paid `opencode/minimax-m3` with confirmed
+  provider-wide budget and key. Direct runtime configurations without an
+  adapter select this profile, but still require explicit budget confirmation.
+  The remote cap must be independently checked; this is not live-certified.
 
-The host checks for a Console key before reserving an external effect and
-passes its token and cost reservation to the transport. A conservative input
-byte bound is checked per request; missing billing or a coordinator exhausting
-the reservation prevents specialist dispatch. This is not a guarantee of the
-price of a request before it executes; the provider-wide cap is still required.
-A rejected startup request permanently closes admission for that bridge.
+See the [current runbook](../../docs/trials/2026-11-06-RUNBOOK.md) for commands.
+Old initialized states must not be migrated or dispatched in place; status
+and recover remain available. The operator may separately configure a trusted
+absolute custom worker argv, not a built-in legacy fallback.
+
+## Safety and remaining gates
+
+Native Plugin API removes tools, denies permissions, disables automatic
+discovery of local model servers and denies SDK retries before dispatch.
+The transport admits at most one request per stage, only the fixed endpoint,
+no redirect, no forwarding of SDK authorization headers or auxiliary tools.
+The external key is passed only by the trusted host transport. Missing billing
+or a coordinator exhausting the reservation prevents specialist dispatch.
+Console-reported balance cost replaces synthetic catalog cost. The SDK's
+embedded fixture URL never makes a network request.
+
+Independent supply-chain/security review, provider cap verification and a
+separately authorized external inference trial are still required. No
+provider-wide hard cost guarantee, OMO composition or production activation
+is claimed. Upstream OMO's v2 entrypoint was a placeholder in the versions
+inspected during migration; a future full v2 integration requires separate review.
+
+Pinned upstream references:
+- https://github.com/anomalyco/opencode/blob/v2.4.1/packages/sdk/README.md
+- https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/session/runner/retry.ts
+- https://github.com/anomalyco/opencode/blob/v2.4.1/packages/plugin/src/promise/session.ts
+- https://opencode.ai/docs/console/api/inference/

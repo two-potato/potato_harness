@@ -16,7 +16,9 @@ Config is trusted operator input. No dynamic command comes from model output.
 {
   "repo": "/absolute/clean-source-repository",
   "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "model": "provider/model",
+  "model": "opencode/minimax-m3",
+  "adapter": "opencode-v2-console",
+  "provider_budget_confirmed": true,
   "scope": ["src/calculation.py"],
   "test_argv": ["/usr/bin/python3", "-m", "unittest", "discover"],
   "objective": "The configured acceptance tests pass after the scoped repair",
@@ -39,10 +41,10 @@ and `test_argv` for the operator's verification command. Source repository text
 cannot select a profile or extend permissions. The profile guides the agent.
 The configured tests and existing LOW trial policy still govern acceptance.
 
-Optional `adapter` selects a pinned worker. See the [v2 trial profiles](../../integrations/opencode-v2/README.md). The default is unchanged; explicit adapter and custom command cannot be combined. V2 fixture runs are marked synthetic; V2 Console requires explicit paid model and operator-confirmed provider cap, and is not live-certified. Optional `worker_command` is a trusted argv override. Default is the repository-pinned Bun executable plus `integrations/opencode/src/worker.mjs`. Its JSON stdin is `{role,prompt,model,projectDir,output_token_allowance,coordination,bridge_timeout_ms}` (the final field is host-owned); JSON stdout is `{edits:[{path,content}],summary,usage:{input_tokens,output_tokens,cost_usd}}`. The bridge runs outside the sandbox because it needs provider credentials; model tools must be disabled by that bridge. Provider projectDir is a new empty directory separate from copied source, preventing source `.opencode` configuration from becoming host plugin authority.
+The only built-in adapter is [OpenCode SDK 2.4.1](../../integrations/opencode-v2/README.md). Select `opencode-v2-fixture` for the generated synthetic trial, or `opencode-v2-console` for the explicit paid trial. Direct operator configs default to Console and must name `opencode/minimax-m3` and set `provider_budget_confirmed: true`. The trial generator defaults to fixture without a model argument. An explicit adapter and custom command cannot be combined. Optional `worker_command` remains a trusted absolute argv override for independent adapters. The built-in worker uses `integrations/opencode-v2/node_modules/.bin/bun` and `integrations/opencode-v2/src/worker.mjs`. Older initialized states are not migrated in place; read-only status and recovery remain available. Its JSON stdin is `{role,prompt,model,projectDir,output_token_allowance,coordination,bridge_timeout_ms}` (the final field is host-owned); JSON stdout is `{edits:[{path,content}],summary,usage:{input_tokens,output_tokens,cost_usd}}`. The bridge runs outside the sandbox because it needs provider credentials; model tools must be disabled by that bridge. Provider projectDir is a new empty directory separate from copied source, preventing source `.opencode` configuration from becoming host plugin authority.
 
 During the default OpenCode bridge attempt, the host writes `state/gateway-phases.json`
-with only allowlisted phase names (`request`, `server`, `omo`, `valera`, `specialist`,
+with only allowlisted phase names (`request`, `server`, `valera`, `specialist`,
 `usage`, `cleanup`), state (`start`, `ok`, `error`), integer elapsed milliseconds and final
 process outcome (`OK`, `ERROR`, `TIMEOUT`). No raw stderr, prompts, model text,
 credentials or stack traces are persisted. This advisory log is not proof of
@@ -51,8 +53,7 @@ provider delivery, authorization, spending or completion. On timeout, the last
 provider executed or billed the request. If saving diagnostics fails, this
 must never permit retransmission. Injected fixture workers do not produce this log.
 The two model prompts now share a host-supplied bridge deadline with a
-4-second local finalization reserve. The SDK session deletions are limited to
-1.5 seconds each; phase logging includes cleanup. The host's 80-second
+4-second local finalization reserve. The SDK interruption is limited to one second and closing the SDK to two seconds; phase logging includes cleanup. The host's 80-second
 subprocess cap remains intact because the existing lease lasts at most
 90 seconds. An expired stage still means UNKNOWN provider outcome, never an
 automatic retry. Reasoning/cache token counts default to zero only when
@@ -68,8 +69,13 @@ Provider actual input/output tokens and finite actual cost are required before e
 
 The host applies at most 1 MiB of scoped edits through directory file descriptors with no-follow checks and denies symlinks, hardlinks, scope escapes and duplicate edit paths. It publishes immutable bytes while the original lease is valid, revokes the edit grant and releases that lease, and creates a real Git commit in a separate host-only checkout initialized from the pinned base, and pins that actual commit SHA. Git metadata never enters the worker mount. A fresh revision-bound lease and read/test grant precede the test subprocess. The configured test argv executes only through `run_private`; no host fallback exists. Source mutations by tests invalidate evidence. All subprocesses are synchronously joined before cleanup.
 
-Exact-target host attestations cover `relevant_checks`, deterministic `basic_review` of the changed-file scope, and the configured acceptance-test mapping. `verify_bundle` validates these receipts before completion audit. LOW-risk deterministic review is not independent specialist QA. Completion Jev is explicitly disabled in the default 3.0 trial profile and recorded as policy-skipped. Configure `jev_provider` (`opencode` or `typesafe`) and `jev_model` to activate System One using host `OPENCODE_API_KEY` or `TYPESAFE_API_KEY`. Missing credentials yield durable unavailable advice; required completion then yields HOLD. Grants are revoked, leases released and unresolved effects checked before DONE. The new output directory contains `result.json`, immutable artifact bytes, evidence and test outputs; state retains immutable publications, actual test logs, evidence records, SQLite events and a redacted run trace. The output uses publication references rather than silently editing the original repository.
+Exact-target host attestations cover `relevant_checks`, deterministic `basic_review` of the changed-file scope, and the configured acceptance-test mapping. `verify_bundle` validates these receipts before completion audit. LOW-risk deterministic review is not independent specialist QA. Completion Jev is explicitly disabled in the default 3.0 trial profile and recorded as policy-skipped. With a separately reviewed custom worker profile, configure `jev_provider` (`opencode` or `typesafe`) and `jev_model` to activate System One using host `OPENCODE_API_KEY` or `TYPESAFE_API_KEY`. Missing credentials yield durable unavailable advice; required completion then yields HOLD. Grants are revoked, leases released and unresolved effects checked before DONE. The new output directory contains `result.json`, immutable artifact bytes, evidence and test outputs; state retains immutable publications, actual test logs, evidence records, SQLite events and a redacted run trace. The output uses publication references rather than silently editing the original repository.
 
 `recover` marks interrupted DISPATCHING effects UNKNOWN and surviving leases SUSPECT, reports HOLD, and never executes provider/shell/Git effects. A trusted operator must confirm external outcomes and fence workers before reissuing any work. `halo` exports one redacted actual trace and returns HOLD because that trace cannot constitute distinct training, validation and holdout datasets. It creates no synthetic optimization data. To evaluate existing actual datasets, supply all three `--train FILE --eval FILE --holdout FILE` JSON arrays of redacted trace records. The trusted evaluator verifies disjoint memberships and binds the durable attempt ledger, actual target commit and policy. Results are offline proposals only and never change runtime policy.
 
 Verification: `python -m unittest discover -s tests/runtime -v`. Runtime tests inject a fixture worker and sandbox callbacks explicitly; they prove lifecycle wiring, not live model execution or Linux isolation. Production CLI never exposes those callback seams. Real provider smoke and actual sandbox activation evidence must be collected separately on the trial host.
+
+The parser accepts historical OMO phase records solely for read-only diagnostics.
+Native v2 profiles do not admit additional live Jev calls because their cost is
+not reconciled into the worker reservation. Existing advisory Jev/HALO contracts
+remain; synthetic v2 runs are not admitted as actual HALO inference evidence.

@@ -28,7 +28,9 @@ jobs:
         with:
           node-version: '24'
       - name: V2 contract tests (no SDK dependency)
-        run: node --test integrations/opencode-v2/tests/*.test.mjs
+        run: |
+          test -z "$(git ls-files -- integrations/opencode/)"
+          node --test integrations/opencode-v2/tests/*.test.mjs
       - name: Install only v2 SDK and pinned Bun
         working-directory: integrations/opencode-v2
         run: |

@@ -89,3 +89,14 @@ Final suite: 167 tests, 161 passed and 6 explicit skips (5 live namespace tests,
 - Host: Bubblewrap 0.12.0 fails NETLINK_ROUTE namespace creation (Operation not permitted). The production runtime persists HOLD before provider use. A suitable Linux host remains required.
 - No API keys configured. See docs/trials/KEYLESS_VERIFICATION.json and the November 6 runbook.
 - This validates the bounded LOW single-task trial path; it does not certify all production profiles, exact provider-wide spend limits, or live model quality.
+
+## OpenCode 2.x-only migration — 2026-11-25
+
+The built-in gateway now uses only the native 2.4.1 SDK and Bun 1.4.4.
+The old keyless report (`docs/trials/KEYLESS_VERIFICATION.json`) and prior
+sections are historical evidence, not current dependency or readiness claims.
+Use `tools/prepare_trials.py --install --verify` and the current runbook for
+fresh evidence. The workflow checks the dependency lock, preserved role prompts,
+unit tests, actual SDK synthetic responses and actual SDK worker/runtime with
+an injected sandbox seam. External inference and independent containment remain
+separate verification gates. No automatic paid requests are part of CI.

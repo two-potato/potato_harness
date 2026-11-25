@@ -2,6 +2,15 @@
 
 ## Unreleased — local-first readiness
 
+- Remove the legacy OpenCode/OMO executable integration, SDK, lockfile, old
+  installation and CI path. The sole built-in gateway is native OpenCode SDK
+  2.4.1 with its own pinned Bun 1.4.4, fixture and explicit-budget Console profiles.
+  Shared assignment, accounting and deadline checks are retained. Old run states
+  remain readable/recoverable, never replayed or automatically migrated.
+  OMO v2 integration and external inference remain unverified.
+
+The following entries record historical changes, not current dependency pins.
+
 - Connect the isolated v2 SDK to the bounded runtime through explicit fixture
   and Console profiles, with durable provenance, environment scrubbing, fixed
   transport and provider-reported billing. Default v1 stays unchanged. Console

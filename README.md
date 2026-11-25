@@ -33,7 +33,7 @@ flowchart LR
 - **Valera** — один координатор: формулирует назначение и контролирует процесс, но не читает исходники, не пишет код и не запускает shell/Git/тесты.
 - **Восемь специалистов** — `architect`, `backend`, `frontend`, `search`, `ml-recommendations`, `qa`, `devops-sre`, `security`. Их роли и контракты описаны; полноценный параллельный командный runtime ещё не реализован.
 - **Trusted host** — детерминированный Python-код, а не модель. Он управляет SQLite-состояниями, правами, бюджетами, арендой ресурсов, внешними эффектами, публикацией артефактов и evidence gates.
-- **OpenCode + OMO** — текущий проверенный модельный gateway с отдельными сессиями координатора и специалиста. Модель не получает нативные shell, filesystem или MCP-инструменты.
+- **OpenCode SDK 2.4.1** — единственный встроенный модельный gateway с отдельными сессиями координатора и специалиста. Модель не получает нативные shell, filesystem или MCP-инструменты.
 - **Jev** — необязательный консультативный preflight/completion review; не может выдать права или самостоятельно принять работу.
 - **HALO** — offline-оценка предложений по оптимизации контекста на раздельных наборах трасс; изменений без утверждения не применяет.
 
@@ -60,7 +60,7 @@ python3 tools/run_demo.py
 | Evidence относится к устаревшей ревизии | `BLOCKED` |
 | Исполнитель не имеет права на изменение | `BLOCKED` |
 
-[Вечерний протокол проверки Zen (один новый запуск)](docs/trials/2026-11-24-EVENING-ZEN.md) · [Описание демо и материалы](docs/PORTFOLIO.md) · [Записанный отчёт JSON](docs/demo/report.json) · [Короткое видео](docs/demo/walkthrough.mp4)
+[Актуальный протокол испытаний OpenCode 2.4.1](docs/trials/2026-11-06-RUNBOOK.md) · [Описание демо и материалы](docs/PORTFOLIO.md) · [Записанный отчёт JSON](docs/demo/report.json) · [Короткое видео](docs/demo/walkthrough.mp4)
 
 ![Один принятый результат и три ожидаемых отказа](docs/demo/portfolio-summary.svg)
 
@@ -83,7 +83,7 @@ python3 tools/verify_manifest.py
 | --- | --- | --- |
 | Python runtime и контракты | **206 тестов: 201 passed, 5 skipped** | Пропущены пять live-тестов Bubblewrap: на GitHub runner нет `bwrap` |
 | Детерминированное демо | **4/4 ожидаемых исхода** | Без внешней модели и без доказанной OS-изоляции |
-| OpenCode 1.19.5 + OMO 5.1.60 | **7 тестов** и smoke через реальный SDK/плагин | Четыре запроса к **локальному тестовому HTTP-провайдеру**, не live inference |
+| OpenCode SDK 2.4.1 | Модульные тесты и smoke реального SDK | Синтетический HTTP и имитация Console API; внешний inference не подтверждён |
 | Marketplace Blueprint R1 | **14 контрактных + 7 entrypoint-тестов** | Проверка схем и создание контрактного seed, не работающий marketplace |
 | Git / SQLite / evidence | Реальные коммиты, транзакционные и негативные тесты | Проверенный ограниченный сценарий, не универсальная production-приёмка |
 
@@ -93,7 +93,7 @@ python3 tools/verify_manifest.py
 
 Это важнее бейджей:
 
-1. **Нет подтверждённого end-to-end прогона с внешней моделью в защищённом окружении.** OpenCode/OMO проверены через локальный fixture; качество настоящего AI-исполнителя этим не доказано.
+1. **Нет подтверждённого end-to-end прогона с внешней моделью в защищённом окружении.** OpenCode 2.4.1 проверен через синтетический fixture; качество настоящего AI-исполнителя этим не доказано.
 2. **Linux sandbox ещё не прошёл live containment-тесты.** Bubblewrap-адаптер работает по принципу fail-closed: если изоляция недоступна, runtime не выполняет тесты напрямую на хосте. Но сам факт наличия адаптера не равен сертифицированной изоляции.
 3. **`0.2.0-trial` рассчитан на одну заранее ограниченную задачу `LOW/BOUNDED`.** Scope содержит существующие конкретные файлы, а команда тестов задаётся доверенным оператором. Полноценного распределения задач между восемью специалистами, параллельного multi-agent исполнения и независимой QA-приёмки пока нет.
 4. **Бюджет не является гарантированным общим лимитом расходов у провайдера.** Есть резервирование и сверка usage, но цена дополнительных вызовов, в том числе Jev, и неизвестные результаты требуют отдельного контроля.
@@ -109,11 +109,13 @@ python3 -m harness.readiness --mode execution
 python3 -m harness.isolation --probe
 ```
 
+Для встроенного gateway устанавливаются только SDK 2.4.1 и Bun 1.4.4. OMO не подключён; его полноценная интеграция с 2.x остаётся отдельной задачей. CLI `create_trial.py` без выбора модели создаёт синтетическое испытание без ключа.
+
 Если проверка изоляции не прошла, **не обходите её**. Дальнейшие команды, формат ограниченной задачи и ожидаемые исходы: [runbook испытаний](docs/trials/2026-11-06-RUNBOOK.md) и [документация runtime](docs/runtime/RUNTIME.md).
 
 ## Архитектура
 
-Ядро предполагается **local-first**, **model-agnostic** и **project-agnostic**. Сейчас Python + SQLite служат доверенной частью single-host сценария, а OpenCode/OMO — конкретной закреплённой реализацией gateway. Это не означает, что они должны навсегда стать обязательными для ядра.
+Ядро предполагается **local-first**, **model-agnostic** и **project-agnostic**. Сейчас Python + SQLite служат доверенной частью single-host сценария, а OpenCode 2.4.1 — конкретной закреплённой реализацией gateway. Это не означает, что они должны навсегда стать обязательными для ядра.
 
 | Слой | Код / контракты |
 | --- | --- |
@@ -122,12 +124,12 @@ python3 -m harness.isolation --probe
 | Исполнение и изоляция | [`harness/runtime/`](harness/runtime/), [`harness/isolation/`](harness/isolation/), [`harness/publisher/`](harness/publisher/) |
 | Контекст и задачи | [`harness/context/`](harness/context/), [`harness/scheduler/`](harness/scheduler/), [`agents/`](agents/) |
 | Evidence и advisory | [`harness/verifier/`](harness/verifier/), [`harness/jev/`](harness/jev/), [`harness/halo/`](harness/halo/) |
-| Подключаемый исполнитель | [`integrations/opencode/`](integrations/opencode/) |
+| Подключаемый исполнитель | [`integrations/opencode-v2/`](integrations/opencode-v2/) |
 | Доменные контракты | [`blueprints/marketplace/`](blueprints/marketplace/) и [`profiles/`](profiles/) |
 
 JSON Schema описывает структуру данных, **но не выдаёт полномочий**. Решение о разрешении действия принимает trusted host на основании свежих grants, task revision и состояния ресурсов. Git-коммит и результаты проверок привязаны к evidence, а не берутся из ответа LLM.
 
-Дополнительные детали: [управление и policy](docs/harness/v3/CONTROL_FLOW.md) · [изоляция](docs/runtime/ISOLATION.md) · [broker](docs/runtime/BROKER.md) · [OpenCode/OMO](integrations/opencode/README.md) · [план развития](IMPLEMENTATION_PLAN.md).
+Дополнительные детали: [управление и policy](docs/harness/v3/CONTROL_FLOW.md) · [изоляция](docs/runtime/ISOLATION.md) · [broker](docs/runtime/BROKER.md) · [OpenCode 2.4.1](integrations/opencode-v2/README.md) · [план развития](IMPLEMENTATION_PLAN.md).
 
 ### Отдельно о Marketplace
 
@@ -161,4 +163,4 @@ python3 tools/marketplace.py init demo-market-kz
 
 Особенно полезны конкретные контрпримеры, проблемы безопасности, сломанные предположения и ссылки на аналогичные решения. Хвалить архитектуру заранее не нужно: сначала хочется убедиться, что она выдерживает недоброжелательную проверку.
 
-**Проект индивидуальный, создан с помощью AI.** Код распространяется по [MIT](LICENSE); сторонние зависимости сохраняют собственные лицензии (включая OpenCode/OMO). [Как внести вклад](CONTRIBUTING.md).
+**Проект индивидуальный, создан с помощью AI.** Код распространяется по [MIT](LICENSE); сторонние зависимости сохраняют собственные лицензии (включая OpenCode 2.4.1). [Как внести вклад](CONTRIBUTING.md).

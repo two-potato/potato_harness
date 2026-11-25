@@ -59,3 +59,11 @@ optimizer process separation, full parallel team fairness/repair/cancellation an
 MEDIUM+ independent human/QA integrations remain distinct acceptance work.
 Refer to docs/trials/2026-11-06-RUNBOOK.md; do not mark H/M/C registry complete merely
 because module tests passed. Existing historical status sections above are snapshots.
+
+## Native OpenCode 2.4.1 gateway migration
+
+The sole built-in gateway is now the native v2 SDK, with fixture and explicit
+budget-confirmed Console profiles; the legacy executable integration is removed.
+All nine role definitions and the controller's existing security contracts stay
+unchanged. A full OMO integration with v2 remains pending, not emulated by the
+native profile. The earlier trial section is a historical snapshot.
