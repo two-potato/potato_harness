@@ -44,7 +44,8 @@ test('retry hook denies retry before execution; permission and tool transforms d
  assert.deepEqual(retry.decision,{retry:false});assert.equal(observed.retries,1);
  const permission={effect:'allow'};callbacks.permission(permission);assert.equal(permission.effect,'deny');
  const removed=[];callbacks.tools({list:()=>[{id:'shell'},{id:'read'}],remove:id=>removed.push(id)});assert.deepEqual(removed,['shell','read']);
- const context={tools:{shell:{}},options:{}};callbacks.context(context);assert.deepEqual(context.tools,{});assert.equal(context.options.maxOutputTokens,64);
+ const context={tools:{shell:{}},options:{}};callbacks.context(context);assert.deepEqual(context.tools,{});assert.equal(context.options.maxTokens,64);
+ const smaller={tools:{},options:{maxTokens:8}};callbacks.context(smaller);assert.equal(smaller.options.maxTokens,8);
  await close();
 });
 

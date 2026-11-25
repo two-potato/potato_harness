@@ -3,15 +3,15 @@ import {ROLES} from '../../opencode/src/profile.mjs';
 
 // Never forward to the network. One synthetic HTTP response per authorized stage.
 export function fixtureTransport(respond,maxOutput){
- let phase=null,calls=0,violation=false,reason='NONE';
+ let phase=null,calls=0,violation=false,reason='NONE',blockedHost='none',blockedPhase='none';
  const fail=code=>{violation=true;if(reason==='NONE')reason=code;throw Error(code);};
  return {
   begin(next){if(phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
-  end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY: '+reason+'; calls='+n);},
+  end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY: '+reason+'; calls='+n+'; blocked_host='+blockedHost+'; blocked_phase='+blockedPhase);},
   get violated(){return violation;},
   async fetch(input,init){
    const req=new Request(input,init);
-   if(req.url!==FIXTURE_URL){const u=new URL(req.url);fail(u.origin==='https://potato-fixture.invalid'?'FIXTURE_WRONG_PATH':u.hostname==='opencode.ai'?'BLOCKED_CONSOLE':u.hostname==='models.dev'?'BLOCKED_CATALOG':'BLOCKED_OTHER_ORIGIN');}
+   if(req.url!==FIXTURE_URL){const u=new URL(req.url);if(reason==='NONE'){blockedHost=/^[a-z0-9.-]{1,128}$/.test(u.hostname)?u.hostname:'other';blockedPhase=phase??'startup';}fail(u.origin==='https://potato-fixture.invalid'?'FIXTURE_WRONG_PATH':u.hostname==='opencode.ai'?'BLOCKED_CONSOLE':u.hostname==='models.dev'?'BLOCKED_CATALOG':'BLOCKED_OTHER_ORIGIN');}
    if(req.method!=='POST')fail('FIXTURE_METHOD');
    if(!phase)fail('FIXTURE_BEFORE_ADMISSION');
    if(calls!==0)fail('FIXTURE_DUPLICATE');
@@ -71,7 +71,7 @@ export function restrictivePlugin(observed,maxOutput){
   registrations.push(await ctx.tool.transform(editor=>{for(const tool of editor.list())editor.remove(tool.id);}));
   registrations.push(await ctx.permission.hook('evaluate',event=>{event.effect='deny';}));
   registrations.push(await ctx.session.hook('context',event=>{
-   event.tools={};event.options.maxOutputTokens=maxOutput;
+   event.tools={};event.options.maxTokens=Math.min(maxOutput,event.options.maxTokens??maxOutput);
   }));
   registrations.push(await ctx.session.hook('title',event=>{event.result='Potato bounded fixture';}));
   registrations.push(await ctx.session.hook('retry',event=>{
