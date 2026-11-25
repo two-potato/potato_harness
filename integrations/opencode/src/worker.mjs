@@ -8,11 +8,12 @@ import {validateAssignment} from './contracts.mjs';
 import {prepareProject,ROLES} from './profile.mjs';
 import {bridgeBudget,withTimeout,SESSION_DELETE_TIMEOUT_MS,FINALIZATION_RESERVE_MS} from './bridge_limits.mjs';
 import {combineModelUsage} from './bridge_accounting.mjs';
+import {valeraFailure} from './valera_diagnostics.mjs';
 // Only fixed, non-secret phase markers may reach the trusted host.
-let activePhase=null,phaseStarted=0;
+let activePhase=null,phaseStarted=0,valeraStep='unknown';
 function beginPhase(phase){activePhase=phase;phaseStarted=performance.now();emitPhase('start');}
-function emitPhase(status){if(activePhase)console.error('POTATO_GATEWAY_PHASE '+JSON.stringify({phase:activePhase,status,elapsed_ms:Math.max(0,Math.round(performance.now()-phaseStarted))}));}
-function endPhase(status){emitPhase(status);activePhase=null;}
+function emitPhase(status,detail={}){if(activePhase)console.error('POTATO_GATEWAY_PHASE '+JSON.stringify({phase:activePhase,status,elapsed_ms:Math.max(0,Math.round(performance.now()-phaseStarted)),...detail}));}
+function endPhase(status,detail){emitPhase(status,detail);activePhase=null;}
 let server,session,client;
 const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'potato-model-'));
 try{
@@ -49,14 +50,27 @@ try{
  const roster=await budget.stage(()=>client.app.agents());
  if(!roster.data?.find(a=>a.name==='valera-ceo')?.description?.includes('[OMO 5.1.60 + Potato Harness]'))throw Error('OMO composition not active');
  endPhase('ok');beginPhase('valera');
+ valeraStep='coordination';
  const coordination=request.coordination;
  if(!coordination||typeof coordination.objective!=='string'||!Array.isArray(coordination.scope))throw Error('Host-approved coordination summary required');
+ valeraStep='session';
  const planning=await budget.stage(()=>client.session.create({body:{title:'Potato control-only assignment'}}));
- let planAnswer;
+ let planAnswer,promptFailed=false;
+ valeraStep='prompt';
  try{planAnswer=await budget.stage(()=>client.session.prompt({path:{id:planning.data.id},body:{agent:'valera-ceo',parts:[{type:'text',text:JSON.stringify({objective:coordination.objective,scope:coordination.scope,approved_owner:request.role,instructions:'You coordinate only. Do not inspect source or use tools. Return exactly JSON {owner: approved_owner, reason: short routing explanation}.'})}],tools:{}}}));}
- finally{await withTimeout(()=>client.session.delete({path:{id:planning.data.id}}),SESSION_DELETE_TIMEOUT_MS);}
- if(planAnswer.data.info.error||planAnswer.data.parts.some(p=>p.type==='tool'))throw Error('Coordinator planning failed');
- validateAssignment(JSON.parse(planAnswer.data.parts.filter(p=>p.type==='text').map(p=>p.text).join('')),request.role);
+ catch(error){promptFailed=true;throw error;}
+ finally{
+  if(!promptFailed)valeraStep='close';
+  try{await withTimeout(()=>client.session.delete({path:{id:planning.data.id}}),SESSION_DELETE_TIMEOUT_MS);}
+  catch(error){if(!promptFailed)throw error;}
+ }
+ valeraStep='response';
+ if(planAnswer.data.info.error)throw planAnswer.data.info.error;
+ if(planAnswer.data.parts.some(p=>p.type==='tool'))throw Error('Coordinator planning failed');
+ valeraStep='json';
+ const plan=JSON.parse(planAnswer.data.parts.filter(p=>p.type==='text').map(p=>p.text).join(''));
+ valeraStep='assignment';
+ validateAssignment(plan,request.role);
  endPhase('ok');beginPhase('specialist');
  const created=await budget.stage(()=>client.session.create({body:{title:'Potato scoped specialist'}}));session=created.data.id;
  const answer=await budget.stage(()=>client.session.prompt({path:{id:session},body:{agent:request.role,parts:[{type:'text',text:request.prompt+'\nReturn exactly JSON: {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No Markdown. No tool calls.'}],tools:{}}}));
@@ -72,8 +86,8 @@ try{
  const usage=combineModelUsage(planAnswer.data.info,data.info);
  endPhase('ok');
  console.log(JSON.stringify({...proposal,usage}));
-}catch{
- endPhase('error');
+}catch(error){
+ endPhase('error',activePhase==='valera'?valeraFailure(valeraStep,error):{});
  console.error('OpenCode/OMO specialist request failed. Inspect host provider setup; raw prompts and credentials omitted.');process.exitCode=2;
 }finally{
  beginPhase('cleanup');

@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Fixed direct trial diagnostics CLI imports and added subprocess coverage.
+- Added allowlisted Valera failure step/reason metadata, typed bridge deadlines,
+  and negative fixture coverage; no raw provider errors or automatic replay.
+
 - Evening Zen trial hardening: trial preparation installs marketplace/PyYAML
   requirements; isolated SDK smoke rejects inherited Sisyphus config;
   read-only diagnostics display only allowlisted phase and state metadata.

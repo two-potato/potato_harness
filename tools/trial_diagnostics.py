@@ -5,8 +5,13 @@ import json
 from pathlib import Path
 import sys
 
+# Direct script invocation puts tools/, not the project root, on sys.path.
+# Resolve the trusted checkout relative to this file, not the caller's cwd.
+if __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from harness.runtime import status
-from harness.runtime.gateway_diagnostics import PHASES, STATUSES
+from harness.runtime.gateway_diagnostics import safe_gateway_event
 
 RUN_STATES = frozenset({'INITIALIZED', 'RUNNING', 'HOLD', 'DONE'})
 TASK_STATES = frozenset({
@@ -27,16 +32,9 @@ def _safe_events(value):
     if type(value) is not list:
         return events
     for item in value[-64:]:
-        if type(item) is not dict or set(item) != {'phase', 'status', 'elapsed_ms'}:
-            continue
-        phase, stage, ms = item['phase'], item['status'], item['elapsed_ms']
-        if type(phase) is not str or phase not in PHASES:
-            continue
-        if type(stage) is not str or stage not in STATUSES:
-            continue
-        if type(ms) is not int or not 0 <= ms <= 3_600_000:
-            continue
-        events.append({'phase': phase, 'status': stage, 'elapsed_ms': ms})
+        safe = safe_gateway_event(item)
+        if safe is not None:
+            events.append(safe)
     return events
 
 
