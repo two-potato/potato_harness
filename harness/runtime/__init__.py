@@ -425,7 +425,7 @@ def recover(state):
 
 def halo(state,*,train=None,evaluation=None,holdout=None):
     run=status(state)
-    if run.get('provider_mode') in ('synthetic','offline'):return {'status':'HOLD','reason':'Synthetic v2 trial is not actual HALO inference evidence'}
+    if run.get('provider_mode') in ('synthetic','offline'):return {'status':'HOLD','reason':'Synthetic or offline v2 trial is not actual HALO inference evidence'}
     trace={'trace_id':run['task_id'],'status':run['task_status'],'checks':[],'bindings':{'revision':run['revision']},'optional_detail':_redact(run['reason'])}
     path=Path(state)/'halo-trace.json';_write(path,trace)
     if not any((train,evaluation,holdout)):

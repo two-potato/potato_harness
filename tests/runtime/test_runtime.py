@@ -128,6 +128,9 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(result['provider_mode'],'offline')
             self.assertEqual(len(calls),int(isolated))
             self.assertEqual(len(result['unresolved_effects']),int(isolated))
+            import sqlite3
+            with sqlite3.connect(state/'state.db') as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],int(isolated))
             self.assertFalse((state/'result.json').exists())
             self.assertIn('unit_cents + quantity',(state/'workspace/calculation.py').read_text())
             self.assertEqual(halo(state)['status'],'HOLD')
