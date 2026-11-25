@@ -89,7 +89,7 @@ test('policy records exact denial reason and offline boundary before HTTP admiss
  const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e),offline:true}).setup(ctx);
  const wrong={model:{...ref,variant:'other'},sessionID:'bad',agent:'valera-ceo',kind:'primary'};
  hooks['experimental.model.resolve'](wrong);assert.equal(wrong.model.providerID,'potato-denied');
- assert.equal(events.at(-1),'violation:resolve_model');
+ assert.equal(events.at(-1),'violation:resolve_variant_named');
  const missing={model:ref,agent:'valera-ceo',kind:'primary'};
  hooks['experimental.model.resolve'](missing);assert.equal(events.at(-1),'violation:resolve_session');
  const a={model:ref,sessionID:'one',agent:'valera-ceo',kind:'primary'};
@@ -99,5 +99,34 @@ test('policy records exact denial reason and offline boundary before HTTP admiss
  assert.throws(()=>hooks['http.request'](a),/HTTP_REQUEST_DENIED/);
  assert.equal(events.at(-1),'violation:offline_http');
  assert.ok(!events.includes('model:valera-ceo')&&!events.includes('http:valera-ceo'));
+ await cleanup();
+});
+
+test('native resolution distinguishes identity fields without admitting alternate model references',async()=>{
+ const hooks={},events=[],register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e),offline:true}).setup(ctx);
+ for(const [m,code] of [
+  [null,'model_shape'],[[], 'model_shape'],
+  [{id:ref.id},'provider_missing_or_type'],
+  [{...ref,providerID:'private-other-provider'},'provider_mismatch'],
+  [{providerID:ref.providerID},'id_missing_or_type'],
+  [{...ref,id:ref.providerID+'/'+ref.id},'id_qualified'],
+  [{...ref,id:'private-other-model'},'id_mismatch'],
+  [{...ref,variant:null},'variant_null'],[{...ref,variant:''},'variant_empty'],
+  [{...ref,variant:'default'},'variant_default'],[{...ref,variant:'private-variant'},'variant_named'],
+  [{...ref,variant:0},'variant_type']
+ ]){
+  const e={model:m,sessionID:'one',agent:'valera-ceo',kind:'primary'};
+  hooks['experimental.model.resolve'](e);
+  assert.deepEqual(e.model,{providerID:'potato-denied',id:'denied'});
+  assert.equal(events.at(-1),'violation:resolve_'+code);
+ }
+ const valid={model:{...ref},sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](valid);
+ assert.deepEqual(valid.model,ref);
+ assert.throws(()=>hooks['model.request'](valid),/OFFLINE_MODEL_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_stop');
+ assert.ok(!JSON.stringify(events).includes('private-'));
  await cleanup();
 });

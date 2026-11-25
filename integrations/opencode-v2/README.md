@@ -165,3 +165,12 @@ probe in a distinct loopback-only namespace. No host privilege changes,
 provider credentials, external inference or fallback to a live prompt.
 A completed job confirms only diagnostic evidence, not successful inference
 or isolation on the operator host. The workflow is not a runtime dependency.
+
+The offline probe reproduced the same pre-dispatch model identity rejection
+on both operator Ubuntu and hosted Linux. Resolution diagnostics now separate
+provider and model ID mismatches (including a qualified model ID), missing or
+invalid fields, and null/empty/default/named/invalid variants. These are fixed
+labels, not raw observed identifiers; none of the alternate references are
+admitted. A privileged host may use `sudo unshare --net` solely to create the
+namespace and bring up loopback, then drop to its normal unprivileged operator
+before executing the probe. Never run the CLI or candidate code as root.

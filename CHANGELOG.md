@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Separate native model resolution rejection into exact fixed field/variant
+  categories without admitting alternate references. Add regression coverage
+  and document the isolated ordinary-user probe on privileged Ubuntu hosts.
+
 - Add a branch-only hosted Linux fallback for the offline CLI diagnostic
   on namespace-restricted operator hosts. Verify the release digest and
   require loopback-only isolation before any synthetic prompt.

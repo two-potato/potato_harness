@@ -100,3 +100,15 @@ test('offline runner cannot proceed to specialist even with a successful fake re
  assert.equal(r.status,'HOLD');assert.equal(r.external_inference,false);
  assert.equal(r.offline_diagnostic,true);assert.deepEqual(f.calls,['valera-ceo']);
 });
+
+test('identity denial labels are preserved in the audit without arbitrary strings',()=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'potato-audit-identity-')),file=path.join(d,'audit');
+ try{
+  for(const code of ['resolve_provider_mismatch','resolve_id_qualified','resolve_variant_null','resolve_variant_empty','resolve_variant_default','resolve_variant_named','resolve_variant_type']){
+   fs.writeFileSync(file,'',{mode:0o600});recordAudit(file,'backend','ready');recordAudit(file,'backend','violation:'+code);
+   const a=auditShape(readAudit(file),'backend');
+   assert.equal(a.violation_reason,code);assert.equal(a.valid_prefix,false);
+   assert.throws(()=>assertAudit(readAudit(file),'backend',1));
+  }
+ }finally{fs.rmSync(d,{recursive:true,force:true});}
+});

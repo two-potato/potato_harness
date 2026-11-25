@@ -32,7 +32,18 @@ export function nativeConfig(model,maxOutput,plugin){
 // Self-contained: the CLI loads this from a private generated directory.
 export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
- const same=m=>m?.providerID===ref.providerID&&m.id===ref.id&&m.variant===undefined;
+ // Diagnostic labels are fixed; never include an observed identifier or variant.
+ const mismatch=m=>{
+  if(!m||typeof m!=='object'||Array.isArray(m))return 'resolve_model_shape';
+  if(m.providerID!==ref.providerID)return typeof m.providerID!=='string'?'resolve_provider_missing_or_type':'resolve_provider_mismatch';
+  if(m.id!==ref.id)return typeof m.id!=='string'?'resolve_id_missing_or_type':
+   m.id===ref.providerID+'/'+ref.id?'resolve_id_qualified':'resolve_id_mismatch';
+  if(m.variant!==undefined)return m.variant===null?'resolve_variant_null':
+   m.variant===''?'resolve_variant_empty':m.variant==='default'?'resolve_variant_default':
+   typeof m.variant==='string'?'resolve_variant_named':'resolve_variant_type';
+  return null;
+ };
+ const same=m=>mismatch(m)===null;
  const resolved=new Map(),sent=new Set(),http=new Set();
  let admitted=0;
  const allowed=(event)=>same(event.model)&&resolved.has(event.sessionID)&&resolved.get(event.sessionID)===event.agent&&event.kind==='primary';
@@ -65,9 +76,9 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    // is still rejected by the model.request/http.request guards below.
    if(e.kind==='title'&&same(e.model))return;
    const role=admitted===0?'valera-ceo':admitted===1?worker:null;
-   const failure=e.kind!=='primary'?'resolve_kind':!same(e.model)?'resolve_model':
+   const failure=e.kind!=='primary'?'resolve_kind':mismatch(e.model)??(
     typeof e.sessionID!=='string'||!e.sessionID?'resolve_session':
-    role===null||e.agent!==role?'resolve_role':resolved.has(e.sessionID)?'resolve_duplicate':null;
+    role===null||e.agent!==role?'resolve_role':resolved.has(e.sessionID)?'resolve_duplicate':null);
    if(failure){
     e.model={providerID:'potato-denied',id:'denied'};record('violation:'+failure);return;
    }
