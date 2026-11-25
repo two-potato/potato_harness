@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.1: add workflow-bound, revision-checked specialist ready selection
+  using the existing DAG schema and SQLite scheduler. Route the bounded
+  runtime through it; keep selection separate from authorization/dispatch.
+
 - R2.5b: add the future native-free proposal contract, exercised against an
   injected fake client with a pinned real model identifier; mandatory host
   bounds and model consistency. Live configuration remains explicitly HOLD.

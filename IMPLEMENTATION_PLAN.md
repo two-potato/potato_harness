@@ -98,3 +98,15 @@ R2.5b candidate proposal contract: pinned native model, host-selected model
 consistency, mandatory reservation/deadline and two-stage bounded proposal.
 Synthetic transport tests only; no live CLI binding or activation. Keep the
 explicit HOLD until independent review and real external evidence are available.
+
+## R3.1 — workflow-bound specialist selection
+
+The existing Scheduler now exposes a strict read-only workflow selector using
+schema 3.0.1, exact host-approved task/revision set, workflow/turn/repository
+identity, admitted specialist availability and existing dependency evidence
+checks in one SQLite read snapshot. The single-task trial uses this same path.
+Valera cannot expand task membership or choose unavailable roles; Explore is
+not admitted in this increment. The selector does not create tasks, grant
+rights, dispatch workers, or implement parallel workflow execution. Tests use
+real SQLite and explicit planning-state test guards. Live model admission is
+unchanged and remains HOLD. R3.2 will address durable multi-task dispatch.

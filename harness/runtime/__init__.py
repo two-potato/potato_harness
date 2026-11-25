@@ -291,8 +291,11 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         jev=Jev(state/'state.db',provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
         guard.ready=True
         for target in ('CLASSIFIED','PLANNED'):move(target)
-        dag={'nodes':[{'id':'trial','task_id':task['task_id'],'needs':[]}]}
-        if Scheduler(state/'state.db').ready(dag)!=[task['task_id']]:raise ValueError('Task not in bounded ready queue')
+        dag={'schema_version':'3.0.1','workflow_id':task['workflow_id'],'nodes':[{'id':'trial','task_id':task['task_id'],'needs':[]}]}
+        if Scheduler(state/'state.db').ready_workflow(dag,workflow_id=task['workflow_id'],
+                user_turn_id=task['user_turn_id'],repository_id=task['repository_id'],
+                approved_revisions={task['task_id']:task['revision']},available_owners=('backend',))!=[task['task_id']]:
+            raise ValueError('Task not in bounded ready queue')
         for target in ('ASSIGNED','EXECUTING'):move(target)
         before=_snapshot(workspace)
         session=uuid.uuid4().hex
