@@ -132,7 +132,9 @@ test('native resolution distinguishes identity fields without admitting alternat
 });
 
 test('generated native policy admits only absent or exact default variant across all request hooks',async()=>{
- const imported=await import('data:text/javascript;base64,'+Buffer.from(pluginSource(config,ref,cap,'backend')).toString('base64'));
+ // The generated module exports a stateful policy. Use a distinct module URL
+ // so Node's module cache cannot reuse the earlier test's admitted sessions.
+ const imported=await import('data:text/javascript;base64,'+Buffer.from(pluginSource(config,ref,cap,'backend')).toString('base64')+'#native-base-variant');
  const hooks={},register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
  const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
  const cleanup=await imported.default.setup(ctx);

@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/native-offline-diagnostic.yml'
       - 'integrations/opencode-v2/src/**'
+      - 'integrations/opencode-v2/tests/**'
 permissions:
   contents: read
 jobs:
@@ -68,15 +69,15 @@ jobs:
           const fs = require('node:fs');
           const r = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
           const a = r.diagnostics?.audit;
-          // Accept a diagnostic result, never an inference PASS. Fail closed on
-          // namespace failure, unavailable catalog, cleanup failure or missing evidence.
+          // Require the intended offline boundary, never an inference PASS.
+          // An earlier policy rejection is a regression, not a successful probe.
           console.log(JSON.stringify(r));
           if (r.status !== 'HOLD' || r.offline_network !== true ||
               r.offline_diagnostic !== true || r.external_inference !== false ||
               r.runtime_admission !== false || r.attempted_prompts !== 1 ||
               r.diagnostics?.cleanup_failed !== false || !a?.ready ||
               a.http_hooks !== 0 || a.model_hooks !== 0 ||
-              a.violation !== true || typeof a.violation_reason !== 'string') {
+              a.violation !== true || a.violation_reason !== 'offline_stop') {
             process.exitCode = 1;
           }
           JS
