@@ -345,3 +345,22 @@ reviewed reconciliation, egress, provider budget and independent approval
 mechanisms are implemented. The old confirmation flag is not sufficient.
 There is intentionally no CLI command or automatic reconciliation that clears
 historical holds. Existing offline diagnostic and runtime fixture are unchanged.
+
+## R5.1f — inspect historical trial state
+
+Stop old trial processes first. Use an explicit saved state directory:
+
+```sh
+.venv-demo/bin/python -m tools.native_reconciliation --state /path/to/old/trial/state
+```
+
+Repeat `--state` for additional saved trials. The report always exits 2/HOLD.
+It opens SQLite read-only, does not alter rows, does not run a model and
+does not echo provider IDs, prompts, credentials or paths. For WAL databases
+SQLite may use its normal shared-memory sidecars; this is not a byte-for-byte
+filesystem forensic acquisition. UTC timestamps and identifier presence
+can help the operator locate provider-side evidence. Even zero local
+unresolved effects does not prove external reconciliation. Standalone
+historical native probes may have no saved trial directory at all.
+The sanitized report hash is not an authenticated provider receipt.
+No history is cleared from the native ledger.

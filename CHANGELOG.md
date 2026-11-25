@@ -2,6 +2,9 @@
 
 ## Unreleased — local-first readiness
 
+- R5.1f: secret-safe read-only historical reconciliation dossier with local
+  effect states, provider-ID presence and UTC timestamps; no settlement.
+
 - R5.1e: persistent native inference journal and historical UNKNOWN holds;
   per-stage reservation and reported usage tests. Manual live probe disabled
   pending reviewed reconciliation and activation; no external inference.
