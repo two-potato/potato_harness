@@ -137,3 +137,15 @@ contain raw tracked blobs, not filtered checkout bytes. The trial limits are
 Partial directories remain for inspection. Workspace receipts are descriptive;
 no grants, live dispatch, OS sandbox proof or cross-task artifact handoff are
 provided by preparation. Actual multi-task execution remains open.
+
+## R3.3a — verified dependency context handoff
+
+A host-only reader resolves an explicit path/digest allowlist for one direct
+DAG dependency. It checks same workflow/turn/repository and exact revisions,
+DONE and reconciled producer, full evidence bundle via a trusted collector,
+prior publication lease and target-pin event, private content-addressed object
+bytes and the exact verified Git blob. The result is bounded mandatory
+untrusted context data; the existing compiler performs redaction and context
+budget checks. No direct access to another agent's workspace, automatic merge,
+new grant or task dispatch. The workflow executor and dispatch-time revalidation
+remain to be integrated; independent evidence collection is host-supplied.

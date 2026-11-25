@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.3a: verify direct dependency artifacts against exact task revisions,
+  trusted evidence, publication lease, pinned Git target and object bytes;
+  deliver bounded untrusted context rather than shared workspace access.
+
 - R3.2b: share pinned Git workspace preparation between the bounded runtime
   and task-bound private layouts; separate physical source and integration
   copies, reject stale/foreign bindings and never reuse incomplete layouts.
