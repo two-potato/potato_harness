@@ -88,3 +88,9 @@ test('unexpected startup traffic permanently closes model admission',async()=>{
  assert.throws(()=>closed.begin('valera'),/INVALID_FIXTURE_STAGE/);
  assert.equal(calls,0);
 });
+
+test('native v2 rejects coordinator, oversized input and unbounded allowance before SDK calls',()=>{
+ assert.throws(()=>validateRequest({...request,role:'valera-ceo'}));
+ assert.throws(()=>validateRequest({...request,prompt:'x'.repeat(262145)}));
+ for(const n of [undefined,null,0,1,4097,Infinity])assert.throws(()=>validateRequest({...request,output_token_allowance:n}));
+});
