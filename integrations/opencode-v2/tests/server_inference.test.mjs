@@ -72,6 +72,31 @@ test('diagnostic projection never emits raw provider data or unknown event label
  assert.equal(d.counts.other,1);assert.equal(d.assistant.error,'RATE_LIMIT');
  assert.equal(d.assistant.finish,'ABSENT_OR_OTHER');assert.equal(d.assistant.parts_valid,false);
  assert.ok(!JSON.stringify(d).includes(secret));
- assert.deepEqual(auditShape(['ready',secret],'backend'),{ready:true,model_hooks:0,http_hooks:0,violation:false,valid_prefix:false});
+ assert.deepEqual(auditShape(['ready',secret],'backend'),{ready:true,model_hooks:0,http_hooks:0,violation:false,violation_reason:null,valid_prefix:false});
  assert.equal(errorCategory(Error(secret)),'REJECTED');
+});
+
+test('no-assistant idle error and named denial are projected without provider text',()=>{
+ const secret='PRIVATE_PROVIDER_MESSAGE';
+ const d=responseShape([{type:'user'},{type:'idle',outcome:'failed',error:{type:'provider.no-route',message:secret}}],'valera-ceo',ref);
+ assert.equal(d.counts.assistant,0);
+ assert.deepEqual(d.idle,{outcome:'failed',error:'NO_ROUTE'});
+ assert.deepEqual(auditShape(['ready','violation:resolve_model'],'backend'),{ready:true,model_hooks:0,http_hooks:0,violation:true,violation_reason:'resolve_model',valid_prefix:false});
+ assert.ok(!JSON.stringify(d).includes(secret));
+});
+test('audit preserves first specific violation and never echoes unknown input',()=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'potato-audit-reason-')),file=path.join(d,'audit');
+ try{
+  fs.writeFileSync(file,'',{mode:0o600});
+  recordAudit(file,'backend','ready');recordAudit(file,'backend','violation:resolve_role');
+  recordAudit(file,'backend','violation:retry');
+  assert.throws(()=>recordAudit(file,'backend','PRIVATE_LABEL'),/DENIED/);
+  assert.deepEqual(readAudit(file),['ready','violation:resolve_role']);
+  assert.throws(()=>assertAudit(readAudit(file),'backend',1));
+ }finally{fs.rmSync(d,{recursive:true,force:true});}
+});
+test('offline runner cannot proceed to specialist even with a successful fake response',async()=>{
+ const f=fake(),r=await runNativeProbe({...f.opts,offline:true});
+ assert.equal(r.status,'HOLD');assert.equal(r.external_inference,false);
+ assert.equal(r.offline_diagnostic,true);assert.deepEqual(f.calls,['valera-ceo']);
 });

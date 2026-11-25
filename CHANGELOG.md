@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Add fixed first-denial hook reasons, sanitized idle errors and a separate
+  network-isolated pre-dispatch diagnostic. Deny offline model/HTTP dispatch;
+  never replay an unknown provider outcome or enable runtime admission.
+
 - Distinguish native inference response checkpoints and report sanitized
   response shape and final hook audit on HOLD without changing admission.
   Keep unknown external outcomes and preserve the original failure on cleanup.

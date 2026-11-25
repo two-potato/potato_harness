@@ -19,13 +19,13 @@ export function probeUsage(info,cap=PROBE_CAP){
  if(u.cost_usd!==0||u.input_tokens<1||u.output_tokens<1||u.output_tokens>cap)throw Error('USAGE_NOT_ZERO_OR_BOUNDED');
  return u;
 }
-export async function runNativeProbe({model,launch,awaitPolicy,budget=bridgeBudget(90000)}){
+export async function runNativeProbe({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false}){
  let server,sessionID,attempts=0,phase='startup',reason='NONE',result,finalAudit;
  let check='launch',failure=null,response=null,cleanupFailed=false;
  const stages=[],ids=new Set();
  try{
   const ref=modelRef(model);
-  server=await launch({model,worker,maxOutput:PROBE_CAP,audit:true});
+  server=await launch({model,worker,maxOutput:PROBE_CAP,audit:true,offline});
   phase='preflight';check='policy';
   await budget.stage(()=>awaitPolicy(server));
   check='audit';assertAudit(server.readAudit(),worker,1);
@@ -52,6 +52,7 @@ export async function runNativeProbe({model,launch,awaitPolicy,budget=bridgeBudg
    return {answer,usage};
   };
   const plan=await call('valera-ceo',JSON.stringify({objective,scope,approved_owner:worker,instructions:'Return only JSON with owner and reason. No tools. This is an inert test, not a real assignment.'}),3);
+  if(offline){phase='offline_end';check='offline_boundary';throw Error('OFFLINE_UNEXPECTED_RESPONSE');}
   phase='assignment';check='assignment_contract';
   validateAssignment(plan.answer.value,worker);
   stages.push({role:'valera-ceo',usage:plan.usage});
@@ -71,8 +72,9 @@ export async function runNativeProbe({model,launch,awaitPolicy,budget=bridgeBudg
  if(result&&reason==='NONE')try{assertAudit(finalAudit,worker,5);}catch{reason='FINAL_AUDIT_HOLD';failure={check:'final_audit',category:'REJECTED'};}
  const pass=!!result&&reason==='NONE';
  return {status:pass?'PASS':'HOLD',layer:'native-cli-server-inference-probe',reason:pass?'NONE':reason,
-  external_inference:pass?true:attempts?'unknown':false,attempted_prompts:attempts,confirmed_stages:stages,
+  external_inference:offline?false:pass?true:attempts?'unknown':false,attempted_prompts:attempts,confirmed_stages:stages,
   ...(pass?{usage:result.usage,admitted_http_hooks:2,admitted_model_hooks:2}:{}),
+  ...(offline?{offline_diagnostic:true}:{}),
   diagnostics:{failure,response,audit:auditShape(finalAudit,worker),cleanup_failed:cleanupFailed},
   billing_verified:false,console_api:false,runtime_admission:false};
 }

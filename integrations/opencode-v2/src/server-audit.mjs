@@ -3,6 +3,12 @@ import fs from 'node:fs';
 export function auditSequence(worker){
  return ['ready','model:valera-ceo','http:valera-ceo','model:'+worker,'http:'+worker];
 }
+// Only known local labels can reach the report. Unknown input is never echoed.
+export function auditViolation(event){
+ if(event==='violation')return 'unspecified';
+ const codes=['permission','retry','resolve_kind','resolve_model','resolve_session','resolve_role','resolve_duplicate','model_scope','model_duplicate','http_scope','http_duplicate','websocket','sequence','offline_stop','offline_http'];
+ return codes.find(code=>event==='violation:'+code)??null;
+}
 export function readAudit(file){
  const stat=fs.lstatSync(file);
  if(!stat.isFile()||stat.size>1024||(stat.mode&0o077)!==0)throw Error('AUDIT_INVALID');
@@ -14,9 +20,10 @@ export function readAudit(file){
 export function recordAudit(file,worker,event){
  const previous=readAudit(file),expected=auditSequence(worker);
  const valid=previous.every((v,i)=>v===expected[i]);
- if(event==='violation'||!valid||event!==expected[previous.length]){
-  if(!previous.includes('violation'))fs.appendFileSync(file,'violation\n');
-  if(event!=='violation')throw Error('AUDIT_SEQUENCE_DENIED');
+ const violation=auditViolation(event);
+ if(violation||!valid||event!==expected[previous.length]){
+  if(!previous.some(x=>auditViolation(x)))fs.appendFileSync(file,violation?event+'\n':'violation:sequence\n');
+  if(!violation)throw Error('AUDIT_SEQUENCE_DENIED');
   return;
  }
  fs.appendFileSync(file,event+'\n');

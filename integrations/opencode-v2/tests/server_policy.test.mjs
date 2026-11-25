@@ -82,3 +82,22 @@ test('local client transport does not follow redirects or disclose auth to anoth
  const fetch=localFetch(endpoint,'test-password',undefined,async req=>{calls++;assert.equal(req.redirect,'error');assert.equal(req.headers.get('authorization'),'Basic '+Buffer.from('opencode:test-password').toString('base64'));return new Response('{}');});
  await fetch(endpoint+'/health');await assert.rejects(fetch('http://evil.test/'));assert.equal(calls,1);
 });
+
+test('policy records exact denial reason and offline boundary before HTTP admission',async()=>{
+ const hooks={},events=[],register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e),offline:true}).setup(ctx);
+ const wrong={model:{...ref,variant:'other'},sessionID:'bad',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](wrong);assert.equal(wrong.model.providerID,'potato-denied');
+ assert.equal(events.at(-1),'violation:resolve_model');
+ const missing={model:ref,agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](missing);assert.equal(events.at(-1),'violation:resolve_session');
+ const a={model:ref,sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](a);
+ assert.throws(()=>hooks['model.request'](a),/OFFLINE_MODEL_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_stop');
+ assert.throws(()=>hooks['http.request'](a),/HTTP_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_http');
+ assert.ok(!events.includes('model:valera-ceo')&&!events.includes('http:valera-ceo'));
+ await cleanup();
+});

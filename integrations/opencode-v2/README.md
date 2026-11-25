@@ -129,3 +129,28 @@ cleanup status. It never prints model text, raw provider errors, session IDs
 or credentials. These diagnostics do not establish provider delivery or billing
 and do not authorize replay of a prior unknown attempt. Reconcile the prior
 outcome separately before any newly authorized manual trial.
+
+### Offline pre-dispatch diagnostic
+
+If the live report has no assistant and no admitted model/HTTP hooks, use the
+separate diagnostic below rather than replaying an unknown provider attempt.
+Linux user/network namespaces and iproute2 are required. No host sysctl changes,
+no network fallback; an unavailable namespace or uncached catalog is a HOLD.
+Run from the repository root:
+
+```sh
+POTATO_OUTER_NETNS="$(readlink /proc/self/ns/net)" \
+  unshare --user --map-root-user --net -- sh -c \
+  'ip link set lo up && exec "$@"' sh \
+  integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-offline-probe.mjs opencode/beam-free
+```
+
+The runner verifies a distinct network namespace with only loopback, then
+creates one local synthetic session. The plugin additionally denies the model
+request before its HTTP hook. The report always exits HOLD (code 2), never
+claims inference. A first violation of offline_stop means the request reached
+the deliberate pre-transport boundary. Other fixed violation_reason values
+locate an earlier failure; idle outcome/error categories are also reported.
+No raw provider text or network addresses are emitted. This is not complete OS
+sandbox certification and does not resolve past provider-side unknown effects.

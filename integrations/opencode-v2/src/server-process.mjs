@@ -6,6 +6,7 @@ import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {withTimeout} from './bridge_limits.mjs';
 import {readAudit} from './server-audit.mjs';
+import {requireOfflineNetwork} from './offline-network.mjs';
 import {modelRef,nativeConfig,pluginSource,verifyServerSnapshot} from './server-policy.mjs';
 
 export function parseEndpoint(line){
@@ -57,7 +58,8 @@ function checkVersion(binary,env,cwd){
   p.once('close',code=>{clearTimeout(timer);if(code===0&&/^(?:opencode v?)?2\.4\.1$/.test(out.trim()))resolve();else reject(Error('CLI_VERSION_MISMATCH'));});
  });
 }
-export async function launchPrivateServer({binary,operatorHome,model,worker='backend',maxOutput=2048,clientFactory,audit=false}){
+export async function launchPrivateServer({binary,operatorHome,model,worker='backend',maxOutput=2048,clientFactory,audit=false,offline=false}){
+ if(offline)requireOfflineNetwork();
  if(typeof binary!=='string'||!path.isAbsolute(binary)||!fs.statSync(binary).isFile())throw Error('ABSOLUTE_CLI_REQUIRED');
  if(typeof operatorHome!=='string'||!path.isAbsolute(operatorHome))throw Error('ABSOLUTE_HOME_REQUIRED');
  const ref=modelRef(model);
@@ -69,7 +71,7 @@ export async function launchPrivateServer({binary,operatorHome,model,worker='bac
  const config=nativeConfig(model,maxOutput,plugin);
  const auditFile=audit?path.join(directory,'audit.log'):undefined;
  if(auditFile)fs.writeFileSync(auditFile,'',{mode:0o600,flag:'wx'});
- fs.writeFileSync(path.join(plugin,'server.mjs'),pluginSource(config,ref,maxOutput,worker,auditFile),{mode:0o600});
+ fs.writeFileSync(path.join(plugin,'server.mjs'),pluginSource(config,ref,maxOutput,worker,auditFile,offline),{mode:0o600});
  const password=randomBytes(32).toString('base64url'),abort=new AbortController();
  const env={PATH:'/usr/bin:/bin',HOME:root,XDG_DATA_HOME:data,XDG_CACHE_HOME:cache,XDG_STATE_HOME:state,
   XDG_CONFIG_HOME:directory,OPENCODE_CONFIG_DIR:directory,OPENCODE_CONFIG_CONTENT:JSON.stringify(config),
