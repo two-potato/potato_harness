@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.4c: replace Bubblewrap preexec_fn with a fresh isolated resource-limit
+  helper that execs only the fixed Bubblewrap binary; preserve stricter
+  inherited limits and reap interrupted launches. Add concurrent live test.
+
 - R3.4b: bounded parallel fixture batches through the existing workflow
   coordinator, mandatory aggregate limits, disjoint resource selection,
   durable batch IDs and failure barrier. Explicit synthetic sandbox seams only.

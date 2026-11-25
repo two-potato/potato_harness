@@ -117,6 +117,12 @@ class IsolationTests(unittest.TestCase):
         self.assertTrue(result['timed_out'])
         self.assertFalse(popen.call_args.kwargs['shell'])
         self.assertTrue(popen.call_args.kwargs['start_new_session'])
+        self.assertNotIn('preexec_fn', popen.call_args.kwargs)
+        self.assertEqual(popen.call_args.kwargs['env'], {})
+        argv=popen.call_args.args[0]
+        self.assertEqual(argv[1:3], ['-I','-S'])
+        self.assertEqual(Path(argv[3]).name, '_launcher.py')
+        self.assertEqual(argv[4:], ['1','--','--version'])
 
     def live(self):
         status = probe()
@@ -151,3 +157,105 @@ class IsolationTests(unittest.TestCase):
         self.live()
         result = run_private(self.workspace, ['/usr/bin/python3', '-c', "import os; os.write(1,b'x'*2000000)"])
         self.assertLessEqual(len(result['stdout'].encode()), 1048576)
+
+    def test_launcher_failure_never_execs_bwrap(self):
+        from harness.isolation import _launcher
+        with patch.object(_launcher, '_apply_limits', side_effect=OSError('limit failed')):
+            with patch.object(_launcher.os, 'execve') as execute:
+                self.assertEqual(_launcher.main(['2','--','--version']),125)
+                execute.assert_not_called()
+        with patch.object(_launcher.os, 'execve') as execute:
+            for args in ([],['0','--','--version'],['121','--','--version'],
+                         ['2','bad','--version'],['2','--']):
+                self.assertEqual(_launcher.main(args),125)
+            execute.assert_not_called()
+
+    def test_launcher_can_only_exec_fixed_bwrap_with_empty_environment(self):
+        from harness.isolation import _launcher
+        with patch.object(_launcher, '_apply_limits') as limits:
+            with patch.object(_launcher.os,'execve',side_effect=OSError('missing binary')) as execute:
+                self.assertEqual(_launcher.main(['3','--','--version']),125)
+                limits.assert_called_once_with(3)
+                execute.assert_called_once_with('/usr/bin/bwrap',['/usr/bin/bwrap','--version'],{})
+
+    def test_launcher_preserves_stricter_limits_in_real_child(self):
+        from harness.isolation import _launcher
+        code = """
+import runpy, resource, sys
+module=runpy.run_path(sys.argv[1])
+resource.setrlimit(resource.RLIMIT_NOFILE,(32,32))
+module['_apply_limits'](3)
+assert resource.getrlimit(resource.RLIMIT_NOFILE)==(32,32)
+for name, soft, hard in [('RLIMIT_FSIZE',1048576,1048576),
+                         ('RLIMIT_CPU',3,4),('RLIMIT_AS',1073741824,1073741824),
+                         ('RLIMIT_CORE',0,0)]:
+    actual=resource.getrlimit(getattr(resource,name))
+    assert all(0<=a<=b for a,b in zip(actual,(soft,hard))), (name,actual)
+print('LIMITS_OK')
+"""
+        child=subprocess.run([sys.executable,'-I','-S','-c',code,_launcher.__file__],
+                             env={},cwd='/',capture_output=True,text=True,timeout=10)
+        self.assertEqual(child.returncode,0,child.stderr)
+        self.assertEqual(child.stdout.strip(),'LIMITS_OK')
+
+    def test_execute_rejects_non_bwrap_host_command(self):
+        from harness.isolation import _execute
+        with patch('harness.isolation.subprocess.Popen') as popen:
+            with self.assertRaises(ValueError):
+                _execute(['/usr/bin/true'],1)
+            popen.assert_not_called()
+
+    def test_interrupted_wait_kills_process_group(self):
+        from harness.isolation import _execute
+        process=Mock(pid=12345,returncode=-9)
+        process.wait.side_effect=[KeyboardInterrupt(),-9]
+        with patch('harness.isolation.subprocess.Popen',return_value=process):
+            with patch('harness.isolation.os.killpg') as kill:
+                with self.assertRaises(KeyboardInterrupt):
+                    _execute(['/usr/bin/bwrap','--version'],1)
+        kill.assert_called_once_with(12345,9)
+        self.assertEqual(process.wait.call_count,2)
+
+    def test_live_parallel_private_namespaces_and_limits(self):
+        self.live()
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        root=self.workspace
+        barrier=Barrier(2,timeout=10)
+        host_network=os.readlink('/proc/self/ns/net')
+        for name in ('one','two'):
+            folder=root/name
+            folder.mkdir(mode=0o700)
+            (folder/'input').write_text(name)
+        code = """
+from pathlib import Path
+import os, resource, time
+name=Path('/work/input').read_text()
+assert not Path('/etc/passwd').exists()
+assert not Path('/work/other').exists()
+assert resource.getrlimit(resource.RLIMIT_NOFILE)[0]<=64
+assert resource.getrlimit(resource.RLIMIT_AS)[0]<=1073741824
+assert resource.getrlimit(resource.RLIMIT_FSIZE)[0]<=1048576
+assert resource.getrlimit(resource.RLIMIT_CORE)==(0,0)
+start=time.monotonic_ns()
+time.sleep(.5)
+end=time.monotonic_ns()
+Path('/work/result').write_text(name)
+print(os.readlink('/proc/self/ns/net'),start,end)
+"""
+        def execute(name):
+            barrier.wait()
+            return run_private(root/name,['/usr/bin/python3','-c',code],timeout=15)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(execute,('one','two')))
+        spans=[]
+        for name,result in zip(('one','two'),results):
+            self.assertEqual(result['returncode'],0,result)
+            self.assertFalse(result['timed_out'])
+            self.assertEqual((root/name/'result').read_text(),name)
+            network,start,end=result['stdout'].strip().split()
+            self.assertNotEqual(network,host_network)
+            spans.append((network,int(start),int(end)))
+        self.assertNotEqual(spans[0][0],spans[1][0])
+        self.assertLess(max(s[1] for s in spans),min(s[2] for s in spans),
+                        'Sandbox payloads must actually overlap')

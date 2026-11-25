@@ -208,3 +208,18 @@ uses preexec_fn, unsafe from a multithreaded host. Real concurrent sandbox
 launch, workflow-wide wall time, interruption reconciliation, integration/merge
 and live model activation remain open. Tests use a two-worker barrier, real
 Git/SQLite and synthetic proposals/sandbox, not concurrent actual models.
+
+## R3.4c — fresh-process Bubblewrap launcher
+
+Replace the Python fork-time preexec callback with a private isolated
+interpreter invoked by absolute script path, empty environment and no shell.
+The fresh process applies CPU, address space, output file, descriptor and
+core limits without raising inherited soft/hard ceilings, then execs only
+/usr/bin/bwrap. The existing namespace/mount profile is unchanged. Timeout
+and interrupted waits kill the launch process group and reap its leader;
+this does not constitute independent descendant or kernel certification.
+Unit and child-process tests exercise the launcher and limit failures; the
+live concurrent sandbox test requires actual platform support and checks
+separate network namespaces, overlapping payloads, private outputs and
+limits. Keep the existing parallel workflow seam restriction until a live
+E2E run is confirmed. No inference or provider activation.
