@@ -33,6 +33,17 @@ class GatewayDiagnosticsTests(unittest.TestCase):
         raw = ''.join('POTATO_GATEWAY_PHASE ' + json.dumps(e) + '\n' for e in entries)
         self.assertEqual(parse_gateway_events(io.BytesIO(raw.encode())), [event])
 
+    def test_retry_categories_for_both_model_stages(self):
+        events = [
+            {'phase': phase, 'status': 'error', 'elapsed_ms': 5,
+             'step': 'prompt', 'reason_code': code}
+            for phase in ('valera', 'specialist')
+            for code in ('FREE_QUOTA', 'RATE_LIMIT', 'PROVIDER_UNAVAILABLE',
+                         'RETRY_BLOCKED', 'MONITOR_FAILED')
+        ]
+        raw = ''.join('POTATO_GATEWAY_PHASE ' + json.dumps(e) + '\n' for e in events)
+        self.assertEqual(parse_gateway_events(io.BytesIO(raw.encode())), events)
+
     def test_host_passes_bounded_bridge_deadline(self):
         code = 'import json,sys;print(json.dumps({"bridge_timeout_ms":json.loads(sys.stdin.read())["bridge_timeout_ms"]}))'
         response = _worker({}, [sys.executable, '-c', code], 8)
