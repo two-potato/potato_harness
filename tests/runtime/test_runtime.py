@@ -80,6 +80,8 @@ class RuntimeTests(unittest.TestCase):
         for patch in (dict(adapter='opencode-v2-native-free'),dict(model='opencode/beam-free'),
                       dict(provider_budget_confirmed=True),dict(jev_provider='opencode'),dict(scope=['other.py'])):
             with self.assertRaises(ValueError): _config(dict(cfg,**patch))
+        with self.assertRaisesRegex(ValueError,'live activation HOLD'):
+            _config(dict(cfg,adapter='opencode-v2-native-free',model='opencode/beam-free'))
         with self.assertRaises(KeyError): _worker_command(dict(cfg,adapter='opencode-v2-native-free'))
 
     def test_native_fixture_uncertainty_retains_outbox_and_never_replays(self):

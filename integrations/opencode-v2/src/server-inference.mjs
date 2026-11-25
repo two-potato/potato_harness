@@ -21,10 +21,10 @@ export function probeUsage(info,cap=PROBE_CAP){
  if(u.cost_usd!==0||u.input_tokens<1||u.output_tokens<1||u.output_tokens>cap)throw Error('USAGE_NOT_ZERO_OR_BOUNDED');
  return u;
 }
-// The common flow has no transport of its own. Only the fixed manual probe
-// and the explicitly synthetic/offline runtime diagnostics can invoke it.
+// The common flow has no transport of its own. The manual probe and runtime
+// diagnostics bind their own launchers; the future candidate has no CLI binding.
 async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{}}){
- const {worker,scope,objective,prompt,cap,synthetic,checkProposal,tokenAllowance}=task;
+ const {worker,scope,objective,prompt,cap,synthetic,checkProposal,tokenAllowance,assignmentInstruction='Return only JSON with owner and reason. No tools. This is an inert test, not a real assignment.'}=task;
  let reportedTokens=0;
  let observedPhase=null,started=0;
  const begin=name=>{observedPhase=name;started=performance.now();onPhase({phase:name,status:'start',elapsed_ms:0});};
@@ -44,7 +44,7 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
   const call=async(role,text,count)=>{
    begin(role==='valera-ceo'?'valera':'specialist');
    phase=role+'_session';check='create';response=null;
-   const session=await budget.stage(()=>server.client.session.create({location:{directory:server.directory},agent:role,model:ref,permissions:deny(),title:'Potato bounded synthetic proposal'}));
+   const session=await budget.stage(()=>server.client.session.create({location:{directory:server.directory},agent:role,model:ref,permissions:deny(),title:'Potato bounded proposal'}));
    check='session_id';
    if(typeof session?.id!=='string'||!session.id||ids.has(session.id))throw Error('INVALID_SESSION');
    sessionID=session.id;ids.add(sessionID);
@@ -71,7 +71,7 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
    sessionID=undefined;
    return {answer,usage};
   };
-  const plan=await call('valera-ceo',JSON.stringify({objective,scope,approved_owner:worker,instructions:'Return only JSON with owner and reason. No tools. This is an inert test, not a real assignment.'}),3);
+  const plan=await call('valera-ceo',JSON.stringify({objective,scope,approved_owner:worker,instructions:assignmentInstruction}),3);
   if(offline){phase='offline_end';check='offline_boundary';throw Error('OFFLINE_UNEXPECTED_RESPONSE');}
   phase='assignment';check='assignment_contract';
   validateAssignment(plan.answer.value,worker);
@@ -117,7 +117,8 @@ export async function runNativeProbe(options){
 export const NATIVE_FIXTURE_MODEL='opencode/potato-runtime-fixture-free';
 // A trusted host request is data, never transport configuration or activation.
 // Both native runtime diagnostics share the same closed, bounded contract.
-function prepareNativeRuntime(request,offline){
+function prepareNativeRuntime(request,mode){
+ if(!['fixture','offline','candidate'].includes(mode))throw Error('NATIVE_RUNTIME_MODE');
  const fields=['role','model','prompt','coordination','output_token_allowance','projectDir','bridge_timeout_ms','token_allowance'];
  if(!request||typeof request!=='object'||Array.isArray(request)||
     Object.keys(request).some(key=>!fields.includes(key))||
@@ -126,29 +127,45 @@ function prepareNativeRuntime(request,offline){
     request.role!=='backend'||request.coordination.objective!==OBJECTIVE||
     JSON.stringify(request.coordination.scope)!=='["calculation.py"]')throw Error('NATIVE_RUNTIME_CONTRACT');
  const model=request.model,ref=modelRef(model);
- if(offline?model===NATIVE_FIXTURE_MODEL:model!==NATIVE_FIXTURE_MODEL)throw Error('NATIVE_RUNTIME_MODE_MODEL');
+ if(mode==='fixture'?model!==NATIVE_FIXTURE_MODEL:model===NATIVE_FIXTURE_MODEL)throw Error('NATIVE_RUNTIME_MODE_MODEL');
  const cap=validateRequest(request,{requestModel:model,modelRef:ref});
+ if(mode==='candidate'&&(!('bridge_timeout_ms' in request)||!('token_allowance' in request)))throw Error('NATIVE_CANDIDATE_HOST_BOUNDS_REQUIRED');
  const budget=bridgeBudget('bridge_timeout_ms' in request?request.bridge_timeout_ms:75000);
  const tokenAllowance=request.token_allowance;
  if('token_allowance' in request&&(!Number.isSafeInteger(tokenAllowance)||tokenAllowance<2))throw Error('NATIVE_TOKEN_ALLOWANCE');
  return {model,cap,budget,tokenAllowance};
 }
-// Not a live adapter. The model identifier is synthetic, and the host worker
-// supplies only the in-process fixture client. No live CLI launch is wired.
-export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhase}){
- const {model,cap,budget,tokenAllowance}=prepareNativeRuntime(request,false);
+// Shared proposal contract; the trusted launch binding is never supplied by
+// JSON or an agent. The candidate export below is deliberately not wired to
+// the runtime CLI. A successful injected test is not external admission.
+async function runtimeProposal(request,prepared,{launch,awaitPolicy,onPhase},mode){
+ if(typeof launch!=='function'||typeof awaitPolicy!=='function')throw Error('NATIVE_HOST_BINDING_REQUIRED');
+ const {model,cap,budget,tokenAllowance}=prepared;
  const {report,proposal}=await nativeFlow({model,launch,awaitPolicy,onPhase,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:request.prompt+'\nReturn only JSON {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No tools.',
-   cap,tokenAllowance,synthetic:true,checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
- if(report.status!=='PASS'||!proposal)throw Error('NATIVE_FIXTURE_HOLD');
+   cap,tokenAllowance,synthetic:mode==='fixture',
+   ...(mode==='candidate'?{assignmentInstruction:'Return only JSON with owner and reason. Coordinate only. No tools or source inspection.'}:{}),
+   checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
+ if(report.status!=='PASS'||!proposal)throw Error(mode==='fixture'?'NATIVE_FIXTURE_HOLD':'NATIVE_CANDIDATE_HOLD');
  return proposal;
+}
+export async function runNativeRuntimeFixture(request,bindings){
+ return runtimeProposal(request,prepareNativeRuntime(request,'fixture'),bindings,'fixture');
+}
+// Future candidate contract, exercised only with injected synthetic transport.
+// expectedModel is a trusted host consistency check, not an authorization token.
+// No production launcher, worker mode, configuration or consent flag is added.
+export async function runNativeRuntimeCandidate(request,bindings){
+ const prepared=prepareNativeRuntime(request,'candidate');
+ if(prepared.model!==bindings?.expectedModel)throw Error('NATIVE_CANDIDATE_MODEL_MISMATCH');
+ return runtimeProposal(request,prepared,bindings,'candidate');
 }
 
 // Real CLI with the offline guard. Never return a proposal to the runtime.
 export async function runNativeRuntimeOffline(request,{launch,awaitPolicy,onPhase=()=>{},verifyNetwork=requireOfflineNetwork}){
  verifyNetwork();
- const {model,cap,budget,tokenAllowance}=prepareNativeRuntime(request,true);
+ const {model,cap,budget,tokenAllowance}=prepareNativeRuntime(request,'offline');
  const {report}=await nativeFlow({model,launch,awaitPolicy,onPhase,offline:true,budget,
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:'Offline diagnostic only; no specialist dispatch permitted.',cap,tokenAllowance,synthetic:false,

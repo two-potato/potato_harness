@@ -93,3 +93,8 @@ remain open; no real model execution is claimed.
 R2.5 preparation adds terminal idle failure handling and cumulative reported
 token accounting across coordinator and specialist. This is not live runtime
 admission or a wire-level usage guarantee. Live activation remains HOLD.
+
+R2.5b candidate proposal contract: pinned native model, host-selected model
+consistency, mandatory reservation/deadline and two-stage bounded proposal.
+Synthetic transport tests only; no live CLI binding or activation. Keep the
+explicit HOLD until independent review and real external evidence are available.

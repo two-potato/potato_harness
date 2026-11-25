@@ -76,6 +76,8 @@ def _config(config):
             raise ValueError('Provider budget confirmation is only valid for Console profile')
         return config
     adapter=config.setdefault('adapter','opencode-v2-console')
+    if adapter=='opencode-v2-native-free':
+        raise ValueError('Native free live activation HOLD: candidate is not admitted; independent review and live evidence required')
     if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
         raise ValueError('Unknown provider adapter; create a new v2 trial')
     if adapter.startswith('opencode-v2'):

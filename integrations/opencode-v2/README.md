@@ -293,3 +293,22 @@ This is live-admission preparation, not activation: no new live worker mode,
 no provider dispatch from CI, no change to native route selection or local
 HTTP. Independent review, prior-outcome reconciliation, actual provider limits
 and successful real inference remain required before a live runtime trial.
+
+## R2.5b: candidate proposal contract (not live admission)
+
+The future native-free proposal runner accepts a pinned native free model,
+mandatory host token allowance and deadline, and the same bounded subtotal
+trial. It requires a separate trusted host-selected model match and injected
+launch/policy bindings. Valera sees only the coordination metadata; Backend
+receives the bounded source prompt. Proposal, reported zero cost, cumulative
+usage, terminal session state, final audit and cleanup must pass before
+returning edit data. Tests use an in-process fake client with a real model
+identifier; no CLI, HTTP or model requests are made by these tests.
+
+The export is not wired into the host worker, config, trial generator or an
+automatic path. A model match is not a human approval. The live configuration
+fails with an explicit HOLD explanation. Before activation, independent human
+review of the exact policy revision, reconciliation of prior uncertain external
+attempts, verified provider limits/egress and a successful native inference
+are still required. Do not treat synthetic tests as evidence for those gates.
+Local operation, native routing and existing diagnostic modes are unchanged.

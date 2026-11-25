@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture,runNativeRuntimeOffline} from '../src/server-inference.mjs';
+import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture,runNativeRuntimeOffline,runNativeRuntimeCandidate} from '../src/server-inference.mjs';
 import {launchNativeFixture,awaitNativeFixture} from '../src/native-runtime-fixture.mjs';
 import {OBJECTIVE} from '../src/trial-fixture.mjs';
 const request={role:'backend',model:NATIVE_FIXTURE_MODEL,prompt:'synthetic scoped source',coordination:{objective:OBJECTIVE,scope:['calculation.py']},output_token_allowance:4096};
@@ -129,5 +129,71 @@ test('native cumulative reported usage prevents second dispatch or proposal when
  assert.deepEqual(p.usage,{input_tokens:20,output_tokens:20,cost_usd:0});
  for(const token_allowance of [0,1,-1,null,1.5,Number.MAX_SAFE_INTEGER+1]){
   await assert.rejects(()=>runNativeRuntimeFixture({...request,token_allowance},{...opts,launch:()=>{throw Error('unexpected launch');}}),/NATIVE_TOKEN_ALLOWANCE/);
+ }
+});
+
+const candidateRequest={...request,model:'opencode/deepseek-v4.1-flash-free',token_allowance:100,bridge_timeout_ms:9000};
+function candidateTransport(fault){
+ const calls=[],launches=[],prompts=[],audit=['ready'],sessions=new Map();
+ const stats={closed:0};
+ const launch=async options=>{
+  launches.push(options);
+  assert.equal(options.model,candidateRequest.model);
+  assert.equal(options.worker,'backend');
+  assert.equal(options.audit,true);assert.equal(options.offline,false);
+  return {directory:'/synthetic-candidate',readAudit:()=>[...audit],
+   close:async()=>{stats.closed++;if(fault==='cleanup')throw Error('PRIVATE_CLEANUP');return fault==='audit'?[...audit,'violation:retry']:[...audit];},
+   client:{session:{
+    create:async x=>{
+     assert.deepEqual(x.location,{directory:'/synthetic-candidate'});
+     assert.deepEqual(x.model,{providerID:'opencode',id:'deepseek-v4.1-flash-free'});
+     assert.deepEqual(x.permissions,[{action:'*',resource:'*',effect:'deny'}]);
+     const id='fake-'+sessions.size;sessions.set(id,x.agent);return {id};
+    },
+    prompt:async({sessionID,text})=>{const role=sessions.get(sessionID);calls.push(role);prompts.push(text);audit.push('model:'+role,'http:'+role);},
+    interrupt:async()=>{}
+   },experimental:{session:{wait:async()=>{}}},
+   message:{list:async x=>{
+    if(x.cursor)return {data:[]};
+    const role=sessions.get(x.sessionID),first=role==='valera-ceo';
+    const value=first?{owner:'backend',reason:'synthetic assignment'}:{edits:[{path:fault==='scope'?'outside.py':'calculation.py',content:'replacement'}],summary:'synthetic proposal'};
+    const error=first&&fault==='rate'?{type:'provider.rate-limit',message:'PRIVATE_PROVIDER_TEXT'}:undefined;
+    const data=error?[{type:'user'},{type:'idle',outcome:'failed',error}]:[
+     {type:'user'},{type:'assistant',agent:role,model:{providerID:'opencode',id:first&&fault==='identity'?'other-free':'deepseek-v4.1-flash-free'},
+      finish:'stop',time:{completed:1},tokens:{input:10,output:5},cost:first&&fault==='paid'?1:0,content:[{type:'text',text:JSON.stringify(value)}]},
+     {type:'idle',outcome:'succeeded'}];
+    return {data,cursor:{next:'tail'}};
+   }}}};
+ };
+ return {launch,calls,prompts,launches,stats};
+}
+test('future native candidate exercises explicit model and two-stage proposal on injected transport only',async()=>{
+ const f=candidateTransport(),events=[];
+ const p=await runNativeRuntimeCandidate(candidateRequest,{expectedModel:candidateRequest.model,launch:f.launch,awaitPolicy:async()=>{},onPhase:e=>events.push(e)});
+ assert.deepEqual(f.calls,['valera-ceo','backend']);
+ assert.equal(f.stats.closed,1);
+ assert.ok(!f.prompts[0].includes(candidateRequest.prompt));
+ assert.ok(f.prompts[1].includes(candidateRequest.prompt));
+ assert.deepEqual(p,{edits:[{path:'calculation.py',content:'replacement'}],summary:'synthetic proposal',usage:{input_tokens:20,output_tokens:10,cost_usd:0}});
+ assert.deepEqual(events.filter(e=>e.status==='ok').map(e=>e.phase),['server','valera','specialist','cleanup']);
+});
+test('future candidate requires independent host model selection, reservation and deadline before launch',async()=>{
+ const f=candidateTransport(),opts={expectedModel:candidateRequest.model,launch:f.launch,awaitPolicy:async()=>{}};
+ for(const patch of [{model:NATIVE_FIXTURE_MODEL},{model:'opencode/beam-free'},{model:'opencode/paid'},
+  {token_allowance:undefined},{bridge_timeout_ms:undefined},{token_allowance:0},{bridge_timeout_ms:4000},
+  {live:true},{baseURL:'https://private.invalid'},{coordination:{...request.coordination,scope:['outside.py']}}]){
+  await assert.rejects(()=>runNativeRuntimeCandidate({...candidateRequest,...patch},opts));
+ }
+ await assert.rejects(()=>runNativeRuntimeCandidate(candidateRequest,{...opts,expectedModel:undefined}));
+ await assert.rejects(()=>runNativeRuntimeCandidate(candidateRequest,{...opts,awaitPolicy:undefined}));
+ assert.equal(f.launches.length,0);
+});
+test('future candidate holds on first-stage rejection and late invalid result without replay',async()=>{
+ for(const [fault,roles] of [['rate',['valera-ceo']],['paid',['valera-ceo']],['identity',['valera-ceo']],['scope',['valera-ceo','backend']],['cleanup',['valera-ceo','backend']],['audit',['valera-ceo','backend']]]){
+  const f=candidateTransport(fault),events=[];
+  await assert.rejects(()=>runNativeRuntimeCandidate(candidateRequest,{expectedModel:candidateRequest.model,launch:f.launch,awaitPolicy:async()=>{},onPhase:e=>events.push(e)}),/NATIVE_CANDIDATE_HOLD/);
+  assert.deepEqual(f.calls,roles);assert.equal(f.stats.closed,1);
+  assert.ok(!JSON.stringify(events).includes('PRIVATE_'));
+  if(fault==='rate')assert.ok(events.some(e=>e.reason_code==='RATE_LIMIT'));
  }
 });

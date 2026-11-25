@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R2.5b: add the future native-free proposal contract, exercised against an
+  injected fake client with a pinned real model identifier; mandatory host
+  bounds and model consistency. Live configuration remains explicitly HOLD.
+
 - R2.5 preparation: preserve native idle-only failure categories, reject
   contradictory terminal outcomes and enforce cumulative reported token usage
   against the host reservation. No live worker admission or automatic replay.
