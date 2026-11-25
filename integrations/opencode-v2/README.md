@@ -6,11 +6,11 @@ configuration fields, plugin registration and permissions. This separate
 candidate implements the two-stage proposal path against the embedded
 `@opencode/sdk@2.4.1` API, with the existing role prompts and host wire contract.
 
-**Fixture only:** `fixture/test` is the sole admitted model. A synthetic HTTP
+**Fixture mode:** `fixture/test` is the sole admitted synthetic model. A synthetic HTTP
 transport never forwards requests to the network. It allows one bounded request
 per stage and rejects additional/foreign requests. The v2 retry hook sets
 `decision={retry:false}` before retry scheduling. No external key is needed.
-The candidate cannot be selected by the runtime's normal command.
+The fixture can now be selected explicitly by the bounded runtime using\n`--adapter opencode-v2-fixture`; this runs the generated subtotal trial only.
 
 **OMO blocker:** the upstream OMO 5.1.60
 [server-entry](https://github.com/code-yeongyu/oh-my-openagent/blob/v5.1.60/packages/omo-opencode/src/opencode-v2/server-entry.ts)
@@ -58,3 +58,34 @@ The locked SDK smoke initially observed a denied startup request to 127.0.0.1.
 Upstream v2 local provider plugins probe Ollama, LM Studio and vLLM by default.
 The candidate explicitly removes these three discovery plugins using documented
 negative plugin directives. All non-fixture HTTP traffic remains blocked.
+
+## Explicit runtime profiles (no default switch)
+
+```sh
+trial=$(mktemp -u /tmp/potato-v2-fixture.XXXXXXXX)
+python3 tools/create_trial.py --directory "$trial" --adapter opencode-v2-fixture
+.venv-demo/bin/python -m harness.runtime init --config "$trial/config.json" --state "$trial/state"
+.venv-demo/bin/python -m harness.runtime run --state "$trial/state"
+```
+
+This requires actual Bubblewrap on the host; no key, no external inference.
+CI uses the real SDK/host subprocess and an explicitly injected sandbox seam.
+Synthetic results carry provenance and are excluded from actual HALO traces.
+
+The optional `opencode-v2-console` profile is a trial path only, not certified
+for live use. It admits exactly `opencode/minimax-m3` (paid), and requires
+`--confirm-provider-budget` after the operator has configured a provider-wide
+spend cap no larger than the dispatch reservation, and explicitly authorized
+this cost. The host cannot verify the remote cap itself. Do not run it until
+these prerequisites and independent security review are satisfied. The original
+1.x profile stays the default. No automatic fallback or subscription purchase.
+
+The SDK uses a private synthetic URL/model alias; the host transport alone maps
+it to the fixed Console HTTPS endpoint, attaches the environment key, refuses
+redirects, strips nontext/tools, admits one request per stage and reads bounded
+stream usage. Actual Console balance cost and billed tokens replace SDK catalog
+cost; incomplete billing fails closed, never becomes zero. See
+https://opencode.ai/docs/console/api/inference/ for the cost and authentication
+contract. Free chat models are restricted to the official client; no spoofing.
+The test uses an injected HTTP responder, not the external service. The transport
+boundary is in the trusted host process, not an OS-wide network containment proof.

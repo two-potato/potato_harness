@@ -48,6 +48,23 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown domain profile'):
             init(dict(self.config, domain_profile='../custom'), self.root / 'invalid')
 
+    def test_v2_profile_selects_pinned_worker_and_marks_fixture_provenance(self):
+        from harness.runtime import _config, _worker_command
+        from harness.controller import ROOT
+        config=dict(self.config,adapter='opencode-v2-fixture',model='fixture/test',
+                    scope=['calculation.py'],objective='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.')
+        self.assertEqual(_worker_command(_config(config))[-2:],
+                         [str(ROOT/'integrations/opencode-v2/src/worker.mjs'),'fixture'])
+        for changed in (dict(adapter='unknown'),dict(model='opencode/minimax-m3'),
+                        dict(worker_command=['/bin/sh']),dict(jev_provider='opencode')):
+            with self.assertRaises(ValueError): _config(dict(config,**changed))
+        live=dict(config,adapter='opencode-v2-console',model='opencode/minimax-m3')
+        with self.assertRaises(ValueError): _config(live)
+        live['provider_budget_confirmed']=True
+        self.assertEqual(_worker_command(_config(live))[-1],'console')
+        with self.assertRaises(ValueError): _config(dict(live,model='opencode/mimo-v2.6-flash-free'))
+        self.assertEqual(_worker_command(self.config)[-1],str(ROOT/'integrations/opencode/src/worker.mjs'))
+
     def test_missing_sandbox_never_calls_provider(self):
         def forbidden(*a):self.fail('Provider called without sandbox')
         result=run(self.state,worker=forbidden,sandbox_probe=lambda:{'available':False,'reason':'fixture unavailable'})
