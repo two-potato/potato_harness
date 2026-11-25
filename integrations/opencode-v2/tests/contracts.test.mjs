@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {candidateConfig,validateRequest,parseAssistant,combine,FIXTURE_URL} from '../src/contracts.mjs';
+import {candidateConfig,validateRequest,parseAssistant,combine,FIXTURE_URL,readBoundedMessages} from '../src/contracts.mjs';
 import {fixtureTransport,restrictivePlugin,awaitPolicy,safeRoster,awaitModel} from '../src/policy.mjs';
 const request={role:'backend',model:'fixture/test',prompt:'repair',coordination:{objective:'repair',scope:['a.py']},output_token_allowance:128};
 test('v2 is explicitly fixture-only; all nine roles preserved; deny by default',()=>{
@@ -67,4 +67,12 @@ test('fixture model readiness waits for the configured bounded capability',async
  await awaitModel(async()=>({data:[++n===1?{...model,limit:{output:128}}:model]}),64,{now:()=>time,pause:async()=>{time+=10;},timeout:50});
  assert.equal(n,2);
  await assert.rejects(awaitModel(async()=>({data:[{...model,capabilities:{tools:true}}]}),64,{now:()=>time,pause:async()=>{time+=10;},timeout:30}),/V2_MODEL_NOT_READY/);
+});
+
+test('v2 terminal cursors do not imply another page; verify bounded transcript is complete',async()=>{
+ const queries=[];const first={data:[{type:'user'},{type:'assistant'}],cursor:{previous:'p',next:'n'}};
+ const page=await readBoundedMessages(async input=>{queries.push(input);return input.cursor?{data:[],cursor:{}}:first;},'session');
+ assert.equal(page,first);assert.deepEqual(queries,[{sessionID:'session',order:'asc',limit:100},{sessionID:'session',cursor:'n',limit:1}]);
+ await assert.rejects(readBoundedMessages(async input=>input.cursor?{data:[{type:'assistant'}]}:first,'session'),/UNEXPECTED_MESSAGE_PAGINATION/);
+ await assert.rejects(readBoundedMessages(async()=>({data:first.data,cursor:{}}),'session'),/MISSING_MESSAGE_CURSOR/);
 });

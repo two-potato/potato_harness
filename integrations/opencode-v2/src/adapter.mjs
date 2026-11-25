@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {bridgeBudget,withTimeout} from '../../opencode/src/bridge_limits.mjs';
 import {validateAssignment} from '../../opencode/src/contracts.mjs';
-import {validateRequest,candidateConfig,MODEL_REF,deny,parseAssistant,combine} from './contracts.mjs';
+import {validateRequest,candidateConfig,MODEL_REF,deny,parseAssistant,combine,readBoundedMessages} from './contracts.mjs';
 import {fixtureTransport,restrictivePlugin,awaitPolicy,awaitModel} from './policy.mjs';
 
 export async function runCandidate(request,{OpenCode,respond,observe={retries:0,ready:false}}){
@@ -29,7 +29,7 @@ export async function runCandidate(request,{OpenCode,respond,observe={retries:0,
    transport.begin(phase);
    await budget.stage(()=>sdk.sessions.prompt({sessionID,text}));
    await budget.stage(()=>sdk.experimental.session.wait({sessionID}));
-   const page=await budget.stage(()=>sdk.message.list({sessionID,limit:100}));
+   const page=await budget.stage(()=>readBoundedMessages(input=>sdk.message.list(input),sessionID));
    try{transport.end();}catch(error){
     const messages=Array.isArray(page.data)?page.data:[];
     const answers=messages.filter(m=>m.type==='assistant');
@@ -37,7 +37,6 @@ export async function runCandidate(request,{OpenCode,respond,observe={retries:0,
     // Fixture-only diagnostic; no prompt, body, header, URL or arbitrary error message.
     throw Error(error.message+'; messages='+messages.length+'; assistants='+answers.length+'; provider_status='+(Number.isInteger(status)?status:'unknown'));
    }
-   if(page.cursor?.next||page.cursor?.previous)throw Error('UNEXPECTED_MESSAGE_PAGINATION');
    const answer=parseAssistant(page.data,role);
    sessionID=undefined;
    return answer;

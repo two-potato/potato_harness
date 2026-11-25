@@ -32,6 +32,20 @@ export function candidateConfig(maxOutput){
     limit:{context:128000,output:maxOutput},cost:{input:0,output:0}}}}}
  };
 }
+// The pinned v2 message endpoint emits cursor.next even for the last nonempty
+// page. Read from the beginning and prove the bounded transcript is complete
+// by checking that the next page is empty; never silently truncate history.
+export async function readBoundedMessages(read,sessionID){
+ const page=await read({sessionID,order:'asc',limit:100});
+ if(!Array.isArray(page?.data)||page.data.length>100)throw Error('INVALID_MESSAGE_PAGE');
+ if(page.data.length){
+  const cursor=page.cursor?.next;
+  if(typeof cursor!=='string'||!cursor||cursor.length>4096)throw Error('MISSING_MESSAGE_CURSOR');
+  const tail=await read({sessionID,cursor,limit:1});
+  if(!Array.isArray(tail?.data)||tail.data.length!==0)throw Error('UNEXPECTED_MESSAGE_PAGINATION');
+ }
+ return page;
+}
 export function parseAssistant(messages,role){
  if(!Array.isArray(messages)||messages.some(m=>!m||!['agent-switched','model-switched','location-switched','user','assistant','idle'].includes(m.type)))throw Error('UNEXPECTED_SESSION_ACTIVITY');
  const answers=messages.filter(m=>m.type==='assistant');
