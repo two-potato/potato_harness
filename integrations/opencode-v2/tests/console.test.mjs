@@ -12,7 +12,7 @@ test('console billing counts reasoning once and never fabricates zero cost',()=>
 });
 test('only fixed Console endpoint receives key and scoped streamed payload; no redirects or retries',async()=>{
  const controller=new AbortController();let calls=0;
- const t=consoleResponder('key-not-for-logs',{signal:controller.signal,send:async(url,init)=>{
+ const t=consoleResponder('key-not-for-logs',{signal:controller.signal,budget:{tokens:100000,cost_usd:.5},send:async(url,init)=>{
   calls++;assert.equal(url,CONSOLE_URL);assert.equal(init.redirect,'error');assert.equal(init.headers.Authorization,'Bearer key-not-for-logs');
   const body=JSON.parse(init.body);assert.equal(body.model,CONSOLE_MODEL);assert.equal(body.stream_options.include_usage,true);
   assert.equal(body.tools,undefined);assert.equal(body.extra,undefined);
@@ -25,8 +25,22 @@ test('only fixed Console endpoint receives key and scoped streamed payload; no r
 });
 test('HTTP failures are classified without echoing upstream body; no next stage',async()=>{
  for(const [status,code] of [[401,'AUTH'],[403,'AUTH'],[429,'RATE_LIMIT'],[503,'PROVIDER_UNAVAILABLE']]){
-  let calls=0;const t=consoleResponder('key',{send:async()=>{calls++;return new Response('PRIVATE',{status});}});
+  let calls=0;const t=consoleResponder('key',{budget:{tokens:100000,cost_usd:.5},send:async()=>{calls++;return new Response('PRIVATE',{status});}});
   await assert.rejects(t.respond('valera',{model:CONSOLE_MODEL,messages:[{role:'user',content:'x'}],max_tokens:64,stream:true}),e=>e.code===code&&!e.message.includes('PRIVATE'));
   await assert.rejects(t.respond('specialist',{}));assert.equal(calls,1);
  }
+});
+
+test('missing reservation, oversized input and coordinator overrun prevent further dispatch',async()=>{
+ const body={model:CONSOLE_MODEL,messages:[{role:'user',content:'x'}],max_tokens:64,stream:true};
+ let calls=0;
+ const send=async()=>{calls++;return new Response(event(usage),{headers:{'Content-Type':'text/event-stream'}});};
+ assert.throws(()=>consoleResponder('key',{send}),/MISSING_PROVIDER_BUDGET/);
+ const tiny=consoleResponder('key',{send,budget:{tokens:1,cost_usd:.5}});
+ await assert.rejects(tiny.respond('valera',body),/PROVIDER_BUDGET_EXHAUSTED/);assert.equal(calls,0);
+ const over=consoleResponder('key',{send,budget:{tokens:100000,cost_usd:.001}});
+ await assert.rejects(over.respond('valera',body),/PROVIDER_BUDGET_EXHAUSTED/);
+ await assert.rejects(over.respond('specialist',body),/CONSOLE_DISPATCH_DENIED/);assert.equal(calls,1);
+ const exact=consoleResponder('key',{send,budget:{tokens:100000,cost_usd:.002}});
+ await assert.rejects(exact.respond('valera',body),/PROVIDER_BUDGET_EXHAUSTED/);assert.equal(calls,2);
 });

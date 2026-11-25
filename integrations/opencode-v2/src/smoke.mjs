@@ -33,7 +33,7 @@ try{
   if(status===429||status===503)assert.ok(observe.retries>0,'real SDK retry hook must be observed');
  }
  const consoleCalls=[];
- const consoleResult=await runConsole({...request,model:'opencode/minimax-m3'},{OpenCode,key:'synthetic-key',send:async(url,init)=>{
+ const consoleResult=await runConsole({...request,model:'opencode/minimax-m3',provider_budget:{tokens:100000,cost_usd:.5}},{OpenCode,key:'synthetic-key',send:async(url,init)=>{
   const body=JSON.parse(init.body);assert.equal(url,'https://opencode.ai/inference/openai/v1/chat/completions');assert.equal(body.model,'minimax-m3');
   assert.equal(init.headers.Authorization,'Bearer synthetic-key');
   const phase=consoleCalls.length?'specialist':'valera';consoleCalls.push(phase);

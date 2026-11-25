@@ -41,8 +41,10 @@ function httpError(status){
  if(status>=500&&status<=599)return new ProviderRetryError('PROVIDER_UNAVAILABLE');
  return Error('PROVIDER_REJECTED');
 }
-export function consoleResponder(key,{signal,send=globalThis.fetch}={}){
+export function consoleResponder(key,{signal,send=globalThis.fetch,budget}={}){
  if(typeof key!=='string'||!key||key.length>4096||/[\r\n\0]/.test(key))throw Error('MISSING_CONSOLE_KEY');
+ if(!budget||!Number.isSafeInteger(budget.tokens)||budget.tokens<1||typeof budget.cost_usd!=='number'||!Number.isFinite(budget.cost_usd)||budget.cost_usd<=0)throw Error('MISSING_PROVIDER_BUDGET');
+ const maxTokens=budget.tokens,maxCost=budget.cost_usd;
  const records=new Map(),attempts=new Set();let failed=false;
  return {
   async respond(phase,body){
@@ -59,7 +61,12 @@ export function consoleResponder(key,{signal,send=globalThis.fetch}={}){
      return {role:m.role,content};
     });
     const payload=JSON.stringify({model:CONSOLE_MODEL,messages,max_tokens:cap,stream:true,stream_options:{include_usage:true}});
-    if(Buffer.byteLength(payload)>262144)throw Error('CONSOLE_INPUT_BOUND');
+    const bytes=Buffer.byteLength(payload);
+    if(bytes>262144)throw Error('CONSOLE_INPUT_BOUND');
+    const previous=records.get('valera');
+    const consumed=previous?sum(previous.input_tokens,previous.output_tokens):0;
+    // A conservative byte ceiling plus output allowance; remote spend cap is still required.
+    if(sum(consumed,bytes,cap)>maxTokens||(previous&&previous.cost_usd>=maxCost))throw Error('PROVIDER_BUDGET_EXHAUSTED');
     const response=await send(CONSOLE_URL,{method:'POST',redirect:'error',signal,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','Accept':'text/event-stream'},body:payload});
     if(!response.ok){try{await response.body?.cancel();}catch{}throw httpError(response.status);}
     if(!response.headers.get('content-type')?.toLowerCase().startsWith('text/event-stream'))throw Error('UNEXPECTED_PROVIDER_CONTENT');
@@ -67,6 +74,10 @@ export function consoleResponder(key,{signal,send=globalThis.fetch}={}){
     const record=consoleUsage(raw);
     records.set(phase,record);
     if(record.cost_usd===null)throw Error('UNKNOWN_PROVIDER_COST');
+    if(record.output_tokens>cap)throw Error('PROVIDER_OUTPUT_CAP_EXCEEDED');
+    // Do not admit a specialist after a coordinator overrun. For a completed
+    // two-stage response the host settles the actual totals and rejects overruns.
+    if(phase==='valera'&&(sum(record.input_tokens,record.output_tokens)>=maxTokens||record.cost_usd>=maxCost))throw Error('PROVIDER_BUDGET_EXHAUSTED');
     return new Response(raw,{headers:{'Content-Type':'text/event-stream'}});
    }catch(error){failed=true;throw error;}
   },

@@ -89,3 +89,10 @@ https://opencode.ai/docs/console/api/inference/ for the cost and authentication
 contract. Free chat models are restricted to the official client; no spoofing.
 The test uses an injected HTTP responder, not the external service. The transport
 boundary is in the trusted host process, not an OS-wide network containment proof.
+
+The host checks for a Console key before reserving an external effect and
+passes its token and cost reservation to the transport. A conservative input
+byte bound is checked per request; missing billing or a coordinator exhausting
+the reservation prevents specialist dispatch. This is not a guarantee of the
+price of a request before it executes; the provider-wide cap is still required.
+A rejected startup request permanently closes admission for that bridge.

@@ -6,19 +6,21 @@ export function fixtureTransport(respond,maxOutput,modelRef=MODEL_REF){
  let phase=null,calls=0,closed=false,violation=false,reason='NONE',blockedHost='none',blockedPhase='none';
  const fail=code=>{violation=true;if(reason==='NONE')reason=code;throw Error(code);};
  return {
-  begin(next){if(phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
+  begin(next){if(closed||violation||phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
   end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY: '+reason+'; calls='+n+'; blocked_host='+blockedHost+'; blocked_phase='+blockedPhase);},
   get violated(){return violation;},
   close(){closed=true;phase=null;},
   async fetch(input,init){
-   if(closed)fail('TRANSPORT_CLOSED');
+   if(closed||violation)fail('TRANSPORT_CLOSED');
    const req=new Request(input,init);
    if(req.url!==FIXTURE_URL){const u=new URL(req.url);if(reason==='NONE'){blockedHost=/^[a-z0-9.-]{1,128}$/.test(u.hostname)?u.hostname:'other';blockedPhase=phase??'startup';}fail(u.origin==='https://potato-fixture.invalid'?'FIXTURE_WRONG_PATH':u.hostname==='opencode.ai'?'BLOCKED_CONSOLE':u.hostname==='models.dev'?'BLOCKED_CATALOG':'BLOCKED_OTHER_ORIGIN');}
    if(req.method!=='POST')fail('FIXTURE_METHOD');
    if(!phase)fail('FIXTURE_BEFORE_ADMISSION');
    if(calls!==0)fail('FIXTURE_DUPLICATE');
    calls++;
+   const admittedPhase=phase;
    const body=await req.json();
+   if(closed||violation||phase!==admittedPhase)fail('TRANSPORT_CLOSED');
    const cap=body.max_tokens??body.max_completion_tokens;
    if(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput||body.model!==modelRef.id||!Array.isArray(body.messages)||(body.tools!==undefined&&(!Array.isArray(body.tools)||body.tools.length!==0))){
     fail(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput?'FIXTURE_OUTPUT_CAP':body.model!==modelRef.id?'FIXTURE_MODEL':!Array.isArray(body.messages)?'FIXTURE_MESSAGES':'FIXTURE_TOOLS');

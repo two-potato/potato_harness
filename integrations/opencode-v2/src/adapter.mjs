@@ -12,7 +12,7 @@ import {consoleResponder} from './console.mjs';
 export const runCandidate=(request,options)=>runAdapter(request,{...options,profile:FIXTURE_PROFILE});
 export function runConsole(request,{OpenCode,key,send,observe,onPhase}){
  const abort=new AbortController();
- const responder=consoleResponder(key,{signal:abort.signal,send});
+ const responder=consoleResponder(key,{signal:abort.signal,send,budget:request.provider_budget});
  return runAdapter(request,{OpenCode,observe,onPhase,profile:CONSOLE_PROFILE,respond:responder.respond,billing:responder.usage,abort});
 }
 async function runAdapter(request,{OpenCode,respond,observe={retries:0,ready:false},profile,onPhase=()=>{},billing,abort=new AbortController()}){

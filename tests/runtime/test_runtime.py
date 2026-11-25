@@ -65,6 +65,34 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError): _config(dict(live,model='opencode/mimo-v2.6-flash-free'))
         self.assertEqual(_worker_command(self.config)[-1],str(ROOT/'integrations/opencode/src/worker.mjs'))
 
+    def test_console_missing_key_blocks_before_reservation(self):
+        from unittest.mock import patch
+        import sqlite3
+        state=self.root/'console-state'
+        init(dict(self.config,adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
+        with patch.dict('os.environ',{},clear=True):
+            result=run(state,worker=lambda *a:self.fail('Provider dispatched without key'),
+                       sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertIn('key missing before dispatch',result['reason'])
+        self.assertEqual(result['unresolved_effects'],[])
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],0)
+
+    def test_console_budget_is_host_bound_and_not_model_generated(self):
+        from unittest.mock import patch
+        state=self.root/'console-budget-state'
+        init(dict(self.config,adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
+        def worker(request,command,timeout):
+            self.assertEqual(request['provider_budget'],{'tokens':100000,'cost_usd':.5})
+            self.assertEqual(command[-1],'console')
+            self.assertNotIn('synthetic-test-key',json.dumps(request))
+            return self.worker(request,command,timeout)
+        with patch.dict('os.environ',{'OPENCODE_API_KEY':'synthetic-test-key'}):
+            result=run(state,worker=worker,sandbox_probe=lambda:{'available':True},
+                       sandbox_run=lambda *a,**k:{'returncode':0,'stdout':'ok','stderr':'','timed_out':False})
+        self.assertEqual(result['state'],'DONE',result['reason'])
+
     def test_missing_sandbox_never_calls_provider(self):
         def forbidden(*a):self.fail('Provider called without sandbox')
         result=run(self.state,worker=forbidden,sandbox_probe=lambda:{'available':False,'reason':'fixture unavailable'})

@@ -268,6 +268,8 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         run['state']='RUNNING';save()
         isolation=sandbox_probe();run['sandbox']=isolation;save()
         if isolation.get('available') is not True:raise RuntimeError('Sandbox unavailable: '+str(isolation.get('reason')))
+        if config.get('adapter')=='opencode-v2-console' and not os.environ.get('OPENCODE_API_KEY'):
+            raise ValueError('Console API key missing before dispatch')
         jev=Jev(state/'state.db',provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
         guard.ready=True
         for target in ('CLASSIFIED','PLANNED'):move(target)
@@ -300,6 +302,8 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
         request={'role':'backend','prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
+        if config.get('adapter')=='opencode-v2-console':
+            request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
         effect=outbox.reserve(task['task_id'],task['revision'],{'kind':'provider-proposal','model':config['model'],'context_digest':run['context']['digest'],**({'adapter':config['adapter']} if 'adapter' in config else {})},'provider:'+task['task_id'])
         run['effect_id']=effect;run['attempt_id']=attempt;save()
         claimed=outbox.claim(effect)
