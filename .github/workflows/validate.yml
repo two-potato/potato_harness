@@ -19,7 +19,7 @@ jobs:
           .venv/bin/python tools/verify_manifest.py
           .venv/bin/python -m harness.demo --output .runtime/ci-demo
           .venv/bin/python -m harness.halo --output .runtime/ci-halo
-  opencode-omo:
+  opencode-v2:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,38 +27,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Install pinned local runtimes
-        working-directory: integrations/opencode
+      - name: V2 contract tests (no SDK dependency)
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          node src/bootstrap.mjs
-      - name: Actual OMO import and restrictive configuration tests
-        working-directory: integrations/opencode
-        run: node_modules/.bin/bun test tests
-      - name: Real SDK and OMO with local provider fixture
-        working-directory: integrations/opencode
-        run: PATH="$PWD/node_modules/.bin:$PATH" node_modules/.bin/bun src/protocol-smoke.mjs
-  opencode-v2-candidate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: V2 candidate contract tests (no SDK dependency)
-        run: node --test integrations/opencode-v2/tests/*.test.mjs
-      - name: Install pinned Bun from existing lock
-        working-directory: integrations/opencode
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          node src/bootstrap.mjs
-      - name: Install candidate from committed npm lock
+          test -z "$(git ls-files -- integrations/opencode/)"
+          node --test integrations/opencode-v2/tests/*.test.mjs
+      - name: Install only v2 SDK and pinned Bun
         working-directory: integrations/opencode-v2
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node node_modules/bun/install.js
+          test "$(node_modules/.bin/bun --version)" = 1.4.4
+          test "$(node -p 'require("./node_modules/@opencode/sdk/package.json").version')" = 2.4.1
       - name: Real V2 embedded SDK synthetic HTTP fixture
         working-directory: integrations/opencode-v2
-        run: ../opencode/node_modules/.bin/bun src/smoke.mjs
+        run: node_modules/.bin/bun src/smoke.mjs
       - name: V2 actual host worker and runtime (injected sandbox seam)
         run: |
           python3 -m venv .venv

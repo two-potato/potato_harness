@@ -13,7 +13,7 @@ class RuntimeTests(unittest.TestCase):
         (self.repo/'calc.py').write_text('value = 1\n')
         def git(*args):return subprocess.check_output(['/usr/bin/git','-C',str(self.repo),*args],stderr=subprocess.DEVNULL).decode().strip()
         git('init');git('add','calc.py');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','base')
-        self.config={'repo':str(self.repo),'base_sha':git('rev-parse','HEAD'),'model':'test/fixture','scope':['calc.py'],'test_argv':['/usr/bin/python3','-c','assert True'],'objective':'Configured fixture checks pass','budget':{'tokens':100000,'cost_usd':1,'estimate_cost_usd':.5,'wall_time_s':60},'output':str(self.root/'output')}
+        self.config={'repo':str(self.repo),'base_sha':git('rev-parse','HEAD'),'model':'test/fixture','worker_command':['/usr/bin/false'],'scope':['calc.py'],'test_argv':['/usr/bin/python3','-c','assert True'],'objective':'Configured fixture checks pass','budget':{'tokens':100000,'cost_usd':1,'estimate_cost_usd':.5,'wall_time_s':60},'output':str(self.root/'output')}
         self.state=self.root/'state';init(self.config,self.state)
     def worker(self,request,command,timeout):
         self.assertNotEqual(request['projectDir'],str(self.state/'workspace'))
@@ -51,7 +51,8 @@ class RuntimeTests(unittest.TestCase):
     def test_v2_profile_selects_pinned_worker_and_marks_fixture_provenance(self):
         from harness.runtime import _config, _worker_command
         from harness.controller import ROOT
-        config=dict(self.config,adapter='opencode-v2-fixture',model='fixture/test',
+        base={k:v for k,v in self.config.items() if k!='worker_command'}
+        config=dict(base,adapter='opencode-v2-fixture',model='fixture/test',
                     scope=['calculation.py'],objective='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.')
         self.assertEqual(_worker_command(_config(config))[-2:],
                          [str(ROOT/'integrations/opencode-v2/src/worker.mjs'),'fixture'])
@@ -63,13 +64,27 @@ class RuntimeTests(unittest.TestCase):
         live['provider_budget_confirmed']=True
         self.assertEqual(_worker_command(_config(live))[-1],'console')
         with self.assertRaises(ValueError): _config(dict(live,model='opencode/mimo-v2.6-flash-free'))
-        self.assertEqual(_worker_command(self.config)[-1],str(ROOT/'integrations/opencode/src/worker.mjs'))
+        default={k:v for k,v in live.items() if k!='adapter'}
+        self.assertEqual(_config(default)['adapter'],'opencode-v2-console')
+        self.assertEqual(_worker_command(_config(default)),[str(ROOT/'integrations/opencode-v2/node_modules/.bin/bun'),str(ROOT/'integrations/opencode-v2/src/worker.mjs'),'console'])
+        self.assertEqual(_worker_command(_config(self.config)),['/usr/bin/false'])
+        with self.assertRaises(ValueError): _config(dict(live,adapter='opencode-v1'))
+        with self.assertRaises(ValueError): _config(base)
+
+    def test_old_initialized_state_cannot_dispatch_after_upgrade(self):
+        config=json.loads((self.state/'config.json').read_text())
+        config.pop('worker_command')
+        (self.state/'config.json').write_text(json.dumps(config))
+        with self.assertRaisesRegex(ValueError,'cannot migrate in place'):
+            run(self.state,worker=lambda *a:self.fail('Old state was dispatched'))
+        self.assertEqual(status(self.state)['state'],'INITIALIZED')
+        self.assertEqual(recover(self.state)['state'],'HOLD')
 
     def test_console_missing_key_blocks_before_reservation(self):
         from unittest.mock import patch
         import sqlite3
         state=self.root/'console-state'
-        init(dict(self.config,adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
+        init(dict({k:v for k,v in self.config.items() if k!='worker_command'},adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
         with patch.dict('os.environ',{},clear=True):
             result=run(state,worker=lambda *a:self.fail('Provider dispatched without key'),
                        sandbox_probe=lambda:{'available':True})
@@ -82,7 +97,7 @@ class RuntimeTests(unittest.TestCase):
     def test_console_budget_is_host_bound_and_not_model_generated(self):
         from unittest.mock import patch
         state=self.root/'console-budget-state'
-        init(dict(self.config,adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
+        init(dict({k:v for k,v in self.config.items() if k!='worker_command'},adapter='opencode-v2-console',model='opencode/minimax-m3',provider_budget_confirmed=True),state)
         def worker(request,command,timeout):
             self.assertEqual(request['provider_budget'],{'tokens':100000,'cost_usd':.5})
             self.assertEqual(command[-1],'console')

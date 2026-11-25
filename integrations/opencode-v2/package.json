@@ -1,12 +1,14 @@
 {
-  "name": "potato-harness-opencode-v2-candidate",
+  "name": "potato-harness-opencode-v2",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@opencode/sdk": "2.4.1"
+    "@opencode/sdk": "2.4.1",
+    "bun": "1.4.4"
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "smoke": "bun src/smoke.mjs"
+    "smoke": "node_modules/.bin/bun src/smoke.mjs",
+    "setup": "node node_modules/bun/install.js"
   }
 }

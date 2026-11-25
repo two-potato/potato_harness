@@ -41,5 +41,5 @@ they can run untrusted code. Do **not** add an unsandboxed backend or map
 `development` readiness to execution authorization.
 
 Local Git is required for exact revision pinning; GitHub/cloud credentials are not
-needed for the local deterministic workflow. OpenCode/OMO/Jev/model live testing
+needed for the local deterministic workflow. OpenCode SDK 2.4.1/Jev/model live testing
 is explicitly outside this change.

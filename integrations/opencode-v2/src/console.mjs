@@ -1,5 +1,5 @@
 // OpenCode Console API: explicit paid model only. Never forward SDK headers.
-import {ProviderRetryError} from '../../opencode/src/provider_retry.mjs';
+import {ProviderRetryError} from './provider_retry.mjs';
 export const CONSOLE_URL='https://opencode.ai/inference/openai/v1/chat/completions';
 export const CONSOLE_MODEL='minimax-m3';
 const MAX_RESPONSE=2*1024*1024;

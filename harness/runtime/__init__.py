@@ -64,11 +64,19 @@ def _config(config):
         profile = config['domain_profile']
         if not isinstance(profile, str) or profile not in DOMAIN_PROFILES:
             raise ValueError('Unknown domain profile')
-    adapter=config.get('adapter','opencode-v1')
-    if adapter not in ('opencode-v1','opencode-v2-fixture','opencode-v2-console'):
-        raise ValueError('Unknown provider adapter')
-    if 'adapter' in config and 'worker_command' in config:
-        raise ValueError('Explicit adapter cannot be combined with worker_command')
+    config=deepcopy(config)
+    if 'worker_command' in config:
+        if 'adapter' in config:
+            raise ValueError('Explicit adapter cannot be combined with worker_command')
+        command=config['worker_command']
+        if type(command) is not list or not command or any(type(v) is not str or not v for v in command) or not command[0].startswith('/'):
+            raise ValueError('Custom host worker requires absolute argv')
+        if 'provider_budget_confirmed' in config:
+            raise ValueError('Provider budget confirmation is only valid for Console profile')
+        return config
+    adapter=config.setdefault('adapter','opencode-v2-console')
+    if adapter not in ('opencode-v2-fixture','opencode-v2-console'):
+        raise ValueError('Unknown provider adapter; create a new v2 trial')
     if adapter.startswith('opencode-v2'):
         if config.get('jev_provider') or config.get('completion_jev'):
             raise ValueError('V2 bounded profile does not admit separate Jev calls')
@@ -82,10 +90,9 @@ def _config(config):
 
 
 def _worker_command(config):
-    bun=str(ROOT/'integrations/opencode/node_modules/.bin/bun')
-    adapter=config.get('adapter','opencode-v1')
-    if adapter=='opencode-v1':
-        return config.get('worker_command',[bun,str(ROOT/'integrations/opencode/src/worker.mjs')])
+    if 'worker_command' in config:return config['worker_command']
+    bun=str(ROOT/'integrations/opencode-v2/node_modules/.bin/bun')
+    adapter=config['adapter']
     return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),
             'fixture' if adapter=='opencode-v2-fixture' else 'console']
 
@@ -243,8 +250,11 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
 
 
 def _run(state,worker,sandbox_probe,sandbox_run):
-    config=_config(json.loads((state/'config.json').read_text()));run=json.loads((state/'run.json').read_text())
+    saved=json.loads((state/'config.json').read_text());run=json.loads((state/'run.json').read_text())
     if run['state']!='INITIALIZED':raise ValueError('Run already started; inspect status/recover, never auto-replay')
+    if 'adapter' not in saved and 'worker_command' not in saved:raise ValueError('Old initialized state cannot migrate in place; create a new v2 trial')
+    config=_config(saved)
+    if config.get('adapter')!=run.get('adapter'):raise ValueError('Saved adapter does not match initialized run; create a new trial')
     guard=_Guard();controller=Controller(state/'state.db',guard=guard);task=controller.get_task(run['task_id'])
     outbox=Outbox(state/'state.db');budget=Budget(state/'state.db');leases=LeaseManager(state/'state.db')
     workspace=state/'workspace';grant=None;effect=None;claimed=False;provider_returned=False

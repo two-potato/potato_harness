@@ -17,6 +17,8 @@ class PreparationTests(unittest.TestCase):
             calls.append(argv)
             if '-c' in argv and any('harness.isolation' in arg for arg in argv):
                 return json.dumps({'available': False, 'reason': 'fixture namespace unavailable'})
+            if 'node_modules/@opencode/sdk/package.json' in ' '.join(argv):return '2.4.1'
+            if argv[-1]=='--version' and argv[0].endswith('/bun'):return '1.4.4'
             return 'fixture result'
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -35,9 +37,13 @@ class PreparationTests(unittest.TestCase):
                 '-r', str(root / 'blueprints/marketplace/requirements-dev.txt'),
             ])
             self.assertEqual(calls[1][:2], ['npm', 'ci'])
+            self.assertEqual(calls[2], ['node','node_modules/bun/install.js'])
+            self.assertFalse(any('src/bootstrap.mjs' in argv for argv in calls))
             report = json.loads(output.read_text())
             self.assertEqual(report['checks']['isolation']['status'], 'BLOCKED_HOST')
             self.assertEqual(report['inference'], 'NOT_RUN')
+            self.assertEqual(report['checks']['opencode_sdk'],{'status':'PASS','version':'2.4.1'})
+            self.assertEqual(report['checks']['bun'],{'status':'PASS','version':'1.4.4'})
 
     def test_marketplace_requirement_contains_pyyaml(self):
         required = (Path(__file__).resolve().parents[2] /

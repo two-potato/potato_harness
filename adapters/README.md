@@ -2,7 +2,7 @@ Implemented advisory Jev transport/hooks: see docs/runtime/JEV.md. The following
 
 # Runtime adapter activation contract
 
-No executable OpenCode configuration or plugin is supplied: previous guessed version/API assumptions are removed. The original agent text is reusable; metadata/config integration must be checked against the installed runtime. The adapters are NOT_IMPLEMENTED.
+A bounded native OpenCode 2.4.1 gateway is supplied in `integrations/opencode-v2/`; see its README for actual SDK fixture coverage and limits. General tool-mediated production activation remains unverified. The original agent text is preserved.
 
 Resolve INHERIT names using the explicit alias map in rules/PRIORITY.md; do not rely on searching Notion or an absent v2 checkout at runtime. Inject instructions and selected skills before dispatch, especially for Valera with no source-reading tool.
 
@@ -14,4 +14,4 @@ Preflight hook must identify real user-turn IDs and finish/reserve before first 
 
 Acceptance tests: Valera direct read/write/shell/MCP denied; specialist path/network limits enforced; original prompt and injected rules loaded; skill selected and loaded without enlarging tools; duplicate turn no extra reservation; worker restart cannot reuse expired fence; forged CI/approval rejected; changing target commit invalidates gates; no production credentials accessible.
 
-Keep OMO off. If enabled later, reject duplicate orchestrators, tools and hooks until compatibility tests pass. The package cannot establish SDK availability without the target machine.
+OMO is not installed by the native gateway. If a complete compatible v2 integration is enabled later, reject duplicate orchestrators, tools and hooks until compatibility tests pass. The package cannot establish SDK availability without the target machine.

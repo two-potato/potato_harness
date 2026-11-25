@@ -6,7 +6,18 @@
     "rules/SECURITY.md",
     "docs/marketplace/QUICKSTART.md"
   ],
-  "permission": {"*": "deny"},
   "share": "disabled",
-  "autoupdate": false
+  "permissions": [
+    {
+      "action": "*",
+      "resource": "*",
+      "effect": "deny"
+    }
+  ],
+  "update": "disable",
+  "automations": false,
+  "snapshots": false,
+  "formatter": false,
+  "lsp": false,
+  "warming": false
 }
