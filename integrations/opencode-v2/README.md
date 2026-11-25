@@ -169,8 +169,13 @@ or isolation on the operator host. The workflow is not a runtime dependency.
 The offline probe reproduced the same pre-dispatch model identity rejection
 on both operator Ubuntu and hosted Linux. Resolution diagnostics now separate
 provider and model ID mismatches (including a qualified model ID), missing or
-invalid fields, and null/empty/default/named/invalid variants. These are fixed
-labels, not raw observed identifiers; none of the alternate references are
-admitted. A privileged host may use `sudo unshare --net` solely to create the
+invalid fields, and null/empty/default/named/invalid variants. Hosted offline evidence identified
+exactly the `default` sentinel. OpenCode 2.4.1 `ModelResolver.withVariant`
+normalizes that sentinel to undefined without applying a variant overlay.
+The native hook and response checks therefore accept only undefined or the
+exact string `default` for the same provider and model. The preflight still
+requires an empty variant catalog and unchanged agent configuration. Null,
+empty, other named variants and alternate model/provider IDs remain denied.
+Diagnostic labels never expose raw observed identifiers. A privileged host may use `sudo unshare --net` solely to create the
 namespace and bring up loopback, then drop to its normal unprivileged operator
 before executing the probe. Never run the CLI or candidate code as root.

@@ -29,6 +29,9 @@ export function nativeConfig(model,maxOutput,plugin){
  ];
  return config;
 }
+// OpenCode 2.4.1 ModelResolver.withVariant maps exactly 'default' to undefined.
+// https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/model-resolver.ts
+export function isNativeBaseVariant(variant){return variant===undefined||variant==='default';}
 // Self-contained: the CLI loads this from a private generated directory.
 export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
@@ -38,8 +41,8 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
   if(m.providerID!==ref.providerID)return typeof m.providerID!=='string'?'resolve_provider_missing_or_type':'resolve_provider_mismatch';
   if(m.id!==ref.id)return typeof m.id!=='string'?'resolve_id_missing_or_type':
    m.id===ref.providerID+'/'+ref.id?'resolve_id_qualified':'resolve_id_mismatch';
-  if(m.variant!==undefined)return m.variant===null?'resolve_variant_null':
-   m.variant===''?'resolve_variant_empty':m.variant==='default'?'resolve_variant_default':
+  if(!isNativeBaseVariant(m.variant))return m.variant===null?'resolve_variant_null':
+   m.variant===''?'resolve_variant_empty':
    typeof m.variant==='string'?'resolve_variant_named':'resolve_variant_type';
   return null;
  };
@@ -106,7 +109,7 @@ export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker,offline});
  const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+auditViolation.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
  const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
- return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
+ return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
 }
 // The native CLI can merge duplicate wildcard denies and browser restrictions.
 // Accept only observed deny-only shapes; unknown rules fail closed.

@@ -27,12 +27,12 @@ test('usage rejects unknown cost, nonzero cost, invalid or excessive token count
  assert.deepEqual(probeUsage(info),{input_tokens:10,output_tokens:5,cost_usd:0});
  for(const bad of [{...info,cost:undefined},{...info,cost:.01},{...info,tokens:{input:1,output:0}},{...info,tokens:{input:1,output:PROBE_CAP+1}},{...info,tokens:{input:-1,output:1}}])assert.throws(()=>probeUsage(bad));
 });
-function fake({badPlan=false,badCost=false,badTool=false,badAudit=false,badFinal=false,timeout=false,badProposal=false,preflight=false}={}){
+function fake({badPlan=false,badCost=false,badTool=false,badAudit=false,badFinal=false,timeout=false,badProposal=false,preflight=false,variant=undefined}={}){
  const calls=[],audit=['ready'];let closed=0,interrupts=0,role,sessionID;
  const server={directory:'/private',readAudit:()=>[...audit],close:async()=>{closed++;return badFinal?[...audit,'violation']:[...audit];},client:{
   session:{create:async x=>{role=x.agent;sessionID=role;return {id:role};},prompt:async()=>{calls.push(role);audit.push('model:'+role,'http:'+role);if(badAudit)audit.push('violation');if(timeout)throw Error('private provider text');},interrupt:async()=>{interrupts++;}},
   experimental:{session:{wait:async()=>{}}},
-  message:{list:async x=>x.cursor?{data:[]}:{cursor:{next:'next'},data:[{type:'user'},{type:'assistant',agent:role,model:ref,finish:'stop',time:{completed:1},tokens:{input:10,output:5},cost:badCost?1:0,content:[{type:badTool?'tool':'text',text:JSON.stringify(role==='valera-ceo'?{owner:badPlan?'qa':'backend',reason:'test'}:{edits:[{path:'probe.txt',content:badProposal?'wrong':'potato-probe-ok\n'}],summary:'test'})}]}]}}
+  message:{list:async x=>x.cursor?{data:[]}:{cursor:{next:'next'},data:[{type:'user'},{type:'assistant',agent:role,model:{...ref,variant},finish:'stop',time:{completed:1},tokens:{input:10,output:5},cost:badCost?1:0,content:[{type:badTool?'tool':'text',text:JSON.stringify(role==='valera-ceo'?{owner:badPlan?'qa':'backend',reason:'test'}:{edits:[{path:'probe.txt',content:badProposal?'wrong':'potato-probe-ok\n'}],summary:'test'})}]}]}}
  }};
  return {calls,counts:()=>({closed,interrupts}),opts:{model,launch:async()=>server,awaitPolicy:async()=>{if(preflight)throw Error('preflight');}}};
 }
@@ -111,4 +111,16 @@ test('identity denial labels are preserved in the audit without arbitrary string
    assert.throws(()=>assertAudit(readAudit(file),'backend',1));
   }
  }finally{fs.rmSync(d,{recursive:true,force:true});}
+});
+
+test('native response admits exact default variant but rejects all other explicit variants',async()=>{
+ const good=fake({variant:'default'}),passed=await runNativeProbe(good.opts);
+ assert.equal(passed.status,'PASS');assert.deepEqual(good.calls,['valera-ceo','backend']);
+ assert.equal(passed.diagnostics.response.assistant.variant_absent,false);
+ assert.equal(passed.diagnostics.response.assistant.variant_base,true);
+ for(const variant of [null,'','Default','default ','high',0]){
+  const bad=fake({variant}),r=await runNativeProbe(bad.opts);
+  assert.equal(r.status,'HOLD');assert.equal(r.diagnostics.failure.check,'variant');
+  assert.equal(r.diagnostics.response.assistant.variant_base,false);assert.deepEqual(bad.calls,['valera-ceo']);
+ }
 });

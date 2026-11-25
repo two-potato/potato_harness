@@ -4,7 +4,7 @@ import {validateAssignment} from './assignment.mjs';
 import {combineModelUsage} from './bridge_accounting.mjs';
 import {bridgeBudget,withTimeout} from './bridge_limits.mjs';
 import {assertAudit} from './server-audit.mjs';
-import {modelRef} from './server-policy.mjs';
+import {modelRef,isNativeBaseVariant} from './server-policy.mjs';
 import {errorCategory,responseShape,auditShape} from './server-inference-diagnostics.mjs';
 
 export const PROBE_CAP=1024;
@@ -45,7 +45,7 @@ export async function runNativeProbe({model,launch,awaitPolicy,budget=bridgeBudg
    response=responseShape(page.data,role,ref);check='user_count';
    if(page.data.filter(x=>x?.type==='user').length!==1)throw Error('UNEXPECTED_USER_MESSAGES');
    check='assistant_contract';const answer=parseAssistant(page.data,role,ref);
-   check='variant';if(answer.info.model.variant!==undefined)throw Error('UNEXPECTED_VARIANT');
+   check='variant';if(!isNativeBaseVariant(answer.info.model.variant))throw Error('UNEXPECTED_VARIANT');
    check='usage';const usage=probeUsage(answer.info);
    check='audit_after_response';assertAudit(server.readAudit(),worker,count);
    sessionID=undefined;

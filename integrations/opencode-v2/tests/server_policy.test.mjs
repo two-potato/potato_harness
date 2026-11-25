@@ -114,7 +114,7 @@ test('native resolution distinguishes identity fields without admitting alternat
   [{...ref,id:ref.providerID+'/'+ref.id},'id_qualified'],
   [{...ref,id:'private-other-model'},'id_mismatch'],
   [{...ref,variant:null},'variant_null'],[{...ref,variant:''},'variant_empty'],
-  [{...ref,variant:'default'},'variant_default'],[{...ref,variant:'private-variant'},'variant_named'],
+  [{...ref,variant:'private-variant'},'variant_named'],
   [{...ref,variant:0},'variant_type']
  ]){
   const e={model:m,sessionID:'one',agent:'valera-ceo',kind:'primary'};
@@ -128,5 +128,22 @@ test('native resolution distinguishes identity fields without admitting alternat
  assert.throws(()=>hooks['model.request'](valid),/OFFLINE_MODEL_REQUEST_DENIED/);
  assert.equal(events.at(-1),'violation:offline_stop');
  assert.ok(!JSON.stringify(events).includes('private-'));
+ await cleanup();
+});
+
+test('generated native policy admits only absent or exact default variant across all request hooks',async()=>{
+ const imported=await import('data:text/javascript;base64,'+Buffer.from(pluginSource(config,ref,cap,'backend')).toString('base64'));
+ const hooks={},register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await imported.default.setup(ctx);
+ const a={model:{...ref,variant:'default'},sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ const b={model:{...ref},sessionID:'two',agent:'backend',kind:'primary'};
+ for(const e of [a,b]){
+  hooks['experimental.model.resolve'](e);assert.equal(e.model.id,ref.id);assert.equal(e.model.providerID,ref.providerID);
+  for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['model.request']({...e,model:{...ref,variant}}),/DENIED/);
+  hooks['model.request'](e);
+  for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['http.request']({...e,model:{...ref,variant}}),/DENIED/);
+  hooks['http.request'](e);assert.throws(()=>hooks['http.request'](e),/DENIED/);
+ }
  await cleanup();
 });

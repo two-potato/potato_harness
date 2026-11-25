@@ -1,6 +1,7 @@
 // Fixed diagnostic categories; never serialize a response, exception or unknown event.
 import {BridgeDeadlineError} from './bridge_limits.mjs';
 import {auditSequence,auditViolation} from './server-audit.mjs';
+import {isNativeBaseVariant} from './server-policy.mjs';
 const kinds=['agent-switched','model-switched','location-switched','user','assistant','idle','synthetic','system','skill','shell','compaction'];
 const finishes=['stop','length','tool-calls','content-filter','error','unknown'];
 export function errorCategory(error){
@@ -27,7 +28,7 @@ export function responseShape(messages,role,ref){
  const cost=x.cost;
  return {...summary,assistant:{
   agent_match:x.agent===role,model_match:x.model?.providerID===ref.providerID&&x.model?.id===ref.id,
-  variant_absent:x.model?.variant===undefined,completed:!!x.time?.completed,retry:!!x.retry,
+  variant_absent:x.model?.variant===undefined,variant_base:isNativeBaseVariant(x.model?.variant),completed:!!x.time?.completed,retry:!!x.retry,
   error:x.error?errorCategory(x.error):'NONE',
   finish:finishes.includes(x.finish)?x.finish:'ABSENT_OR_OTHER',
   parts_valid:!!parts&&parts.every(p=>p?.type==='text'||p?.type==='reasoning'),

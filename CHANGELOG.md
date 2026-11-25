@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Match native OpenCode 2.4.1's exact `default` variant sentinel in request
+  hooks and response validation, while preserving model identity, empty
+  variant catalog and deny-by-default rules. Reproduce the sentinel in
+  positive/negative regression tests; no change to runtime admission.
+
 - Separate native model resolution rejection into exact fixed field/variant
   categories without admitting alternate references. Add regression coverage
   and document the isolated ordinary-user probe on privileged Ubuntu hosts.
