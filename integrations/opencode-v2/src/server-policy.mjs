@@ -32,6 +32,19 @@ export function nativeConfig(model,maxOutput,plugin){
 // OpenCode 2.4.1 ModelResolver.withVariant maps exactly 'default' to undefined.
 // https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/model-resolver.ts
 export function isNativeBaseVariant(variant){return variant===undefined||variant==='default';}
+// Candidate route subset from https://opencode.ai/docs/console/api/inference.
+// This is a hook-level admission check, not an OS egress filter. No direct
+// Console API client, provider override or alternate quota route is introduced.
+export function nativeHttpViolation(request){
+ if(!(request instanceof Request))return 'http_request_shape';
+ if(request.method!=='POST')return 'http_method';
+ // Deliberately admit just one documented path. Unknown native routes HOLD
+ // pending evidence; never rewrite the request or try another destination.
+ if(request.url!=='https://opencode.ai/inference/openai/v1/chat/completions')return 'http_destination';
+ const type=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+ if(type!=='application/json'||!request.body||request.bodyUsed)return 'http_payload';
+ return null;
+}
 // Self-contained: the CLI loads this from a private generated directory.
 export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
@@ -97,7 +110,18 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
   }));
   registrations.push(await ctx.session.hook('http.request',e=>{
    if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID)||offline){record('violation:'+(offline?'offline_http':http.has(e.sessionID)?'http_duplicate':'http_scope'));throw Error('HTTP_REQUEST_DENIED');}
+   const failure=nativeHttpViolation(e.request);
+   if(failure){record('violation:'+failure);throw Error('HTTP_REQUEST_DENIED');}
    record('http:'+e.agent);http.add(e.sessionID);
+  }));
+  // Detect a redirect if surfaced by the native transport. This cannot undo
+  // a redirect already followed below the hook; external admission stays closed.
+  registrations.push(await ctx.session.hook('http.response',e=>{
+   if(!allowed(e)||!http.has(e.sessionID)||offline){record('violation:http_response_scope');throw Error('HTTP_RESPONSE_DENIED');}
+   if(!(e.response instanceof Response)){record('violation:http_response_shape');throw Error('HTTP_RESPONSE_DENIED');}
+   if(e.response.redirected||e.response.status>=300&&e.response.status<400){
+    record('violation:http_redirect');throw Error('HTTP_RESPONSE_DENIED');
+   }
   }));
   registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{record('violation:websocket');throw Error('WEBSOCKET_DENIED');}));
   record('ready');
@@ -109,7 +133,7 @@ export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker,offline});
  const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+auditViolation.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
  const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
- return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
+ return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst nativeHttpViolation='+nativeHttpViolation.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
 }
 // The native CLI can merge duplicate wildcard denies and browser restrictions.
 // Accept only observed deny-only shapes; unknown rules fail closed.

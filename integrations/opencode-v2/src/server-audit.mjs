@@ -6,7 +6,7 @@ export function auditSequence(worker){
 // Only known local labels can reach the report. Unknown input is never echoed.
 export function auditViolation(event){
  if(event==='violation')return 'unspecified';
- const codes=['permission','retry','resolve_kind','resolve_model','resolve_model_shape','resolve_provider_missing_or_type','resolve_provider_mismatch','resolve_id_missing_or_type','resolve_id_qualified','resolve_id_mismatch','resolve_variant_null','resolve_variant_empty','resolve_variant_default','resolve_variant_named','resolve_variant_type','resolve_session','resolve_role','resolve_duplicate','model_scope','model_duplicate','http_scope','http_duplicate','websocket','sequence','offline_stop','offline_http'];
+ const codes=['permission','retry','resolve_kind','resolve_model','resolve_model_shape','resolve_provider_missing_or_type','resolve_provider_mismatch','resolve_id_missing_or_type','resolve_id_qualified','resolve_id_mismatch','resolve_variant_null','resolve_variant_empty','resolve_variant_default','resolve_variant_named','resolve_variant_type','resolve_session','resolve_role','resolve_duplicate','model_scope','model_duplicate','http_scope','http_duplicate','http_request_shape','http_method','http_destination','http_payload','http_response_scope','http_response_shape','http_redirect','websocket','sequence','offline_stop','offline_http'];
  return codes.find(code=>event==='violation:'+code)??null;
 }
 export function readAudit(file){

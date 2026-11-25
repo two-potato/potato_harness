@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R2.4c: deny unexpected native model HTTP methods, destinations and request
+  shapes; reject observable redirects and record fixed diagnostic labels.
+  Keep live runtime admission disabled pending independent egress controls.
+
 - R2.4a: add a real native CLI offline runtime diagnostic, guard network
   namespace before dispatch, preserve UNKNOWN effects, deny all publication
   and expose a fixed post-cleanup boundary marker. Live profile still denied.

@@ -1,10 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {modelRef,isFreeModel,nativeConfig,serverPolicy,pluginSource,verifyServerSnapshot,POLICY_ID} from '../src/server-policy.mjs';
+import {modelRef,isFreeModel,nativeConfig,serverPolicy,pluginSource,verifyServerSnapshot,POLICY_ID,nativeHttpViolation} from '../src/server-policy.mjs';
 import {parseEndpoint,localFetch,awaitServerPolicy} from '../src/server-process.mjs';
 import {ROLES} from '../src/profile.mjs';
 const name='opencode/test-free',ref=modelRef(name),plugin='/private/policy',cap=64;
 const config=nativeConfig(name,cap,plugin);
+const target='https://opencode.ai/inference/openai/v1/chat/completions';
+const wire=(url=target,init={})=>new Request(url,{method:'POST',headers:{'content-type':'application/json'},body:'{}',...init});
 const model={...ref,enabled:true,status:'active',limit:{output:64},cost:[{input:0,output:0,cache:{read:0,write:0}}],capabilities:{tools:false},variants:[]};
 const snapshot=()=>({plugins:{data:[{id:POLICY_ID,state:{status:'active'},source:{type:'local',path:plugin}}]},agents:{data:ROLES.map(id=>({...config.agents[id],id,model:ref}))},models:{data:[structuredClone(model)]}});
 test('native free model admission requires a real zero-priced catalog entry',()=>{
@@ -67,11 +69,11 @@ test('generated policy is self-contained and denies tools, retries, extra calls 
  const p={effect:'allow'};hooks.evaluate(p);assert.equal(p.effect,'deny');
  const tools={tools:{shell:{}},options:{maxTokens:512}};hooks.context(tools);assert.deepEqual(tools.tools,{});assert.equal(tools.options.maxTokens,64);
  const a={model:ref,sessionID:'one',agent:'valera-ceo',kind:'primary'};hooks['experimental.model.resolve'](a);
- hooks['model.request'](a);hooks['http.request'](a);
+ hooks['model.request'](a);hooks['http.request']({...a,request:wire()});
  assert.throws(()=>hooks['http.request'](a),/DENIED/);
  assert.throws(()=>hooks['model.request']({...a,kind:'title'}),/DENIED/);
  const repeated={...a};hooks['experimental.model.resolve'](repeated);assert.equal(repeated.model.providerID,'potato-denied');
- const b={model:ref,sessionID:'two',agent:'backend',kind:'primary'};hooks['experimental.model.resolve'](b);hooks['model.request'](b);hooks['http.request'](b);
+ const b={model:ref,sessionID:'two',agent:'backend',kind:'primary'};hooks['experimental.model.resolve'](b);hooks['model.request'](b);hooks['http.request']({...b,request:wire()});
  const extra={...b,sessionID:'three'};hooks['experimental.model.resolve'](extra);assert.equal(extra.model.providerID,'potato-denied');
  await cleanup();
 });
@@ -145,7 +147,41 @@ test('generated native policy admits only absent or exact default variant across
   for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['model.request']({...e,model:{...ref,variant}}),/DENIED/);
   hooks['model.request'](e);
   for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['http.request']({...e,model:{...ref,variant}}),/DENIED/);
-  hooks['http.request'](e);assert.throws(()=>hooks['http.request'](e),/DENIED/);
+  hooks['http.request']({...e,request:wire()});assert.throws(()=>hooks['http.request'](e),/DENIED/);
  }
+ await cleanup();
+});
+
+test('native HTTP admits only exact documented HTTPS POST JSON route',async()=>{
+ assert.equal(nativeHttpViolation(wire()),null);
+ assert.equal(nativeHttpViolation(undefined),'http_request_shape');
+ assert.equal(nativeHttpViolation(wire(target,{method:'GET',body:undefined})),'http_method');
+ for(const url of ['http://opencode.ai/inference/openai/v1/chat/completions',
+  'https://opencode.ai.evil.test/inference/openai/v1/chat/completions',
+  'https://evil.test/inference/openai/v1/chat/completions',
+  'https://127.0.0.1/inference/openai/v1/chat/completions',
+  'https://opencode.ai:444/inference/openai/v1/chat/completions',
+  target+'?key=PRIVATE',target+'#fragment',target+'/',
+  'https://opencode.ai/inference/go/openai/v1/chat/completions',
+  'https://opencode.ai/inference/openai/v1/responses',
+  'https://opencode.ai/zen/v1/chat/completions'])assert.equal(nativeHttpViolation(wire(url)),'http_destination');
+ for(const init of [{headers:{'content-type':'text/plain'}},{body:undefined}])assert.equal(nativeHttpViolation(wire(target,init)),'http_payload');
+ const used=wire();await used.text();assert.equal(nativeHttpViolation(used),'http_payload');
+});
+test('native HTTP hook denies unapproved destination and observed redirects without exposing URLs',async()=>{
+ const hooks={},events=[],register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e)}).setup(ctx);
+ const e={model:ref,sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](e);hooks['model.request'](e);
+ assert.throws(()=>hooks['http.request']({...e,request:wire('https://private.test/path')}),/DENIED/);
+ assert.equal(events.at(-1),'violation:http_destination');assert.ok(!events.includes('http:valera-ceo'));
+ hooks['http.request']({...e,request:wire()});
+ hooks['http.response']({...e,response:new Response('{}',{status:200})});
+ for(const status of [301,302,303,307,308]){
+  assert.throws(()=>hooks['http.response']({...e,response:new Response(null,{status,headers:{location:'https://private.test'}})}),/DENIED/);
+  assert.equal(events.at(-1),'violation:http_redirect');
+ }
+ assert.ok(!JSON.stringify(events).includes('private.test'));
  await cleanup();
 });
