@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Add an isolated official OpenCode 2.4.1 CLI server preflight, pinned native
+  client, explicit zero-price catalog admission, private plugin and no-prompt
+  policy validation. No Console key or identity override. Server inference
+  and runtime selection remain pending real CLI validation.
+
 - Remove the legacy OpenCode/OMO executable integration, SDK, lockfile, old
   installation and CI path. The sole built-in gateway is native OpenCode SDK
   2.4.1 with its own pinned Bun 1.4.4, fixture and explicit-budget Console profiles.
