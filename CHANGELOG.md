@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- R3.3b: compose a bounded sequential workflow coordinator using existing
+  scheduler, workspace and handoff primitives, with durable no-replay marker
+  and fresh completed-output verification. Trusted synthetic executor tests;
+  no production worker binding or automatic merge.
+
 - R3.3a: verify direct dependency artifacts against exact task revisions,
   trusted evidence, publication lease, pinned Git target and object bytes;
   deliver bounded untrusted context rather than shared workspace access.

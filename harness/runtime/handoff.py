@@ -163,27 +163,68 @@ def _segments(database,receiver_id,receiver_revision,producer_id,producer_revisi
                 not set(expected)<=set(producer['scope'])):
             raise HandoffError('Dependency is not approved for this receiver')
         _verify_completed(db,producer,collector,issuers,author_actor,author_session)
-        directory=os.open(store,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
-        try:
-            result=[]
-            total=0
-            commit=producer['target_commit']['value']
-            for path,digest in sorted(expected.items()):
-                receipt=_publication(db,producer,path,digest)
-                if receipt.get('object_path')!=str(store/digest.split(':')[1]):
-                    raise HandoffError('Dependency object store binding mismatch')
-                data=_read_object(directory,digest)
-                if _git_blob(repo,commit,path)!=data:
-                    raise HandoffError('Published dependency differs from verified Git target')
-                total+=len(data)
-                if total>MAX_HANDOFF_BYTES:
-                    raise HandoffError('Dependency context exceeds byte bound')
-                # compile_context treats this JSON as opaque data and redacts it.
-                payload={'producer_id':producer_id,'producer_revision':producer_revision,
-                         'commit':commit,'path':path,'digest':digest,'content':data.decode('utf-8')}
-                result.append({'name':'dependency:'+producer_id+':'+path,
-                               'text':json.dumps(payload,sort_keys=True,ensure_ascii=False),
-                               'mandatory':True,'trust':'untrusted'})
-            return result
-        finally:
-            os.close(directory)
+        return _read_verified_payloads(db,producer,repo,store,expected)
+
+def _read_verified_payloads(db,producer,repo,store,expected):
+    producer_id=producer['task_id']
+    producer_revision=producer['revision']
+    directory=os.open(store,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        result=[]
+        total=0
+        commit=producer['target_commit']['value']
+        for path,digest in sorted(expected.items()):
+            receipt=_publication(db,producer,path,digest)
+            if receipt.get('object_path')!=str(store/digest.split(':')[1]):
+                raise HandoffError('Dependency object store binding mismatch')
+            data=_read_object(directory,digest)
+            if _git_blob(repo,commit,path)!=data:
+                raise HandoffError('Published dependency differs from verified Git target')
+            total+=len(data)
+            if total>MAX_HANDOFF_BYTES:
+                raise HandoffError('Dependency context exceeds byte bound')
+            # compile_context treats this JSON as opaque data and redacts it.
+            payload={'producer_id':producer_id,'producer_revision':producer_revision,
+                     'commit':commit,'path':path,'digest':digest,'content':data.decode('utf-8')}
+            result.append({'name':'dependency:'+producer_id+':'+path,
+                           'text':json.dumps(payload,sort_keys=True,ensure_ascii=False),
+                           'mandatory':True,'trust':'untrusted'})
+        return result
+    finally:
+        os.close(directory)
+
+
+def verify_task_outputs(database,*,producer_id,producer_revision,producer_repo,object_store,
+                        expected_artifacts,collector,trusted_issuers):
+    """Recheck a completed task's declared outputs with the same handoff gates."""
+    try:
+        if (type(producer_id) is not str or not producer_id.strip() or
+                type(producer_revision) is not int or producer_revision<0 or
+                type(expected_artifacts) is not dict or not 1<=len(expected_artifacts)<=MAX_HANDOFF_FILES or
+                not callable(collector) or type(trusted_issuers) is not frozenset or not trusted_issuers):
+            raise HandoffError('Explicit trusted output bindings required')
+        expected=expected_artifacts
+        for path,digest in expected.items():
+            _parts(path)
+            if type(digest) is not str or not re.fullmatch(r'sha256:[0-9a-f]{64}',digest):
+                raise HandoffError('Expected dependency digest required')
+        store=Path(object_store).absolute()
+        if (store.resolve(strict=True)!=store or not store.is_dir() or
+                store.stat().st_uid!=os.getuid() or store.stat().st_mode & 0o077):
+            raise HandoffError('Private host object store required')
+        repo=Path(producer_repo).absolute()
+        if repo.resolve(strict=True)!=repo or not repo.is_dir():
+            raise HandoffError('Trusted producer Git directory required')
+        c=Controller(database)
+        with c._connection() as db:
+            db.execute('BEGIN')
+            producer=c._read(db,producer_id)
+            if (producer['status']!='DONE' or producer['revision']!=producer_revision or
+                    producer['owner'] not in SPECIALISTS or not set(expected)<=set(producer['scope'])):
+                raise HandoffError('Output task is not completed at approved revision')
+            _verify_completed(db,producer,collector,trusted_issuers,None,None)
+            _read_verified_payloads(db,producer,repo,store,expected)
+    except HandoffError:
+        raise
+    except Exception as exc:
+        raise HandoffError('Completed output verification failed') from exc

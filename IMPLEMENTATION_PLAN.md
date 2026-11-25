@@ -149,3 +149,15 @@ untrusted context data; the existing compiler performs redaction and context
 budget checks. No direct access to another agent's workspace, automatic merge,
 new grant or task dispatch. The workflow executor and dispatch-time revalidation
 remain to be integrated; independent evidence collection is host-supplied.
+
+## R3.3b — bounded sequential workflow coordinator
+
+Compose the existing Scheduler, task-bound workspace preparation, dependency
+handoff and completed-output verification through an explicitly trusted host
+executor callback. A durable SQLite workflow marker prevents automatic replay
+after HOLD or interruption; only one single target-pin revision per planned
+task is admitted. Every declared output is checked before selecting dependent
+work and again before workflow completion. No production worker binding,
+automatic merge, aggregate workflow budget, authenticated independent evidence
+collector or restart/resume protocol is added. Tests exercise real local Git,
+SQLite, Publisher and dispatch reservations with synthetic guards and executor.
