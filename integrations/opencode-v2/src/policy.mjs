@@ -1,25 +1,29 @@
-import {FIXTURE_URL,MODEL_REF,deny,candidateConfig} from './contracts.mjs';
+import {FIXTURE_URL,MODEL_REF,deny,candidateConfig,FIXTURE_PROFILE} from './contracts.mjs';
 import {ROLES} from '../../opencode/src/profile.mjs';
 
 // Never forward to the network. One synthetic HTTP response per authorized stage.
-export function fixtureTransport(respond,maxOutput){
- let phase=null,calls=0,violation=false,reason='NONE',blockedHost='none',blockedPhase='none';
+export function fixtureTransport(respond,maxOutput,modelRef=MODEL_REF){
+ let phase=null,calls=0,closed=false,violation=false,reason='NONE',blockedHost='none',blockedPhase='none';
  const fail=code=>{violation=true;if(reason==='NONE')reason=code;throw Error(code);};
  return {
-  begin(next){if(phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
+  begin(next){if(closed||violation||phase!==null||!['valera','specialist'].includes(next))throw Error('INVALID_FIXTURE_STAGE');phase=next;calls=0;},
   end(){const n=calls;phase=null;if(violation||n!==1)throw Error('FIXTURE_REQUEST_BOUNDARY: '+reason+'; calls='+n+'; blocked_host='+blockedHost+'; blocked_phase='+blockedPhase);},
   get violated(){return violation;},
+  close(){closed=true;phase=null;},
   async fetch(input,init){
+   if(closed||violation)fail('TRANSPORT_CLOSED');
    const req=new Request(input,init);
    if(req.url!==FIXTURE_URL){const u=new URL(req.url);if(reason==='NONE'){blockedHost=/^[a-z0-9.-]{1,128}$/.test(u.hostname)?u.hostname:'other';blockedPhase=phase??'startup';}fail(u.origin==='https://potato-fixture.invalid'?'FIXTURE_WRONG_PATH':u.hostname==='opencode.ai'?'BLOCKED_CONSOLE':u.hostname==='models.dev'?'BLOCKED_CATALOG':'BLOCKED_OTHER_ORIGIN');}
    if(req.method!=='POST')fail('FIXTURE_METHOD');
    if(!phase)fail('FIXTURE_BEFORE_ADMISSION');
    if(calls!==0)fail('FIXTURE_DUPLICATE');
    calls++;
+   const admittedPhase=phase;
    const body=await req.json();
+   if(closed||violation||phase!==admittedPhase)fail('TRANSPORT_CLOSED');
    const cap=body.max_tokens??body.max_completion_tokens;
-   if(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput||body.model!==MODEL_REF.id||!Array.isArray(body.messages)||(body.tools!==undefined&&(!Array.isArray(body.tools)||body.tools.length!==0))){
-    fail(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput?'FIXTURE_OUTPUT_CAP':body.model!==MODEL_REF.id?'FIXTURE_MODEL':!Array.isArray(body.messages)?'FIXTURE_MESSAGES':'FIXTURE_TOOLS');
+   if(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput||body.model!==modelRef.id||!Array.isArray(body.messages)||(body.tools!==undefined&&(!Array.isArray(body.tools)||body.tools.length!==0))){
+    fail(!Number.isSafeInteger(cap)||cap<1||cap>maxOutput?'FIXTURE_OUTPUT_CAP':body.model!==modelRef.id?'FIXTURE_MODEL':!Array.isArray(body.messages)?'FIXTURE_MESSAGES':'FIXTURE_TOOLS');
    }
    return respond(phase,body);
   }
@@ -27,36 +31,36 @@ export function fixtureTransport(respond,maxOutput){
 }
 // SDK starts location plugins asynchronously. Wait for the actual transformed
 // roster, not just for a setup callback or a default agent name.
-export function safeRoster(agents){
+export function safeRoster(agents,modelRef=MODEL_REF){
  if(!Array.isArray(agents)||agents.length!==ROLES.length)return false;
  const ids=new Set(agents.map(a=>a?.id));
  return ROLES.every(role=>ids.has(role))&&agents.every(a=>
-  a.model?.providerID===MODEL_REF.providerID&&a.model?.id===MODEL_REF.id&&
+  a.model?.providerID===modelRef.providerID&&a.model?.id===modelRef.id&&
   a.steps===1&&a.mode===(a.id==='valera-ceo'?'primary':'subagent')&&
   Array.isArray(a.permissions)&&a.permissions.length>0&&a.permissions.every(r=>r.effect==='deny')&&
   typeof a.system==='string'&&a.system.length>0
  );
 }
-export async function awaitPolicy(read,observe,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,50)),timeout=10000}={}){
+export async function awaitPolicy(read,observe,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,50)),timeout=10000,modelRef=MODEL_REF}={}){
  const deadline=now()+timeout;
  do{
   const agents=await read();
-  if(observe.ready&&safeRoster(agents?.data))return;
+  if(observe.ready&&safeRoster(agents?.data,modelRef))return;
   await pause();
  }while(now()<deadline);
  throw Error('V2_PLUGIN_NOT_ACTIVE');
 }
-export async function awaitModel(read,maxOutput,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,50)),timeout=10000}={}){
+export async function awaitModel(read,maxOutput,{now=()=>performance.now(),pause=()=>new Promise(r=>setTimeout(r,50)),timeout=10000,modelRef=MODEL_REF}={}){
  const deadline=now()+timeout;
  do{
   const result=await read();
-  if(result?.data?.some(m=>m.providerID===MODEL_REF.providerID&&m.id===MODEL_REF.id&&m.enabled===true&&m.limit?.output===maxOutput&&m.capabilities?.tools===false))return;
+  if(result?.data?.some(m=>m.providerID===modelRef.providerID&&m.id===modelRef.id&&m.enabled===true&&m.limit?.output===maxOutput&&m.capabilities?.tools===false))return;
   await pause();
  }while(now()<deadline);
  throw Error('V2_MODEL_NOT_READY');
 }
-export function restrictivePlugin(observed,maxOutput){
- const definitions=candidateConfig(maxOutput).agents;
+export function restrictivePlugin(observed,maxOutput,profile=FIXTURE_PROFILE){
+ const definitions=candidateConfig(maxOutput,profile).agents;
  return {id:'potato-harness-v2-candidate',async setup(ctx){
   const registrations=[];
   registrations.push(await ctx.agent.transform(editor=>{
@@ -64,7 +68,7 @@ export function restrictivePlugin(observed,maxOutput){
    editor.default('valera-ceo');
    for(const role of ROLES)editor.update(role,a=>{
     const definition=definitions[role];
-    a.permissions=deny();a.steps=1;a.model={...MODEL_REF};
+    a.permissions=deny();a.steps=1;a.model={...profile.modelRef};
     a.system=definition.system;a.description=definition.description;a.mode=definition.mode;
    });
   }));

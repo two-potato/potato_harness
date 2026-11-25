@@ -76,3 +76,15 @@ test('v2 terminal cursors do not imply another page; verify bounded transcript i
  await assert.rejects(readBoundedMessages(async input=>input.cursor?{data:[{type:'assistant'}]}:first,'session'),/UNEXPECTED_MESSAGE_PAGINATION/);
  await assert.rejects(readBoundedMessages(async()=>({data:first.data,cursor:{}}),'session'),/MISSING_MESSAGE_CURSOR/);
 });
+
+test('unexpected startup traffic permanently closes model admission',async()=>{
+ let calls=0;
+ const t=fixtureTransport(()=>{calls++;return new Response('ok');},64);
+ await assert.rejects(t.fetch('https://external.example/health'));
+ assert.throws(()=>t.begin('valera'),/INVALID_FIXTURE_STAGE/);
+ assert.equal(calls,0);
+ const closed=fixtureTransport(()=>{calls++;return new Response('ok');},64);
+ closed.close();
+ assert.throws(()=>closed.begin('valera'),/INVALID_FIXTURE_STAGE/);
+ assert.equal(calls,0);
+});

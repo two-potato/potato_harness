@@ -5,30 +5,33 @@ import {combineModelUsage} from '../../opencode/src/bridge_accounting.mjs';
 export const FIXTURE_MODEL='fixture/test';
 export const MODEL_REF=Object.freeze({providerID:'fixture',id:'test'});
 export const FIXTURE_URL='https://potato-fixture.invalid/v1/chat/completions';
+export const CONSOLE_PROFILE=Object.freeze({requestModel:'opencode/minimax-m3',modelRef:Object.freeze({providerID:'potato-console',id:'minimax-m3'})});
+export const FIXTURE_PROFILE=Object.freeze({requestModel:FIXTURE_MODEL,modelRef:MODEL_REF});
 export const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
 
-export function validateRequest(request){
- if(!request||request.model!==FIXTURE_MODEL||!ROLES.includes(request.role)||request.role==='valera-ceo'||typeof request.prompt!=='string'||Buffer.byteLength(request.prompt)>262144)throw Error('V2_CANDIDATE_FIXTURE_ONLY');
+export function validateRequest(request,profile=FIXTURE_PROFILE){
+ if(!request||request.model!==profile.requestModel||!ROLES.includes(request.role)||request.role==='valera-ceo'||typeof request.prompt!=='string'||Buffer.byteLength(request.prompt)>262144)throw Error('V2_CANDIDATE_FIXTURE_ONLY');
  if(!Number.isSafeInteger(request.output_token_allowance)||request.output_token_allowance<2||request.output_token_allowance>4096)throw Error('INVALID_ALLOWANCE');
  const c=request.coordination;
  if(!c||typeof c.objective!=='string'||!Array.isArray(c.scope)||c.scope.some(p=>typeof p!=='string'))throw Error('INVALID_COORDINATION');
  return Math.floor(request.output_token_allowance/2);
 }
-export function candidateConfig(maxOutput){
- const old=harnessConfig(FIXTURE_MODEL);
+export function candidateConfig(maxOutput,profile=FIXTURE_PROFILE){
+ const modelRef=profile.modelRef,modelName=modelRef.providerID+'/'+modelRef.id;
+ const old=harnessConfig(modelName);
  const agents=Object.fromEntries(ROLES.map(role=>[role,{
-  model:FIXTURE_MODEL,mode:role==='valera-ceo'?'primary':'subagent',
+  model:modelName,mode:role==='valera-ceo'?'primary':'subagent',
   description:'Potato Harness v2 candidate '+role,system:old.agent[role].prompt,
   permissions:deny(),steps:1
  }]));
- return {model:FIXTURE_MODEL,default_agent:'valera-ceo',update:'disable',share:'disabled',
+ return {model:modelName,default_agent:'valera-ceo',update:'disable',share:'disabled',
   automations:false,snapshots:false,formatter:false,lsp:false,warming:false,
   // v2 starts these discovery plugins even without a configured local model.
   plugins:['-opencode.provider.ollama','-opencode.provider.lmstudio','-opencode.provider.vllm'],
   compaction:{auto:false,background:false},permissions:deny(),agents,
-  providers:{fixture:{name:'Potato fixture',package:'@opencode/ai/providers/openai-compatible',
+  providers:{[modelRef.providerID]:{name:'Potato isolated transport',package:'@opencode/ai/providers/openai-compatible',
    settings:{baseURL:'https://potato-fixture.invalid/v1',apiKey:'fixture-only'},
-   models:{test:{name:'Fixture',capabilities:{tools:false,input:['text'],output:['text']},
+   models:{[modelRef.id]:{name:modelRef.id,capabilities:{tools:false,input:['text'],output:['text']},
     limit:{context:128000,output:maxOutput},cost:{input:0,output:0}}}}}
  };
 }
@@ -46,13 +49,13 @@ export async function readBoundedMessages(read,sessionID){
  }
  return page;
 }
-export function parseAssistant(messages,role){
+export function parseAssistant(messages,role,modelRef=MODEL_REF){
  if(!Array.isArray(messages)||messages.some(m=>!m||!['agent-switched','model-switched','location-switched','user','assistant','idle'].includes(m.type)))throw Error('UNEXPECTED_SESSION_ACTIVITY');
  const answers=messages.filter(m=>m.type==='assistant');
  if(answers.length!==1)throw Error('EXPECTED_ONE_ASSISTANT');
  const a=answers[0];
  if(a.error)throw a.error;
- if(a.retry||a.agent!==role||a.model?.providerID!==MODEL_REF.providerID||a.model?.id!==MODEL_REF.id||a.finish!=='stop'||!a.time?.completed||!Array.isArray(a.content)||a.content.some(p=>!['text','reasoning'].includes(p.type)))throw Error('UNSAFE_ASSISTANT_RESULT');
+ if(a.retry||a.agent!==role||a.model?.providerID!==modelRef.providerID||a.model?.id!==modelRef.id||a.finish!=='stop'||!a.time?.completed||!Array.isArray(a.content)||a.content.some(p=>!['text','reasoning'].includes(p.type)))throw Error('UNSAFE_ASSISTANT_RESULT');
  const text=a.content.filter(p=>p.type==='text').map(p=>p.text).join('');
  if(Buffer.byteLength(text)>1048576)throw Error('OVERSIZED_RESULT');
  return {value:JSON.parse(text),info:a};

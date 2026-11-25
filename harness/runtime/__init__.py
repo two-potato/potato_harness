@@ -44,7 +44,7 @@ def _git(repo,*args):
 
 def _config(config):
     required={'repo','base_sha','model','scope','test_argv','objective','budget','output'}
-    if set(config)-required-{'completion_jev','worker_command','jev_provider','jev_model','domain_profile'} or not required<=set(config):raise ValueError('Unknown or missing config fields')
+    if set(config)-required-{'completion_jev','worker_command','jev_provider','jev_model','domain_profile','adapter','provider_budget_confirmed'} or not required<=set(config):raise ValueError('Unknown or missing config fields')
     if not all(isinstance(config[k],str) and config[k] for k in ('repo','base_sha','model','objective','output')):raise ValueError('Nonempty config text required')
     if not re.fullmatch('[a-f0-9]{40}|[a-f0-9]{64}',config['base_sha']):raise ValueError('Pinned base SHA required')
     if not isinstance(config['scope'],list) or not config['scope'] or len(set(config['scope']))!=len(config['scope']):raise ValueError('Unique exact-file scope required')
@@ -64,7 +64,30 @@ def _config(config):
         profile = config['domain_profile']
         if not isinstance(profile, str) or profile not in DOMAIN_PROFILES:
             raise ValueError('Unknown domain profile')
+    adapter=config.get('adapter','opencode-v1')
+    if adapter not in ('opencode-v1','opencode-v2-fixture','opencode-v2-console'):
+        raise ValueError('Unknown provider adapter')
+    if 'adapter' in config and 'worker_command' in config:
+        raise ValueError('Explicit adapter cannot be combined with worker_command')
+    if adapter.startswith('opencode-v2'):
+        if config.get('jev_provider') or config.get('completion_jev'):
+            raise ValueError('V2 bounded profile does not admit separate Jev calls')
+        if adapter=='opencode-v2-fixture' and (config['model']!='fixture/test' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
+            raise ValueError('V2 fixture is restricted to the generated subtotal trial')
+        if adapter=='opencode-v2-console' and (config['model']!='opencode/minimax-m3' or config.get('provider_budget_confirmed') is not True):
+            raise ValueError('V2 Console requires the explicit paid model and operator-confirmed provider budget')
+    if 'provider_budget_confirmed' in config and (adapter!='opencode-v2-console' or config['provider_budget_confirmed'] is not True):
+        raise ValueError('Provider budget confirmation is only valid for Console profile')
     return deepcopy(config)
+
+
+def _worker_command(config):
+    bun=str(ROOT/'integrations/opencode/node_modules/.bin/bun')
+    adapter=config.get('adapter','opencode-v1')
+    if adapter=='opencode-v1':
+        return config.get('worker_command',[bun,str(ROOT/'integrations/opencode/src/worker.mjs')])
+    return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),
+            'fixture' if adapter=='opencode-v2-fixture' else 'console']
 
 
 def init(config,state):
@@ -107,7 +130,7 @@ def init(config,state):
     record.update(task_id=task['task_id'],revision=0,budget_id=task['budget_id'],token_soft=b['tokens'],token_hard=b['tokens'],cost_usd_soft=b['cost_usd'],cost_usd_hard=b['cost_usd'],wall_time_s_soft=math.ceil(b['wall_time_s']),wall_time_s_hard=math.ceil(b['wall_time_s']),max_parallel_workers=1)
     Budget(state/'state.db').configure(task['task_id'],record)
     _write(state/'config.json',config)
-    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None})
+    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None,**({'adapter':config['adapter'],'provider_mode':'synthetic' if config['adapter']=='opencode-v2-fixture' else 'external'} if 'adapter' in config else {})})
     return status(state)
 
 
@@ -245,6 +268,8 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         run['state']='RUNNING';save()
         isolation=sandbox_probe();run['sandbox']=isolation;save()
         if isolation.get('available') is not True:raise RuntimeError('Sandbox unavailable: '+str(isolation.get('reason')))
+        if config.get('adapter')=='opencode-v2-console' and not os.environ.get('OPENCODE_API_KEY'):
+            raise ValueError('Console API key missing before dispatch')
         jev=Jev(state/'state.db',provider=_jev_provider(config));run['jev_preflight']=jev.preflight(task['task_id']);save()
         guard.ready=True
         for target in ('CLASSIFIED','PLANNED'):move(target)
@@ -274,10 +299,12 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         run['context']={'digest':pack['content_hash'],'role_prompt_hash':pack['role_prompt_hash'],'policy_digest':pack['policy_digest'],'input_utf8_bytes':input_ceiling,'count_method':'conservative UTF-8 byte ceiling; not exact model tokens','output_token_allowance':min(4096,config['budget']['tokens']-input_ceiling)};save()
         attempt='provider-'+task['task_id'];budget.reserve(task['task_id'],config['budget']['tokens'],config['budget']['estimate_cost_usd'],attempt)
         provider_project=state/'provider-project';provider_project.mkdir(mode=0o700)
-        command=config.get('worker_command',[str(ROOT/'integrations/opencode/node_modules/.bin/bun'),str(ROOT/'integrations/opencode/src/worker.mjs')])
+        command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
         request={'role':'backend','prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
-        effect=outbox.reserve(task['task_id'],task['revision'],{'kind':'provider-proposal','model':config['model'],'context_digest':run['context']['digest']},'provider:'+task['task_id'])
+        if config.get('adapter')=='opencode-v2-console':
+            request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
+        effect=outbox.reserve(task['task_id'],task['revision'],{'kind':'provider-proposal','model':config['model'],'context_digest':run['context']['digest'],**({'adapter':config['adapter']} if 'adapter' in config else {})},'provider:'+task['task_id'])
         run['effect_id']=effect;run['attempt_id']=attempt;save()
         claimed=outbox.claim(effect)
         if not claimed:raise RuntimeError('Effect already claimed; reconcile external outcome')
@@ -345,7 +372,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         guard.audit=True;move('ACCEPTED');cleanup();guard.clean=True
         if outbox.unresolved(task['task_id']):raise ValueError('Unresolved effects prevent completion')
         run.update(reason='Pinned source passed configured tests and deterministic bounded review')
-        result={'target_commit':task['target_commit'],'publications':publications,'checks':[r['check_id'] for r in records]}
+        result={'target_commit':task['target_commit'],'publications':publications,'checks':[r['check_id'] for r in records],**({'adapter':run['adapter'],'provider_mode':run['provider_mode']} if 'adapter' in run else {})}
         _write(state/'result.json',result)
         output=Path(config['output']).absolute();output.mkdir(parents=True,exist_ok=False,mode=0o700)
         _write(output/'result.json',result)
@@ -381,6 +408,7 @@ def recover(state):
 
 def halo(state,*,train=None,evaluation=None,holdout=None):
     run=status(state)
+    if run.get('provider_mode')=='synthetic':return {'status':'HOLD','reason':'Synthetic v2 trial is not actual HALO inference evidence'}
     trace={'trace_id':run['task_id'],'status':run['task_status'],'checks':[],'bindings':{'revision':run['revision']},'optional_detail':_redact(run['reason'])}
     path=Path(state)/'halo-trace.json';_write(path,trace)
     if not any((train,evaluation,holdout)):

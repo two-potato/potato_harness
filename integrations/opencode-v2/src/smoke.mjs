@@ -9,7 +9,7 @@ Object.assign(process.env,{HOME:home,XDG_CONFIG_HOME:path.join(home,'config'),XD
 process.chdir(home);
 try{
  const {OpenCode}=await import('@opencode/sdk');
- const {runCandidate}=await import('./adapter.mjs');
+ const {runCandidate,runConsole}=await import('./adapter.mjs');
  const request={role:'backend',model:'fixture/test',prompt:'Fix fixture source.',coordination:{objective:'Fix fixture',scope:['a.py']},output_token_allowance:128};
  const calls=[];
  const success=(phase,body)=>{
@@ -32,5 +32,15 @@ try{
   assert.ok(observe.ready);
   if(status===429||status===503)assert.ok(observe.retries>0,'real SDK retry hook must be observed');
  }
- console.log(JSON.stringify({status:'PASS',layer:'real-v2-sdk-synthetic-http',external_inference:false,omo:false,provider_requests:5}));
+ const consoleCalls=[];
+ const consoleResult=await runConsole({...request,model:'opencode/minimax-m3',provider_budget:{tokens:100000,cost_usd:.5}},{OpenCode,key:'synthetic-key',send:async(url,init)=>{
+  const body=JSON.parse(init.body);assert.equal(url,'https://opencode.ai/inference/openai/v1/chat/completions');assert.equal(body.model,'minimax-m3');
+  assert.equal(init.headers.Authorization,'Bearer synthetic-key');
+  const phase=consoleCalls.length?'specialist':'valera';consoleCalls.push(phase);
+  const content=JSON.stringify(phase==='valera'?{owner:'backend',reason:'fixture routing'}:{edits:[{path:'a.py',content:'result = 42\n'}],summary:'fixture proposal'});
+  const chunk=(delta,finish_reason,usage)=>'data: '+JSON.stringify({id:'fixture',created:1,model:'minimax-m3',object:'chat.completion.chunk',choices:[{index:0,delta,finish_reason}],...(usage?{usage}:{})})+'\n\n';
+  return new Response(chunk({role:'assistant',content},null)+chunk({},'stop',{prompt_tokens:10,completion_tokens:10,total_tokens:20,cost:.001,opencode:{billing_source:'balance',tokens:{input:10,output:10,reasoning:0,cache_read:0,cache_write_5m:0,cache_write_1h:0}}})+'data: [DONE]\n\n',{headers:{'Content-Type':'text/event-stream'}});
+ }});
+ assert.deepEqual(consoleCalls,['valera','specialist']);assert.deepEqual(consoleResult.usage,{input_tokens:20,output_tokens:20,cost_usd:.002});
+ console.log(JSON.stringify({status:'PASS',layer:'real-v2-sdk-synthetic-http',external_inference:false,omo:false,provider_requests:5,console_mock_requests:2}));
 }finally{fs.rmSync(home,{recursive:true,force:true});}

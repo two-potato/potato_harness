@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Connect the isolated v2 SDK to the bounded runtime through explicit fixture
+  and Console profiles, with durable provenance, environment scrubbing, fixed
+  transport and provider-reported billing. Default v1 stays unchanged. Console
+  live inference and actual sandbox end-to-end certification remain pending.
+
 - Add a separate fixture-only OpenCode 2.4.1 SDK migration candidate, with
   v2 retry hook, restrictive roles and bounded synthetic HTTP transport.
   Default OpenCode/OMO 1.x is unchanged; full OMO v2 is not available in the
