@@ -1,0 +1,81 @@
+name: Native CLI offline diagnostic
+on:
+  push:
+    branches:
+      - feat/native-free-inference-r1
+    paths:
+      - '.github/workflows/native-offline-diagnostic.yml'
+      - 'integrations/opencode-v2/src/**'
+permissions:
+  contents: read
+jobs:
+  native-offline:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af6831
+        with:
+          persist-credentials: false
+      - name: Check unprivileged network namespace
+        run: |
+          outer="$(readlink /proc/self/ns/net)"
+          unshare --user --map-root-user --net -- sh -ec '
+            ip link set lo up
+            test "$(readlink /proc/self/ns/net)" != "$1"
+            test "$(ls /sys/class/net)" = lo
+          ' sh "$outer"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Verify manifest and install locked dependencies
+        run: |
+          python3 tools/verify_manifest.py
+          cd integrations/opencode-v2
+          npm ci --ignore-scripts --no-audit --no-fund
+          node node_modules/bun/install.js
+          test "$(node_modules/.bin/bun --version)" = 1.4.4
+          npm test
+      - name: Obtain exact official CLI release
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/potato-cli"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 120 \
+            https://github.com/anomalyco/opencode/releases/download/v2.4.1/opencode-linux-x64-baseline.tar.gz \
+            -o "$RUNNER_TEMP/potato-cli/opencode.tar.gz"
+          printf '%s  %s\n' '9ddd18e3faf64eaeccf6a0fcbc96a5c7a14520ae5fd5b61e5be51d894f478b47' "$RUNNER_TEMP/potato-cli/opencode.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/potato-cli/opencode.tar.gz" -C "$RUNNER_TEMP/potato-cli"
+          test -x "$RUNNER_TEMP/potato-cli/opencode"
+      - name: Catalog preflight and isolated pre-dispatch probe (no inference)
+        shell: bash
+        run: |
+          export PATH="$RUNNER_TEMP/potato-cli:$PATH"
+          export HOME="$RUNNER_TEMP/potato-offline-home"
+          mkdir -m 700 "$HOME"
+          bun="$PWD/integrations/opencode-v2/node_modules/.bin/bun"
+          src="$PWD/integrations/opencode-v2/src"
+          # No session or prompt is created by this online catalog-only preflight.
+          "$bun" "$src/server-probe.mjs" opencode/beam-free
+          # The only prompt in this job is inside a distinct loopback-only namespace,
+          # and the offline plugin denies model/HTTP dispatch independently.
+          export POTATO_OUTER_NETNS="$(readlink /proc/self/ns/net)"
+          rc=0
+          unshare --user --map-root-user --net -- sh -ec \
+            'ip link set lo up; exec "$@"' sh \
+            "$bun" "$src/server-offline-probe.mjs" opencode/beam-free \
+            > "$RUNNER_TEMP/potato-offline-report.json" || rc=$?
+          test "$rc" -eq 2
+          node - "$RUNNER_TEMP/potato-offline-report.json" <<'JS'
+          const fs = require('node:fs');
+          const r = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const a = r.diagnostics?.audit;
+          // Accept a diagnostic result, never an inference PASS. Fail closed on
+          // namespace failure, unavailable catalog, cleanup failure or missing evidence.
+          console.log(JSON.stringify(r));
+          if (r.status !== 'HOLD' || r.offline_network !== true ||
+              r.offline_diagnostic !== true || r.external_inference !== false ||
+              r.runtime_admission !== false || r.attempted_prompts !== 1 ||
+              r.diagnostics?.cleanup_failed !== false || !a?.ready ||
+              a.http_hooks !== 0 || a.model_hooks !== 0 ||
+              a.violation !== true || typeof a.violation_reason !== 'string') {
+            process.exitCode = 1;
+          }
+          JS

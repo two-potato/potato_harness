@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Add a branch-only hosted Linux fallback for the offline CLI diagnostic
+  on namespace-restricted operator hosts. Verify the release digest and
+  require loopback-only isolation before any synthetic prompt.
+
 - Add fixed first-denial hook reasons, sanitized idle errors and a separate
   network-isolated pre-dispatch diagnostic. Deny offline model/HTTP dispatch;
   never replay an unknown provider outcome or enable runtime admission.

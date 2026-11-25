@@ -154,3 +154,14 @@ the deliberate pre-transport boundary. Other fixed violation_reason values
 locate an earlier failure; idle outcome/error categories are also reported.
 No raw provider text or network addresses are emitted. This is not complete OS
 sandbox certification and does not resolve past provider-side unknown effects.
+
+### Hosted Linux diagnostic fallback
+
+The branch-only Native CLI offline diagnostic workflow is a development
+fallback for hosts that reject unprivileged user/network namespaces. It checks
+namespace support first, verifies the official Linux CLI release SHA-256,
+warms the native catalog using the no-prompt preflight, then runs the offline
+probe in a distinct loopback-only namespace. No host privilege changes,
+provider credentials, external inference or fallback to a live prompt.
+A completed job confirms only diagnostic evidence, not successful inference
+or isolation on the operator host. The workflow is not a runtime dependency.
