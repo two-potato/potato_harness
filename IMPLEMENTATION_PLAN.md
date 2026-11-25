@@ -124,3 +124,16 @@ commit but before execution retains DISPATCHING for conservative recovery.
 This is per-task accounting, not an aggregate workflow budget or a complete
 multi-task executor. Multi-task workspace creation, scheduling transitions,
 dependency handoff, aggregate budgets and actual parallel dispatch remain open.
+
+## R3.2b — task-bound private source layouts
+
+Extract the existing pinned raw Git preparation into a host-only workspace
+module. The bounded runtime uses the same primitive. A new task-bound API
+creates a distinct private directory per persisted task/revision/owner/base
+binding, rejects stale or foreign bindings and duplicate preparation, and
+keeps the Git integration checkout separate from the source copy. Both copies
+contain raw tracked blobs, not filtered checkout bytes. The trial limits are
+1 MiB per file, 32 MiB total source and 4096 tracked entries per layout.
+Partial directories remain for inspection. Workspace receipts are descriptive;
+no grants, live dispatch, OS sandbox proof or cross-task artifact handoff are
+provided by preparation. Actual multi-task execution remains open.

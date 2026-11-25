@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.2b: share pinned Git workspace preparation between the bounded runtime
+  and task-bound private layouts; separate physical source and integration
+  copies, reject stale/foreign bindings and never reuse incomplete layouts.
+
 - R3.2a: atomically reserve a provider budget and claim its Outbox effect
   under the existing current task and lease bindings; use this in the
   bounded runtime and test multiple task owners and process contention.

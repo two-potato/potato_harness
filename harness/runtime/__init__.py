@@ -19,6 +19,7 @@ from harness.controller import Controller,Event,initialize,ROOT,_json
 from harness.budget import Budget
 from harness.runtime.offline_network import require_offline_network
 from harness.runtime.dispatch import reserve_provider_dispatch
+from harness.runtime.workspace import MAX_BYTES,_git,prepare_workspace,repository_identity
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
 from harness.scheduler import Scheduler
@@ -29,19 +30,11 @@ from harness.publisher import Publisher
 from harness.policy import authorize,_parts
 from harness.verifier import TrustedEvidence,digest_bytes,verify_bundle
 
-MAX_BYTES=1024*1024
-
-
 def _write(path,value):
     temporary=path.with_suffix('.tmp')
     with temporary.open('w') as stream:
         stream.write(_json(value));stream.flush();os.fsync(stream.fileno())
     temporary.replace(path)
-
-
-def _git(repo,*args):
-    result=subprocess.run(['/usr/bin/git','-c','core.hooksPath=/dev/null','-C',str(repo),*args],capture_output=True,check=True,env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null'})
-    return result.stdout.decode().strip()
 
 
 def _config(config):
@@ -114,32 +107,10 @@ def init(config,state):
     if state.exists():raise ValueError('State directory already exists')
     if state.is_relative_to(repo):raise ValueError('State must be outside repository')
     state.mkdir(mode=0o700,parents=True)
-    workspace=state/'workspace';workspace.mkdir(mode=0o700)
-    # Raw blobs avoid .gitattributes export-ignore/export-subst transformations.
-    entries=subprocess.check_output(['/usr/bin/git','-C',str(repo),'ls-tree','-rz','--full-tree',config['base_sha']]).split(b'\0')
-    total_bytes=0
-    for entry in entries:
-        if not entry:continue
-        header,encoded_name=entry.split(b'\t',1);mode,kind,blob=header.decode().split()
-        name=encoded_name.decode('utf-8');parts=_parts(name)
-        if kind!='blob' or mode not in ('100644','100755'):raise ValueError('Only regular tracked source files allowed')
-        size=int(_git(repo,'cat-file','-s',blob));total_bytes+=size
-        if size>MAX_BYTES or total_bytes>32*MAX_BYTES:raise ValueError('Source exceeds trial byte bounds')
-        content=subprocess.check_output(['/usr/bin/git','-C',str(repo),'cat-file','blob',blob])
-        target=workspace.joinpath(*parts);target.parent.mkdir(parents=True,exist_ok=True)
-        with target.open('xb') as output:output.write(content)
-        target.chmod(0o755 if mode=='100755' else 0o644)
-    for name in config['scope']:
-        if not (workspace/name).is_file():raise ValueError('Trial scope must name existing tracked files')
-    # Host-only Git object database; workers only see the archive workspace.
-    _git(repo,'bundle','create',str(state/'base.bundle'),'HEAD')
-    integration=state/'integration-repo';integration.mkdir(mode=0o700)
-    _git(integration,'init')
-    _git(integration,'fetch',str(state/'base.bundle'),'HEAD')
-    _git(integration,'checkout','--detach','FETCH_HEAD')
+    prepare_workspace(repo,config['base_sha'],config['scope'],state)
     initialize(state/'state.db')
     task=json.loads((ROOT/'fixtures/valid/task.json').read_text())
-    task.update(task_id='trial-'+uuid.uuid4().hex,workflow_id='persistent-trial',user_turn_id=uuid.uuid4().hex,repository_id=digest_bytes(str(repo).encode()),revision=0,row_version=0,owner='backend',task_class='BOUNDED',risk='LOW',objective=config['objective'],scope=config['scope'],depends_on=[],acceptance=[{'id':'configured-tests','expected':config['objective'],'requires':['relevant_checks','basic_review','acceptance_coverage']}],base_commit={'hash_algorithm':'sha1' if len(config['base_sha'])==40 else 'sha256','value':config['base_sha']},target_commit={'hash_algorithm':'sha1' if len(config['base_sha'])==40 else 'sha256','value':config['base_sha']},required_checks=['relevant_checks','basic_review','acceptance_coverage'],policy_version='bounded-trial-3.0',budget_id='trial-budget')
+    task.update(task_id='trial-'+uuid.uuid4().hex,workflow_id='persistent-trial',user_turn_id=uuid.uuid4().hex,repository_id=repository_identity(repo),revision=0,row_version=0,owner='backend',task_class='BOUNDED',risk='LOW',objective=config['objective'],scope=config['scope'],depends_on=[],acceptance=[{'id':'configured-tests','expected':config['objective'],'requires':['relevant_checks','basic_review','acceptance_coverage']}],base_commit={'hash_algorithm':'sha1' if len(config['base_sha'])==40 else 'sha256','value':config['base_sha']},target_commit={'hash_algorithm':'sha1' if len(config['base_sha'])==40 else 'sha256','value':config['base_sha']},required_checks=['relevant_checks','basic_review','acceptance_coverage'],policy_version='bounded-trial-3.0',budget_id='trial-budget')
     Controller(state/'state.db').create_task(task,event_id='intake',idempotency_key='intake')
     b=config['budget'];record=json.loads((ROOT/'fixtures/valid/budget.json').read_text())
     record.update(task_id=task['task_id'],revision=0,budget_id=task['budget_id'],token_soft=b['tokens'],token_hard=b['tokens'],cost_usd_soft=b['cost_usd'],cost_usd_hard=b['cost_usd'],wall_time_s_soft=math.ceil(b['wall_time_s']),wall_time_s_hard=math.ceil(b['wall_time_s']),max_parallel_workers=1)
