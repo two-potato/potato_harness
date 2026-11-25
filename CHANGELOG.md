@@ -2,6 +2,76 @@
 
 ## Unreleased — local-first readiness
 
+- R4.1: document pinned OMO V2 compatibility blockers and standalone native
+  candidate; add duplicate policy identity/OMO exclusion regression. No OMO
+  dependency or activation. Record actual parallel fixture CI evidence.
+
+- R3.4d: bind parallel fixture workflows to the real Bubblewrap backend;
+  require live overlapping project-test and failure-path E2E in CI, reject
+  mixed sandbox seams and preserve synthetic-only provider provenance.
+
+- R3.4c: replace Bubblewrap preexec_fn with a fresh isolated resource-limit
+  helper that execs only the fixed Bubblewrap binary; preserve stricter
+  inherited limits and reap interrupted launches. Add concurrent live test.
+
+- R3.4b: bounded parallel fixture batches through the existing workflow
+  coordinator, mandatory aggregate limits, disjoint resource selection,
+  durable batch IDs and failure barrier. Explicit synthetic sandbox seams only.
+
+- R3.4a: add immutable host-configured aggregate workflow token/cost and
+  in-flight reservation/effect limits in the existing SQLite budget gate;
+  stop on unknown effects, test real process contention and fixture dispatch.
+
+- R3.3c: bind the sequential coordinator to the actual bounded task runtime
+  using shared SQLite/object store, task-specific identity and dependency
+  context. Explicit synthetic worker only, Backend/Frontend, no live admission.
+
+- R3.3b: compose a bounded sequential workflow coordinator using existing
+  scheduler, workspace and handoff primitives, with durable no-replay marker
+  and fresh completed-output verification. Trusted synthetic executor tests;
+  no production worker binding or automatic merge.
+
+- R3.3a: verify direct dependency artifacts against exact task revisions,
+  trusted evidence, publication lease, pinned Git target and object bytes;
+  deliver bounded untrusted context rather than shared workspace access.
+
+- R3.2b: share pinned Git workspace preparation between the bounded runtime
+  and task-bound private layouts; separate physical source and integration
+  copies, reject stale/foreign bindings and never reuse incomplete layouts.
+
+- R3.2a: atomically reserve a provider budget and claim its Outbox effect
+  under the existing current task and lease bindings; use this in the
+  bounded runtime and test multiple task owners and process contention.
+
+- R3.1: add workflow-bound, revision-checked specialist ready selection
+  using the existing DAG schema and SQLite scheduler. Route the bounded
+  runtime through it; keep selection separate from authorization/dispatch.
+
+- R2.5b: add the future native-free proposal contract, exercised against an
+  injected fake client with a pinned real model identifier; mandatory host
+  bounds and model consistency. Live configuration remains explicitly HOLD.
+
+- R2.5 preparation: preserve native idle-only failure categories, reject
+  contradictory terminal outcomes and enforce cumulative reported token usage
+  against the host reservation. No live worker admission or automatic replay.
+
+- R2: remove the guessed fixed cloud endpoint, retain native OpenCode routing
+  and authenticated loopback HTTP; validate a closed native runtime request
+  contract before launch. Fixture and offline modes remain non-live.
+
+- R2.4c: deny unexpected native model HTTP methods, destinations and request
+  shapes; reject observable redirects and record fixed diagnostic labels.
+  Keep live runtime admission disabled pending independent egress controls.
+
+- R2.4a: add a real native CLI offline runtime diagnostic, guard network
+  namespace before dispatch, preserve UNKNOWN effects, deny all publication
+  and expose a fixed post-cleanup boundary marker. Live profile still denied.
+
+- R2: share the native two-stage flow with an explicit synthetic-only runtime
+  fixture, reuse durable effect/budget and provenance contracts, and add
+  regression/host integration tests. Real native-free runtime admission remains
+  disabled; no provider calls or automatic fallback.
+
 - Match native OpenCode 2.4.1's exact `default` variant sentinel in request
   hooks and response validation, while preserving model identity, empty
   variant catalog and deny-by-default rules. Reproduce the sentinel in

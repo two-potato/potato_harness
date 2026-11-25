@@ -9,26 +9,29 @@ class Outbox:
         self.controller = Controller(database)
 
     def reserve(self, task_id, revision, action, key, approval_id=None):
+        with self.controller._connection(write=True) as db:
+            return self._reserve(db,task_id,revision,action,key,approval_id)
+
+    def _reserve(self,db,task_id,revision,action,key,approval_id=None):
         _text(key)
         if type(action) is not dict or type(revision) is not int:
             raise ControllerError('Action object and integer revision required')
         payload = _json(action)
         digest = action_digest(action)
-        with self.controller._connection(write=True) as db:
-            task = self.controller._read(db, task_id)
-            if task['revision'] != revision or task['status'] in ('DONE', 'CANCELLED'):
-                raise ControllerError('Stale or terminal task')
-            prior = db.execute('SELECT * FROM outbox WHERE idempotency_key=?', (key,)).fetchone()
-            if prior:
-                if (prior['task_id'], prior['task_revision'], prior['action_digest'], prior['approval_id']) != (task_id, revision, digest, approval_id):
-                    raise ControllerError('Idempotency identity substituted')
-                return prior['effect_id']
-            if approval_id is not None:
-                self._approval(db,approval_id,task_id,revision,digest)
-            effect = str(uuid.uuid4()); now = _now()
-            db.execute('INSERT INTO outbox(effect_id,task_id,task_revision,idempotency_key,action_digest,approval_id,state,payload_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?, ?,?,?)',
-                       (effect, task_id, revision, key, digest, approval_id, 'PENDING', payload, now, now))
-            return effect
+        task = self.controller._read(db, task_id)
+        if task['revision'] != revision or task['status'] in ('DONE', 'CANCELLED'):
+            raise ControllerError('Stale or terminal task')
+        prior = db.execute('SELECT * FROM outbox WHERE idempotency_key=?', (key,)).fetchone()
+        if prior:
+            if (prior['task_id'], prior['task_revision'], prior['action_digest'], prior['approval_id']) != (task_id, revision, digest, approval_id):
+                raise ControllerError('Idempotency identity substituted')
+            return prior['effect_id']
+        if approval_id is not None:
+            self._approval(db,approval_id,task_id,revision,digest)
+        effect = str(uuid.uuid4()); now = _now()
+        db.execute('INSERT INTO outbox(effect_id,task_id,task_revision,idempotency_key,action_digest,approval_id,state,payload_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?, ?,?,?)',
+                   (effect, task_id, revision, key, digest, approval_id, 'PENDING', payload, now, now))
+        return effect
 
     @staticmethod
     def _approval(db,approval_id,task_id,revision,digest):
@@ -40,13 +43,16 @@ class Outbox:
 
     def claim(self, effect_id):
         with self.controller._connection(write=True) as db:
-            row = db.execute('SELECT * FROM outbox WHERE effect_id=?', (effect_id,)).fetchone()
-            if not row: raise ControllerError('Unknown effect')
-            task = self.controller._read(db, row['task_id'])
-            if task['revision'] != row['task_revision'] or task['status'] in ('DONE','CANCELLED','BLOCKED','NEEDS_HUMAN_APPROVAL'):
-                raise ControllerError('Task no longer permits dispatch')
-            if row['approval_id'] is not None:self._approval(db,row['approval_id'],row['task_id'],row['task_revision'],row['action_digest'])
-            return db.execute("UPDATE outbox SET state='DISPATCHING',row_version=row_version+1,updated_at=? WHERE effect_id=? AND state='PENDING'", (_now(),effect_id)).rowcount == 1
+            return self._claim(db,effect_id)
+
+    def _claim(self,db,effect_id):
+        row = db.execute('SELECT * FROM outbox WHERE effect_id=?', (effect_id,)).fetchone()
+        if not row: raise ControllerError('Unknown effect')
+        task = self.controller._read(db, row['task_id'])
+        if task['revision'] != row['task_revision'] or task['status'] in ('DONE','CANCELLED','BLOCKED','NEEDS_HUMAN_APPROVAL'):
+            raise ControllerError('Task no longer permits dispatch')
+        if row['approval_id'] is not None:self._approval(db,row['approval_id'],row['task_id'],row['task_revision'],row['action_digest'])
+        return db.execute("UPDATE outbox SET state='DISPATCHING',row_version=row_version+1,updated_at=? WHERE effect_id=? AND state='PENDING'", (_now(),effect_id)).rowcount == 1
 
     def _resolve(self, effect_id, result, success, expected):
         if type(success) is not bool: raise ControllerError('Boolean result required')

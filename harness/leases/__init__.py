@@ -87,16 +87,21 @@ class LeaseManager:
         with self.controller._connection() as db:
             # A read transaction makes lease and task validation one SQLite snapshot.
             db.execute('BEGIN')
-            lease=self._read(db,lease_id)
-            task=self.controller._read(db,task_id)
-            if (lease['task_id'],lease['task_revision'],lease['worker_session_id'],lease['workspace_id'])!=(task_id,revision,session,workspace):
-                raise LeaseError('lease bindings mismatch')
-            if task['status']!='EXECUTING' or task['revision']!=revision or task['repository_id']!=lease['repository_id']:
-                raise LeaseError('stale task/repository binding')
-            if lease['status']!='ACTIVE' or datetime.fromisoformat(lease['expires_at'])<=datetime.now(timezone.utc):
-                raise LeaseError('lease not fresh ACTIVE')
-            # Repository sequence allocation does not invalidate unrelated leases.
-            return lease
+            return self._validate(db,lease_id,task_id,revision,session,workspace)
+
+    def _validate(self,db,lease_id,task_id,revision,session,workspace):
+        for value in (lease_id,task_id,session,workspace):_text(value)
+        if type(revision) is not int:raise LeaseError('invalid revision')
+        lease=self._read(db,lease_id)
+        task=self.controller._read(db,task_id)
+        if (lease['task_id'],lease['task_revision'],lease['worker_session_id'],lease['workspace_id'])!=(task_id,revision,session,workspace):
+            raise LeaseError('lease bindings mismatch')
+        if task['status']!='EXECUTING' or task['revision']!=revision or task['repository_id']!=lease['repository_id']:
+            raise LeaseError('stale task/repository binding')
+        if lease['status']!='ACTIVE' or datetime.fromisoformat(lease['expires_at'])<=datetime.now(timezone.utc):
+            raise LeaseError('lease not fresh ACTIVE')
+        # Repository sequence allocation does not invalidate unrelated leases.
+        return lease
 
     def suspect(self,lease_id):
         with self.controller._connection(write=True) as db:

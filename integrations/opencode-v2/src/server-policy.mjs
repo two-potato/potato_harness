@@ -32,6 +32,19 @@ export function nativeConfig(model,maxOutput,plugin){
 // OpenCode 2.4.1 ModelResolver.withVariant maps exactly 'default' to undefined.
 // https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/model-resolver.ts
 export function isNativeBaseVariant(variant){return variant===undefined||variant==='default';}
+// The local client uses authenticated loopback HTTP (server-process.mjs).
+// Only the upstream model hook sees this request. OpenCode owns routing;
+// no fixed provider URL, endpoint rewrite or custom proxy. These shape checks
+// are NOT independent destination authorization or network containment.
+export function nativeHttpViolation(request){
+ if(!(request instanceof Request))return 'http_request_shape';
+ if(request.method!=='POST')return 'http_method';
+ const url=new URL(request.url);
+ if(url.protocol!=='https:'||url.username||url.password||url.hash)return 'http_destination';
+ const type=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+ if(type!=='application/json'||!request.body||request.bodyUsed)return 'http_payload';
+ return null;
+}
 // Self-contained: the CLI loads this from a private generated directory.
 export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
@@ -97,7 +110,18 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
   }));
   registrations.push(await ctx.session.hook('http.request',e=>{
    if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID)||offline){record('violation:'+(offline?'offline_http':http.has(e.sessionID)?'http_duplicate':'http_scope'));throw Error('HTTP_REQUEST_DENIED');}
+   const failure=nativeHttpViolation(e.request);
+   if(failure){record('violation:'+failure);throw Error('HTTP_REQUEST_DENIED');}
    record('http:'+e.agent);http.add(e.sessionID);
+  }));
+  // Detect a redirect if surfaced by the native transport. This cannot undo
+  // a redirect already followed below the hook; external admission stays closed.
+  registrations.push(await ctx.session.hook('http.response',e=>{
+   if(!allowed(e)||!http.has(e.sessionID)||offline){record('violation:http_response_scope');throw Error('HTTP_RESPONSE_DENIED');}
+   if(!(e.response instanceof Response)){record('violation:http_response_shape');throw Error('HTTP_RESPONSE_DENIED');}
+   if(e.response.redirected||e.response.status>=300&&e.response.status<400){
+    record('violation:http_redirect');throw Error('HTTP_RESPONSE_DENIED');
+   }
   }));
   registrations.push(await ctx.session.hook('experimental.ws.handshake',()=>{record('violation:websocket');throw Error('WEBSOCKET_DENIED');}));
   record('ready');
@@ -109,7 +133,7 @@ export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker,offline});
  const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+auditViolation.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
  const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
- return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
+ return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst nativeHttpViolation='+nativeHttpViolation.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
 }
 // The native CLI can merge duplicate wildcard denies and browser restrictions.
 // Accept only observed deny-only shapes; unknown rules fail closed.
@@ -128,8 +152,13 @@ function verifyDenyPermissions(rules){
 }
 export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutput,plugin){
  const entries=plugins?.data,roster=agents?.data,catalog=models?.data;
- if(!Array.isArray(entries)||!entries.some(p=>p.id===POLICY_ID&&p.state?.status==='active'&&p.source?.type==='local'&&p.source.path===plugin)||
-    entries.some(p=>p.state?.status==='active'&&p.source?.type!=='builtin'&&p.id!==POLICY_ID))return false;
+ if(!Array.isArray(entries))return false;
+ // A matching ID alone cannot establish exclusive policy ownership.
+ const policyEntries=entries.filter(p=>p.id===POLICY_ID);
+ if(policyEntries.length!==1)return false;
+ const policy=policyEntries[0];
+ if(policy.state?.status!=='active'||policy.source?.type!=='local'||policy.source.path!==plugin||
+    entries.some(p=>p!==policy&&p.state?.status==='active'&&p.source?.type!=='builtin'))return false;
  if(!Array.isArray(roster)||roster.length!==ROLES.length||new Set(roster.map(a=>a.id)).size!==ROLES.length||
     !ROLES.every(r=>roster.some(a=>a.id===r)))return false;
  if(!roster.every(a=>a.model?.providerID===ref.providerID&&a.model?.id===ref.id&&a.model.variant===undefined&&

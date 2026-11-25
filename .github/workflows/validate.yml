@@ -19,6 +19,11 @@ jobs:
           .venv/bin/python tools/verify_manifest.py
           .venv/bin/python -m harness.demo --output .runtime/ci-demo
           .venv/bin/python -m harness.halo --output .runtime/ci-halo
+      - name: Require real parallel Bubblewrap workflow E2E (synthetic proposals)
+        env:
+          POTATO_REQUIRE_LIVE_WORKFLOW: '1'
+        run: |
+          .venv/bin/python -m unittest discover -s tests/runtime -p test_integrated_workflow.py -k test_live_parallel_workflow -v
   opencode-v2:
     runs-on: ubuntu-latest
     timeout-minutes: 10

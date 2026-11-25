@@ -15,3 +15,6 @@ Preflight hook must identify real user-turn IDs and finish/reserve before first 
 Acceptance tests: Valera direct read/write/shell/MCP denied; specialist path/network limits enforced; original prompt and injected rules loaded; skill selected and loaded without enlarging tools; duplicate turn no extra reservation; worker restart cannot reuse expired fence; forged CI/approval rejected; changing target commit invalidates gates; no production credentials accessible.
 
 OMO is not installed by the native gateway. If a complete compatible v2 integration is enabled later, reject duplicate orchestrators, tools and hooks until compatibility tests pass. The package cannot establish SDK availability without the target machine.
+
+See [R4.1 compatibility decision](OMO_COMPATIBILITY.md) for the pinned upstream
+source inspection and admission blockers. OMO remains optional and inactive.
