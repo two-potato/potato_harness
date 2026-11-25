@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.4a: add immutable host-configured aggregate workflow token/cost and
+  in-flight reservation/effect limits in the existing SQLite budget gate;
+  stop on unknown effects, test real process contention and fixture dispatch.
+
 - R3.3c: bind the sequential coordinator to the actual bounded task runtime
   using shared SQLite/object store, task-specific identity and dependency
   context. Explicit synthetic worker only, Backend/Frontend, no live admission.

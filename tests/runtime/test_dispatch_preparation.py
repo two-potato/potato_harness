@@ -145,3 +145,81 @@ class DispatchPreparationTests(unittest.TestCase):
         self.assertEqual(payload['context_digest'],'sha256:'+'a'*64)
         self.assertEqual(payload['token_allowance'],10)
         self.assertEqual(payload['cost_allowance_usd'],.1)
+
+    def configure_group(self,**limits):
+        values=dict(workflow_id='workflow',repository_id='repo',user_turn_id='turn',
+                    approved_revisions={'api':0,'ui':0},token_hard=100,cost_usd_hard=1,max_in_flight=2)
+        values.update(limits)
+        self.budget.configure_workflow(**values)
+
+    def test_aggregate_reservation_is_atomic_under_process_contention(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        self.configure_group(token_hard=15)
+        with multiprocessing.get_context('spawn').Pool(2) as pool:
+            results=pool.map(contender,[(str(self.db),api,a),(str(self.db),ui,b)])
+        self.assertEqual(sorted(results),['denied','reserved'])
+        self.assertEqual(self.counts(),(1,1))
+
+    def test_cost_cap_applies_to_direct_and_atomic_reservations(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        self.configure_group(cost_usd_hard=.15)
+        reserve(self.db,api,a)
+        with self.assertRaisesRegex(ControllerError,'aggregate budget'):
+            self.budget.reserve('ui',10,.1,'direct-ui')
+        with self.assertRaisesRegex(ControllerError,'aggregate budget'):
+            reserve(self.db,ui,b)
+        self.assertEqual(self.counts(),(1,1))
+
+    def test_inflight_slot_released_only_after_effect_and_budget_settlement(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        self.configure_group(max_in_flight=1,token_hard=20,cost_usd_hard=.2)
+        first=reserve(self.db,api,a)
+        with self.assertRaisesRegex(ControllerError,'in-flight'):
+            reserve(self.db,ui,b)
+        self.budget.settle(first['attempt_id'],5,.05)
+        with self.assertRaisesRegex(ControllerError,'in-flight'):
+            reserve(self.db,ui,b)
+        Outbox(self.db).finish(first['effect_id'],{'synthetic':True},True)
+        reserve(self.db,ui,b)
+        self.assertEqual(self.counts(),(2,2))
+
+    def test_unknown_effect_stops_other_task_even_after_settlement(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        self.configure_group()
+        first=reserve(self.db,api,a)
+        self.budget.settle(first['attempt_id'],5,.05)
+        Outbox(self.db).mark_unknown(first['effect_id'])
+        with self.assertRaisesRegex(ControllerError,'unknown effects'):
+            reserve(self.db,ui,b)
+        self.assertEqual(self.counts(),(1,1))
+
+    def test_workflow_limit_cannot_be_replaced_or_expanded(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        with self.assertRaises(ControllerError):
+            self.configure_group(approved_revisions={'api':0})
+        with self.assertRaises(ControllerError):
+            self.configure_group(approved_revisions={'api':0,'ui':True})
+        self.configure_group()
+        with self.assertRaises(ControllerError):
+            self.configure_group(token_hard=200)
+        extra,c=self.add_task('extra','qa','extra.py')
+        for task,lease in ((api,a),(extra,c)):
+            with self.assertRaises(ControllerError):
+                reserve(self.db,task,lease)
+        self.assertEqual(self.counts(),(0,0))
+
+    def test_aggregate_gate_rolls_back_with_outbox_claim(self):
+        api,a=self.add_task('api','backend','api.py')
+        ui,b=self.add_task('ui','frontend','ui.py')
+        self.configure_group(max_in_flight=1,token_hard=10)
+        with patch.object(Outbox,'_claim',side_effect=ControllerError('injected failure')):
+            with self.assertRaises(ControllerError):
+                reserve(self.db,api,a)
+        self.assertEqual(self.counts(),(0,0))
+        reserve(self.db,ui,b)
+        self.assertEqual(self.counts(),(1,1))

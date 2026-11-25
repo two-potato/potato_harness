@@ -122,3 +122,16 @@ class IntegratedWorkflowTests(unittest.TestCase):
                 self.run_flow(**change)
         self.assertEqual(self.calls,[])
         self.assertEqual(list(self.spaces.iterdir()),[])
+
+    def test_shared_workflow_budget_stops_second_task_before_worker(self):
+        self.budget.configure_workflow(workflow_id='flow',repository_id=self.args['repository_id'],
+                user_turn_id='turn',approved_revisions={'api':0,'ui':0},
+                token_hard=100000,cost_usd_hard=2,max_in_flight=1)
+        result=self.run_flow()
+        self.assertEqual(result['status'],'HOLD')
+        self.assertEqual(result['completed'],['api'])
+        self.assertEqual(self.calls,['backend'])
+        self.assertEqual(self.c.get_task('ui')['status'],'BLOCKED')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],1)
+            self.assertEqual(db.execute('SELECT count(*) FROM outbox').fetchone()[0],1)

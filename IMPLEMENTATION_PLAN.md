@@ -175,3 +175,19 @@ Bubblewrap remains the default; tests inject sandbox/worker seams. Evidence
 collection is local deterministic host evidence, not independent QA. Workflow
 outputs remain separate commits with context-only dependency transfer; no
 aggregate budget, recovery/resume or automatic merge is claimed.
+
+## R3.4a — aggregate workflow reservation limits
+
+The existing Budget ledger can be configured by the trusted host before
+first dispatch with an immutable workflow/repository/turn and exact approved
+member revisions, total token/cost ceilings and maximum in-flight provider
+reservations/effects. The same SQLite write transaction checks the aggregate
+and per-task budget before registering a reservation and claiming Outbox.
+Unknown outcomes block new workflow reservations, and a slot is retained
+until both its reservation and effect are reconciled. This is not a cap on
+OS worker lifetime or an upstream wire/billing guarantee. Existing workflows
+without explicit aggregate configuration retain their previous behavior.
+The fixture runtime exercises the configured gate, including stopping the
+second task before its synthetic worker. Process contention tests cover
+atomicity. Actual parallel execution, workflow wall time and mandatory
+aggregate configuration for a future parallel profile remain open.
