@@ -10,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Validate contracts, controller and package
+        env:
+          POTATO_REQUIRE_LIVE_WORKFLOW: "1"
         run: |
           python3 -m venv .venv
           .venv/bin/python -m pip install -r requirements-validation.txt

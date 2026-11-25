@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.4d: admit default real Bubblewrap in parallel synthetic workflows, reject
+  mixed sandbox bindings and require an integrated concurrent live test in CI.
+  No live model admission or automatic merge.
+
 - R3.4c: replace Bubblewrap preexec_fn with a fresh isolated resource-limit
   helper that execs only the fixed Bubblewrap binary; preserve stricter
   inherited limits and reap interrupted launches. Add concurrent live test.

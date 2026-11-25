@@ -32,10 +32,12 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
         raise ControllerError('Explicit fixture worker and task test commands required')
     if type(max_parallel) is not int or not 1<=max_parallel<=8:
         raise ControllerError('Workflow width must be an integer from 1 to 8')
-    if max_parallel>1 and (not callable(sandbox_probe) or not callable(sandbox_run)):
-        # Current Bubblewrap launch uses preexec_fn, unsafe in threaded hosts.
-        # No parallel production sandbox binding until the launcher is replaced.
-        raise ControllerError('Parallel fixture requires explicit synthetic sandbox seams')
+    if max_parallel>1:
+        # R3.4c removed fork-time callbacks. Use the vetted real backend by
+        # default, or an explicit pair of trusted test seams; never mix them.
+        real=sandbox_probe is None and sandbox_run is None
+        if not real and (not callable(sandbox_probe) or not callable(sandbox_run)):
+            raise ControllerError('Parallel fixture requires real Bubblewrap or a complete sandbox seam pair')
     database=Path(database).resolve(strict=True)
     root=Path(workspace_root).absolute()
     store=Path(object_store).absolute()
