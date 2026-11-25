@@ -36,6 +36,11 @@ def integrate_workflow(database,*,workflow_id,output_root,test_argv,collector,tr
             binding,outputs,run,active,completed,tasks=read_binding(c,db,workflow_id)
             if run['status']!='DONE' or active or set(completed)!=set(tasks):
                 raise ControllerError('Integration requires fully accepted workflow')
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='budget_reservations'").fetchone():
+                for key in tasks:
+                    if db.execute('SELECT 1 FROM budget_reservations JOIN budgets USING(budget_id) '
+                                  'WHERE task_id=? AND settlement IS NULL',(key,)).fetchone():
+                        raise ControllerError('Integration requires reconciled budget reservations')
         bases={task['base_commit']['value'] for task in tasks.values()}
         if len(bases)!=1:
             raise ControllerError('Integration requires one common pinned base')

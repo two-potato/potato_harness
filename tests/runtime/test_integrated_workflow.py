@@ -24,7 +24,7 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.repo.mkdir()
         _git(self.repo,'init')
         from harness.scheduler import SPECIALISTS
-        roster=[(role,role,[]) for role in sorted(SPECIALISTS)] if team else [
+        roster=[('fixture_'+role,role,[]) for role in sorted(SPECIALISTS)] if team else [
             ('api','backend',[]),('ui','frontend',[] if independent else ['api'])]
         for key,_,_ in roster:
             (self.repo/(key+'.py')).write_text('value = 1\n')
@@ -116,20 +116,20 @@ class IntegratedWorkflowTests(unittest.TestCase):
             self.assertIn(role,SPECIALISTS)
             self.assertEqual(command,['/usr/bin/false'])
             self.assertEqual(request['model'],'fixture/workflow')
-            self.assertEqual(request['coordination']['scope'],[role+'.py'])
+            self.assertEqual(request['coordination']['scope'],['fixture_'+role+'.py'])
             with lock:
                 self.calls.append(role)
-            return {'edits':[{'path':role+'.py','content':'value = 2\n'}],
+            return {'edits':[{'path':'fixture_'+role+'.py','content':'value = 2\n'}],
                     'summary':'synthetic role fixture',
                     'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
         result=self.run_flow(max_parallel=2,worker=worker)
         self.assertEqual(result['status'],'DONE',result)
-        self.assertEqual(set(result['completed']),SPECIALISTS)
+        self.assertEqual(set(result['completed']),{'fixture_'+role for role in SPECIALISTS})
         self.assertEqual(len(self.calls),8)
         self.assertEqual(set(self.calls),SPECIALISTS)
         self.assertEqual(result['provider_mode'],'synthetic')
         for role in SPECIALISTS:
-            self.assertEqual((self.repo/(role+'.py')).read_text(),'value = 1\n')
+            self.assertEqual((self.repo/('fixture_'+role+'.py')).read_text(),'value = 1\n')
         with sqlite3.connect(self.db) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],24)
             self.assertEqual(db.execute("SELECT count(*) FROM outbox WHERE state='SUCCEEDED'").fetchone()[0],8)
@@ -168,6 +168,44 @@ class IntegratedWorkflowTests(unittest.TestCase):
             return self.worker(*args)
         result=self.run_flow(worker=worker)
         self.assertEqual(result['status'],'DONE',result)
+
+    def test_overlapping_completed_outputs_are_not_integrated(self):
+        from harness.runtime.workflow_lifecycle import fixture_evidence_collector
+        from harness.runtime.workflow_integration import integrate_workflow
+        self.prepare(overlap=True)
+        def worker(request,command,timeout):
+            return {'edits':[{'path':'api.py','content':'value = 2\n'}],
+                    'summary':'overlapping fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        self.assertEqual(self.run_flow(worker=worker)['status'],'DONE')
+        collector=fixture_evidence_collector(self.db,workflow_id='flow')
+        root=self.root/'integrated'
+        root.mkdir(mode=0o700)
+        with self.assertRaisesRegex(ControllerError,'Conflicting workflow output'):
+            integrate_workflow(self.db,workflow_id='flow',output_root=root,
+                test_argv=['/usr/bin/true'],collector=collector,
+                trusted_issuers=frozenset({'trial-host'}))
+        self.assertEqual(list(root.iterdir()),[])
+        self.assertEqual(_git(self.repo,'rev-parse','HEAD'),self.base)
+
+    def test_local_fixture_evidence_reopens_accepted_host_artifacts(self):
+        from harness.runtime.workflow_lifecycle import fixture_evidence_collector
+        from harness.runtime.workflow_integration import integrate_workflow
+        from harness.verifier import digest_bytes
+        self.assertEqual(self.run_flow()['status'],'DONE')
+        collector=fixture_evidence_collector(self.db,workflow_id='flow')
+        evidence=collector('host:api:relevant_checks')
+        self.assertEqual(digest_bytes(evidence.artifact),evidence.record['artifact_digest'])
+        state=next(p for p in self.spaces.iterdir() if json.loads((p/'binding.json').read_text())['task_id']=='api')
+        artifact=state/'relevant_checks.artifact'
+        artifact.write_bytes(b'changed')
+        root=self.root/'integrated'
+        root.mkdir(mode=0o700)
+        with self.assertRaises(ControllerError):
+            integrate_workflow(self.db,workflow_id='flow',output_root=root,
+                test_argv=['/usr/bin/true'],collector=collector,
+                trusted_issuers=frozenset({'trial-host'}))
+        self.assertEqual(list(root.iterdir()),[])
 
     def test_uncertain_first_worker_stops_second(self):
         def interrupted(*args):

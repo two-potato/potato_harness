@@ -225,6 +225,34 @@ class SequentialTests(unittest.TestCase):
         with self.assertRaises(ControllerError):
             integrate_workflow(self.db,**args)
 
+    def test_integration_failed_test_is_hold_and_not_replayed(self):
+        import os
+        from harness.isolation.backend import BubblewrapBackend
+        from harness.runtime.workflow_integration import integrate_workflow
+        probe=BubblewrapBackend().probe()
+        if not probe['available']:
+            if os.environ.get('POTATO_REQUIRE_LIVE_WORKFLOW')=='1':
+                self.fail('Required live Bubblewrap unavailable: '+probe['reason'])
+            self.skipTest('Live Bubblewrap unavailable: '+probe['reason'])
+        self.assertEqual(self.run_flow()['status'],'DONE')
+        root=self.root/'integrated'
+        root.mkdir(mode=0o700)
+        args=dict(workflow_id='flow',output_root=root,test_argv=['/usr/bin/false'],
+            collector=self.attestations.__getitem__,trusted_issuers=frozenset({'fixture-host'}))
+        result=integrate_workflow(self.db,**args)
+        self.assertEqual(result['status'],'HOLD',result)
+        self.assertFalse(result['merged'])
+        self.assertEqual(_git(self.repo,'rev-parse','HEAD'),self.base)
+        self.assertEqual(_git(root/'integration-repo','rev-parse','HEAD'),self.base)
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT status FROM workflow_integrations').fetchone()[0],'HOLD')
+        other=self.root/'second-integration'
+        other.mkdir(mode=0o700)
+        args['output_root']=other
+        with self.assertRaises(ControllerError):
+            integrate_workflow(self.db,**args)
+        self.assertEqual(list(other.iterdir()),[])
+
     def test_integration_rejects_revoked_evidence_before_writes(self):
         from harness.runtime.workflow_integration import integrate_workflow
         self.assertEqual(self.run_flow()['status'],'DONE')

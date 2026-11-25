@@ -286,3 +286,22 @@ host acceptance. QA/security fixture execution is not independent QA or
 security evidence. No live provider, new model permissions or general
 MEDIUM/HIGH execution. Role-specific live proposal/review contracts and
 independent acceptance remain R5/activation gates.
+
+### R4 host API (local fixture profile)
+
+For a fresh database and trusted host-approved DAG use the existing
+`run_fixture_workflow` API. Inspect an interrupted workflow without dispatch
+using `recover_workflow(database, workflow_id=...)` from
+`harness.runtime.workflow_lifecycle`. Optionally provide a trusted evidence
+collector to reverify previously accepted outputs; local synthetic artifacts
+can be reopened using `fixture_evidence_collector(database, workflow_id=...)`
+and issuer `frozenset({'trial-host'})`. This collector is not an independent
+review service. Legacy workflows without persisted bindings require manual
+inspection. Do not run old/uncooperative processes during recovery.
+
+For a fully accepted workflow, use `integrate_workflow` from
+`harness.runtime.workflow_integration` with the exact workflow ID, a new empty
+private output directory outside the source/workspace/object directories,
+host-approved absolute test argv, collector, trusted issuers and explicit
+bounded timeout. The returned candidate is not merged. Inspect the commit
+and integration test artifact before any separately authorized publication.

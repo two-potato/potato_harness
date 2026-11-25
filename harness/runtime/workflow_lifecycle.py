@@ -8,6 +8,7 @@ from pathlib import Path
 import stat
 
 from harness.controller import Controller, ControllerError, _json
+from harness.verifier import TrustedEvidence
 
 
 @contextmanager
@@ -129,3 +130,58 @@ def recover_workflow(database,*,workflow_id,collector=None,trusted_issuers=None)
                     reports[key]['output_check']='HOLD'
         return {'status':'HOLD','reason':'RECOVERY_REQUIRES_RECONCILIATION','workflow_id':workflow_id,
                 'active_tasks':active,'completed':completed,'tasks':reports,'automatic_replay':False}
+
+
+def fixture_evidence_collector(database,*,workflow_id):
+    """Resolve local synthetic host attestations after a restart.
+
+    Only accepted task receipts in the trusted private layout are eligible.
+    This is not an independent or cryptographically authenticated issuer.
+    Production callers must supply a separately trusted resolver.
+    """
+    c=Controller(database)
+    with c._connection() as db:
+        db.execute('BEGIN')
+        binding,outputs,_,_,_,_=read_binding(c,db,workflow_id)
+    root=Path(binding['workspace_root'])
+    checks=('relevant_checks','basic_review','acceptance_coverage')
+    locations={}
+    for key,receipt in outputs.items():
+        state=Path(receipt['repo']).parent
+        if (state.parent!=root or Path(receipt['repo']).name!='integration-repo' or
+                state.resolve(strict=True)!=state or state.stat().st_uid!=os.getuid() or
+                state.stat().st_mode & 0o077):
+            raise ControllerError('Invalid private fixture attestation location')
+        for check in checks:
+            ref='host:'+key+':'+check
+            if ref in locations:
+                raise ControllerError('Ambiguous local attestation reference')
+            locations[ref]=(state,key,check)
+
+    def read_private(state,name):
+        if state.resolve(strict=True)!=state:
+            raise ControllerError('Fixture attestation path changed')
+        directory=os.open(state,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+        try:
+            fd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
+            with os.fdopen(fd,'rb') as stream:
+                info=os.fstat(stream.fileno())
+                if (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+                        info.st_uid!=os.getuid() or info.st_mode & 0o022 or info.st_size>4*1024*1024):
+                    raise ControllerError('Unsafe fixture attestation file')
+                data=stream.read(4*1024*1024+1)
+                if len(data)>4*1024*1024:
+                    raise ControllerError('Oversized fixture attestation')
+                return data
+        finally:
+            os.close(directory)
+
+    def collect(reference):
+        state,key,check=locations[reference]
+        records=json.loads(read_private(state,'evidence.json'))
+        matches=[r for r in records if r.get('attestation_ref')==reference]
+        if (len(matches)!=1 or matches[0]['task_id']!=key or
+                matches[0]['check_id']!=check or matches[0]['issuer_id']!='trial-host'):
+            raise ControllerError('Invalid local fixture attestation binding')
+        return TrustedEvidence(matches[0],read_private(state,check+'.artifact'))
+    return collect
