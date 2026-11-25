@@ -89,6 +89,21 @@ export function pluginSource(config,ref,maxOutput,worker){
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker});
  return 'const isFreeModel='+isFreeModel.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel});\n';
 }
+// The native CLI can merge duplicate wildcard denies and browser restrictions.
+// Accept only observed deny-only shapes; unknown rules fail closed.
+function verifyDenyPermissions(rules){
+ if(!Array.isArray(rules)||rules.length===0)return false;
+ let wildcard=false;
+ for(const r of rules){
+  if(!r||typeof r!=='object'||Array.isArray(r)||
+     Object.keys(r).sort().join(',')!=='action,effect,resource'||r.effect!=='deny')return false;
+  if(r.action==='*'&&r.resource==='*'){wildcard=true;continue;}
+  if(r.action==='browser'&&r.resource==='*')continue;
+  if(r.action==='skill'&&r.resource==='browser')continue;
+  return false;
+ }
+ return wildcard;
+}
 export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutput,plugin){
  const entries=plugins?.data,roster=agents?.data,catalog=models?.data;
  if(!Array.isArray(entries)||!entries.some(p=>p.id===POLICY_ID&&p.state?.status==='active'&&p.source?.type==='local'&&p.source.path===plugin)||
@@ -97,8 +112,7 @@ export function verifyServerSnapshot({plugins,agents,models},config,ref,maxOutpu
     !ROLES.every(r=>roster.some(a=>a.id===r)))return false;
  if(!roster.every(a=>a.model?.providerID===ref.providerID&&a.model?.id===ref.id&&a.model.variant===undefined&&
     a.steps===1&&a.mode===config.agents[a.id].mode&&a.system===config.agents[a.id].system&&
-    Array.isArray(a.permissions)&&a.permissions.length===1&&a.permissions[0].action==='*'&&
-    a.permissions[0].resource==='*'&&a.permissions[0].effect==='deny'))return false;
+    verifyDenyPermissions(a.permissions)))return false;
  const active=Array.isArray(catalog)?catalog.filter(m=>m.enabled):[];
  return active.length===1&&isFreeModel(active[0],ref)&&active[0].limit.output<=maxOutput&&
   active[0].capabilities?.tools===false&&Array.isArray(active[0].variants)&&active[0].variants.length===0;

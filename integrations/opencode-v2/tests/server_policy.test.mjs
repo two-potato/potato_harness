@@ -23,6 +23,35 @@ test('admit only exact active local policy, deny-only roster and free catalog',a
  const s=snapshot();s.plugins.data=[];
  await assert.rejects(awaitServerPolicy({client:{plugin:{list:async()=>s.plugins},agent:{list:async()=>s.agents},model:{list:async()=>s.models}},directory:'/tmp',config,ref,plugin,maxOutput:cap},{now:()=>t,pause:async()=>{t+=10},timeout:30}),/NOT_READY/);
 });
+test('native CLI merged deny rules are admitted for all nine roles',()=>{
+ const deny={action:'*',resource:'*',effect:'deny'};
+ const browser={action:'browser',resource:'*',effect:'deny'};
+ const skill={action:'skill',resource:'browser',effect:'deny'};
+ for(const rules of [[deny,deny,deny,browser,skill],[skill,browser,deny],[deny,deny],[deny]]){
+  const s=snapshot();
+  for(const a of s.agents.data)a.permissions=structuredClone(rules);
+  assert.equal(verifyServerSnapshot(s,config,ref,cap,plugin),true);
+ }
+});
+test('merged permissions fail closed for missing wildcard, non-deny or unknown rules',()=>{
+ const deny={action:'*',resource:'*',effect:'deny'};
+ const browser={action:'browser',resource:'*',effect:'deny'};
+ const skill={action:'skill',resource:'browser',effect:'deny'};
+ const invalid=[null,undefined,{},[],[browser,skill],[null],[deny,null],
+  [deny,{action:'*',effect:'deny'}],[deny,{...deny,unexpected:true}],
+  [deny,{...deny,resource:123}],[deny,{...deny,action:''}],
+  [deny,,deny],[deny,{action:'unknown',resource:'*',effect:'deny'}],
+  [deny,{...skill,resource:'shell'}],[deny,{...browser,resource:'specific'}]];
+ for(const effect of ['allow','ask','unknown']){
+  for(const rule of [deny,browser,skill]){
+   invalid.push([{...rule,effect},deny],[deny,{...rule,effect}]);
+  }
+ }
+ for(const rules of invalid){
+  const s=snapshot();s.agents.data[ROLES.length-1].permissions=rules;
+  assert.equal(verifyServerSnapshot(s,config,ref,cap,plugin),false);
+ }
+});
 test('generated policy is self-contained and denies tools, retries, extra calls and wrong model',async()=>{
  const source=pluginSource(config,ref,cap,'backend');
  const imported=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));

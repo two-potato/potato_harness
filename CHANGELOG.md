@@ -2,6 +2,11 @@
 
 ## Unreleased — local-first readiness
 
+- Fix native CLI preflight rejection of the observed OpenCode 2.4.1 merged
+  deny-only agent permissions. Preserve wildcard denial and reject unknown
+  shapes and non-deny effects; add positive and negative snapshot tests.
+  Real-model inference remains disabled pending separate validation.
+
 - Add an isolated official OpenCode 2.4.1 CLI server preflight, pinned native
   client, explicit zero-price catalog admission, private plugin and no-prompt
   policy validation. No Console key or identity override. Server inference

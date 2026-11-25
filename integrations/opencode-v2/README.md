@@ -87,7 +87,10 @@ integrations/opencode-v2/node_modules/.bin/bun \
 
 The probe checks the exact CLI/server version, active private plugin, all
 nine deny-only roles, a single enabled native model with explicit zero input,
-output and cache prices, disabled tools and bounded output. It never submits
+output and cache prices, disabled tools and bounded output. Agent permissions
+must include a wildcard deny; duplicate wildcard denies and the observed
+browser/skill-browser denies are accepted, but unknown shapes or any non-deny
+rule are rejected. It never submits
 a prompt. The plugin contains candidate guards against duplicate dispatch,
 auxiliary generation and retries; unit tests exercise these hooks, but
 their actual CLI execution must be validated before enabling inference.
