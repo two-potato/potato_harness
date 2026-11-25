@@ -11,6 +11,7 @@ test('v2 is explicitly fixture-only; all nine roles preserved; deny by default',
  assert.equal(Object.keys(c.agents).length,9);
  assert.equal(c.default_agent,'valera-ceo');
  assert.equal(c.automations,false);assert.equal(c.compaction.auto,false);
+ assert.deepEqual(c.plugins,['-opencode.provider.ollama','-opencode.provider.lmstudio','-opencode.provider.vllm']);
  assert.ok(Object.values(c.agents).every(a=>a.steps===1&&a.permissions[0].effect==='deny'));
 });
 const assistant=(role,value,extra={})=>({type:'assistant',agent:role,model:{providerID:'fixture',id:'test'},finish:'stop',time:{completed:1},content:[{type:'text',text:JSON.stringify(value)}],tokens:{input:10,output:5,reasoning:1,cache:{read:2,write:0}},cost:0,...extra});

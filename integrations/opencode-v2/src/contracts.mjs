@@ -23,6 +23,8 @@ export function candidateConfig(maxOutput){
  }]));
  return {model:FIXTURE_MODEL,default_agent:'valera-ceo',update:'disable',share:'disabled',
   automations:false,snapshots:false,formatter:false,lsp:false,warming:false,
+  // v2 starts these discovery plugins even without a configured local model.
+  plugins:['-opencode.provider.ollama','-opencode.provider.lmstudio','-opencode.provider.vllm'],
   compaction:{auto:false,background:false},permissions:deny(),agents,
   providers:{fixture:{name:'Potato fixture',package:'@opencode/ai/providers/openai-compatible',
    settings:{baseURL:'https://potato-fixture.invalid/v1',apiKey:'fixture-only'},

@@ -53,3 +53,8 @@ unknown effects from previous trials; do not replay them.
 Upstream OMO 5.1.83 (November 24) still has the same v2 placeholder.
 The initial CI failed closed on asynchronous plugin activation; the candidate
 now waits at most ten seconds for a complete deny-only roster before dispatch.
+
+The locked SDK smoke initially observed a denied startup request to 127.0.0.1.
+Upstream v2 local provider plugins probe Ollama, LM Studio and vLLM by default.
+The candidate explicitly removes these three discovery plugins using documented
+negative plugin directives. All non-fixture HTTP traffic remains blocked.
