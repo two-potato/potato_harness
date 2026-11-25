@@ -317,3 +317,13 @@ runner is an injected test candidate, not live admission. No reconciliation
 authority or billing/egress guarantee is added. Actual provider reconciliation,
 independent review, egress/budget enforcement and explicit scoped authorization
 remain activation gates. No runtime provider profile is enabled.
+
+## R5.1f — local historical reconciliation dossier
+
+Read an explicitly selected historical trial without replay or migration.
+Report fixed local effect states, whether a provider operation identifier
+was recorded, normalized UTC timestamps, and sanitized gateway failure
+categories. SQLite is opened read-only in a bounded transaction; run/gateway
+metadata is advisory. Stop old processes first. The report does not establish
+provider delivery or billing, authorize a retry, or clear the native ledger.
+Missing identifiers/history remain unknown. No additional live admission.
