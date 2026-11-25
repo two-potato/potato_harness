@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R4.2–R4.4: durable workflow bindings, conservative interrupted-work recovery,
+  tested private Git integration candidates and bounded synthetic execution
+  for all eight specialist owners. No automatic replay or live activation.
+
 - R4.1: shared monotonic workflow deadline, bounded per-stage allowances,
   durable expiry marker and fail-closed late-batch handling; no automatic
   replay or forcible trusted callback termination.

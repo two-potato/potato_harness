@@ -251,3 +251,57 @@ No hard thread cancellation, bound on blocking host IO/cleanup, or automatic
 recovery is claimed. Already-persisted side effects are not rolled back.
 R4.2 must reconcile persisted tasks, reservations, effects and leases before
 any recovery decision. No live inference or new provider admission.
+
+## R4.2 — conservative recovery
+
+New workflows persist their exact membership, private paths and accepted
+output receipts alongside the active batch. A single-host advisory flock
+on the existing database inode serializes cooperating coordinators, recovery
+and integration. Recovery atomically sets interrupted DISPATCHING effects
+and in-flight Jev attempts UNKNOWN, marks ACTIVE leases SUSPECT and records
+HOLD; reservations, task status and late DONE remain untouched. The recovery
+report enumerates exact task ledgers and optionally re-verifies accepted
+outputs with a host evidence resolver. No lease release, automatic retry,
+resume, promotion or legacy migration. Stop legacy/uncooperative workers
+before operator reconciliation. Test includes a real process exit after
+dispatch reservation and recovery idempotence.
+
+## R4.3 — tested private integration candidate
+
+Explicit host API integrates a fully accepted workflow at one common clean
+Git base. Re-check task evidence, publication bytes and Git commits; reject
+overlap, mode changes, unexpected paths and different parents. Compose raw
+tracked files in a fresh private layout, run configured tests in real
+Bubblewrap, reject input modification, and record a private candidate
+commit and test digest. Durable integration attempt prevents replay.
+No automatic merge, push, source checkout modification or deployment.
+
+## R4.4 — eight-role bounded synthetic team
+
+Reuse the existing scheduler, role context, task runtime and aggregate
+budget for all eight host-approved specialist owners. Preserve Valera's
+control-only boundary and original role prompts. This profile is still
+LOW/BOUNDED, synthetic proposals, existing-file scope and deterministic
+host acceptance. QA/security fixture execution is not independent QA or
+security evidence. No live provider, new model permissions or general
+MEDIUM/HIGH execution. Role-specific live proposal/review contracts and
+independent acceptance remain R5/activation gates.
+
+### R4 host API (local fixture profile)
+
+For a fresh database and trusted host-approved DAG use the existing
+`run_fixture_workflow` API. Inspect an interrupted workflow without dispatch
+using `recover_workflow(database, workflow_id=...)` from
+`harness.runtime.workflow_lifecycle`. Optionally provide a trusted evidence
+collector to reverify previously accepted outputs; local synthetic artifacts
+can be reopened using `fixture_evidence_collector(database, workflow_id=...)`
+and issuer `frozenset({'trial-host'})`. This collector is not an independent
+review service. Legacy workflows without persisted bindings require manual
+inspection. Do not run old/uncooperative processes during recovery.
+
+For a fully accepted workflow, use `integrate_workflow` from
+`harness.runtime.workflow_integration` with the exact workflow ID, a new empty
+private output directory outside the source/workspace/object directories,
+host-approved absolute test argv, collector, trusted issuers and explicit
+bounded timeout. The returned candidate is not merged. Inspect the commit
+and integration test artifact before any separately authorized publication.

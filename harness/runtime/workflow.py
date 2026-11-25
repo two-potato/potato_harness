@@ -3,17 +3,19 @@
 This is not a provider adapter or CLI. The executor must own grants, leases,
 budget, isolation, publication and state transitions. No model or task data
 may supply the executor, collector or trust roots. A workflow starts once;
-crash recovery and automatic replay are deliberately not implemented.
+recovery is conservative and never automatically replays a task.
 """
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 from time import monotonic
 
 from harness.controller import Controller, ControllerError, _json
 from harness.leases import _overlap
 from harness.runtime.handoff import dependency_segments, verify_task_outputs
+from harness.runtime.workflow_lifecycle import workflow_lock
 from harness.runtime.workspace import prepare_task_workspace, repository_identity
 from harness.scheduler import Scheduler
 
@@ -39,14 +41,16 @@ class WorkflowDeadline:
 
 
 def run_sequential_workflow(database, **bindings):
-    return _run_workflow(database,max_parallel=1,**bindings)
+    with workflow_lock(database):
+        return _run_workflow(database,max_parallel=1,**bindings)
 
 
 def run_parallel_workflow(database, *, max_parallel, **bindings):
     """Bounded batch execution for trusted thread-safe synthetic callbacks."""
     if type(max_parallel) is not int or not 2<=max_parallel<=8:
         raise ControllerError('Parallel width must be an integer from 2 to 8')
-    return _run_workflow(database,max_parallel=max_parallel,**bindings)
+    with workflow_lock(database):
+        return _run_workflow(database,max_parallel=max_parallel,**bindings)
 
 
 def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
@@ -116,6 +120,15 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
                    "limit_s REAL NOT NULL,started_utc TEXT NOT NULL,expired INTEGER NOT NULL CHECK(expired IN (0,1)))")
         db.execute('INSERT INTO workflow_deadlines VALUES(?,?,?,0)',
                    (workflow_id,deadline.seconds,deadline.started_utc))
+        db.execute("CREATE TABLE IF NOT EXISTS workflow_bindings("
+                   "workflow_id TEXT PRIMARY KEY REFERENCES sequential_workflows(workflow_id),"
+                   "binding_json TEXT NOT NULL CHECK(json_valid(binding_json)),"
+                   "outputs_json TEXT NOT NULL CHECK(json_valid(outputs_json)))")
+        binding={'repository_id':repository_id,'user_turn_id':user_turn_id,
+                 'members':initial,'paths':paths,'source_repo':str(Path(repo).resolve(strict=True)),
+                 'workspace_root':str(Path(workspace_root).absolute()),
+                 'object_store':str(Path(object_store).absolute())}
+        db.execute('INSERT INTO workflow_bindings VALUES(?,?,?)',(workflow_id,_json(binding),'{}'))
 
     active=[]
     def save(status):
@@ -130,6 +143,8 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
                        (status,first,_json(list(completed)),workflow_id))
             db.execute('UPDATE workflow_active_batches SET active_json=? WHERE workflow_id=?',
                        (_json(active),workflow_id))
+            db.execute('UPDATE workflow_bindings SET outputs_json=? WHERE workflow_id=?',
+                       (_json(completed),workflow_id))
         return {'status':status,'active_task':first,'active_tasks':list(active),'completed':list(completed),**({'reason':'WORKFLOW_DEADLINE'} if expired else {})}
 
     def check_output(task_id):
@@ -183,7 +198,8 @@ def _run_workflow(database, *, dag, workflow_id, user_turn_id, repository_id,
             expected_artifacts=result,collector=collector,trusted_issuers=trusted_issuers)
         deadline.remaining()
         revisions[key]=after['revision']
-        completed[key]={'repo':layout['integration_repo'],'artifacts':deepcopy(result)}
+        completed[key]={'repo':layout['integration_repo'],'artifacts':deepcopy(result),
+                        'revision':after['revision'],'commit':after['target_commit']['value']}
 
     try:
         while len(completed)<len(initial):

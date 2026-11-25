@@ -22,7 +22,7 @@ from harness.runtime.dispatch import reserve_provider_dispatch
 from harness.runtime.workspace import MAX_BYTES,_git,prepare_workspace,repository_identity
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
-from harness.scheduler import Scheduler
+from harness.scheduler import Scheduler, SPECIALISTS
 from harness.isolation.backend import BubblewrapBackend
 from harness.jev import Jev
 from harness.leases import LeaseManager
@@ -246,7 +246,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
     guard=_Guard();controller=Controller(database,guard=guard);task=controller.get_task(run['task_id'])
     role=task['owner']
     if workflow_binding is not None:
-        if (task!=workflow_binding['task'] or task['status']!='PLANNED' or role not in ('backend','frontend') or
+        if (task!=workflow_binding['task'] or task['status']!='PLANNED' or role not in SPECIALISTS or
                 config['model']!='fixture/workflow' or config.get('worker_command')!=['/usr/bin/false'] or
                 'adapter' in config or config.get('jev_provider') or config.get('completion_jev') or
                 run.get('provider_mode')!='synthetic'):
