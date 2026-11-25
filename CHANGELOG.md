@@ -2,6 +2,32 @@
 
 ## Unreleased — local-first readiness
 
+- Match native OpenCode 2.4.1's exact `default` variant sentinel in request
+  hooks and response validation, while preserving model identity, empty
+  variant catalog and deny-by-default rules. Reproduce the sentinel in
+  positive/negative regression tests; no change to runtime admission.
+
+- Separate native model resolution rejection into exact fixed field/variant
+  categories without admitting alternate references. Add regression coverage
+  and document the isolated ordinary-user probe on privileged Ubuntu hosts.
+
+- Add a branch-only hosted Linux fallback for the offline CLI diagnostic
+  on namespace-restricted operator hosts. Verify the release digest and
+  require loopback-only isolation before any synthetic prompt.
+
+- Add fixed first-denial hook reasons, sanitized idle errors and a separate
+  network-isolated pre-dispatch diagnostic. Deny offline model/HTTP dispatch;
+  never replay an unknown provider outcome or enable runtime admission.
+
+- Distinguish native inference response checkpoints and report sanitized
+  response shape and final hook audit on HOLD without changing admission.
+  Keep unknown external outcomes and preserve the original failure on cleanup.
+
+- Add an opt-in native free inference candidate with two synthetic role
+  sessions, ordered deny-by-default hook audit, strict reported usage and
+  bounded transcript validation. No runtime wiring, external CI requests or
+  claimed live inference. Independent review and manual trial required.
+
 - Fix native CLI preflight rejection of the observed OpenCode 2.4.1 merged
   deny-only agent permissions. Preserve wildcard denial and reject unknown
   shapes and non-deny effects; add positive and negative snapshot tests.

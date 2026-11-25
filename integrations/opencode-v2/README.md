@@ -97,3 +97,85 @@ their actual CLI execution must be validated before enabling inference.
 The preflight path is not yet a runtime profile and does not replace the
 existing fixture/default config. Do not run the Console profile as part
 of this migration. Full runtime wiring and real-model validation are separate.
+
+## Native free inference R1 candidate (manual, not runtime)
+
+After the preflight PASS, independent review and explicit authorization for
+external inference, run from the repository root:
+
+```sh
+integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-inference-probe.mjs \
+  opencode/<available-free-model> --confirm-external-inference
+```
+
+One private server, two separate sessions, fixed inert synthetic proposal only.
+No project files or model output are published. A strict policy audit allows
+one model-request hook and one HTTP-request hook per role, in order, with no
+retry, permission attempt, unexpected dispatch or WebSocket. The audit records
+fixed local event labels and is deleted on cleanup. PASS requires validated
+assignment, exact synthetic edit, complete bounded transcripts and explicit
+zero reported cost with positive bounded token counts (1024 output per stage).
+Hook counts are not independently measured network traffic; zero reported cost
+is not a provider billing guarantee. HOLD after dispatch means an unknown
+external outcome; do not retry automatically or reset provider state.
+The probe is not installed/run by CI, does not enable the runtime profile, and
+is not production or sandbox certification. No real inference is claimed until
+an operator supplies evidence from the manual trial.
+
+On HOLD, the report includes a fixed failure checkpoint, a sanitized response
+shape (counts and boolean/enum checks only), final hook audit counts, and
+cleanup status. It never prints model text, raw provider errors, session IDs
+or credentials. These diagnostics do not establish provider delivery or billing
+and do not authorize replay of a prior unknown attempt. Reconcile the prior
+outcome separately before any newly authorized manual trial.
+
+### Offline pre-dispatch diagnostic
+
+If the live report has no assistant and no admitted model/HTTP hooks, use the
+separate diagnostic below rather than replaying an unknown provider attempt.
+Linux user/network namespaces and iproute2 are required. No host sysctl changes,
+no network fallback; an unavailable namespace or uncached catalog is a HOLD.
+Run from the repository root:
+
+```sh
+POTATO_OUTER_NETNS="$(readlink /proc/self/ns/net)" \
+  unshare --user --map-root-user --net -- sh -c \
+  'ip link set lo up && exec "$@"' sh \
+  integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-offline-probe.mjs opencode/beam-free
+```
+
+The runner verifies a distinct network namespace with only loopback, then
+creates one local synthetic session. The plugin additionally denies the model
+request before its HTTP hook. The report always exits HOLD (code 2), never
+claims inference. A first violation of offline_stop means the request reached
+the deliberate pre-transport boundary. Other fixed violation_reason values
+locate an earlier failure; idle outcome/error categories are also reported.
+No raw provider text or network addresses are emitted. This is not complete OS
+sandbox certification and does not resolve past provider-side unknown effects.
+
+### Hosted Linux diagnostic fallback
+
+The branch-only Native CLI offline diagnostic workflow is a development
+fallback for hosts that reject unprivileged user/network namespaces. It checks
+namespace support first, verifies the official Linux CLI release SHA-256,
+warms the native catalog using the no-prompt preflight, then runs the offline
+probe in a distinct loopback-only namespace. No host privilege changes,
+provider credentials, external inference or fallback to a live prompt.
+A completed job confirms only diagnostic evidence, not successful inference
+or isolation on the operator host. The workflow is not a runtime dependency.
+
+The offline probe reproduced the same pre-dispatch model identity rejection
+on both operator Ubuntu and hosted Linux. Resolution diagnostics now separate
+provider and model ID mismatches (including a qualified model ID), missing or
+invalid fields, and null/empty/default/named/invalid variants. Hosted offline evidence identified
+exactly the `default` sentinel. OpenCode 2.4.1 `ModelResolver.withVariant`
+normalizes that sentinel to undefined without applying a variant overlay.
+The native hook and response checks therefore accept only undefined or the
+exact string `default` for the same provider and model. The preflight still
+requires an empty variant catalog and unchanged agent configuration. Null,
+empty, other named variants and alternate model/provider IDs remain denied.
+Diagnostic labels never expose raw observed identifiers. A privileged host may use `sudo unshare --net` solely to create the
+namespace and bring up loopback, then drop to its normal unprivileged operator
+before executing the probe. Never run the CLI or candidate code as root.

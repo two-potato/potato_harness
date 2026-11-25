@@ -82,3 +82,70 @@ test('local client transport does not follow redirects or disclose auth to anoth
  const fetch=localFetch(endpoint,'test-password',undefined,async req=>{calls++;assert.equal(req.redirect,'error');assert.equal(req.headers.get('authorization'),'Basic '+Buffer.from('opencode:test-password').toString('base64'));return new Response('{}');});
  await fetch(endpoint+'/health');await assert.rejects(fetch('http://evil.test/'));assert.equal(calls,1);
 });
+
+test('policy records exact denial reason and offline boundary before HTTP admission',async()=>{
+ const hooks={},events=[],register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e),offline:true}).setup(ctx);
+ const wrong={model:{...ref,variant:'other'},sessionID:'bad',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](wrong);assert.equal(wrong.model.providerID,'potato-denied');
+ assert.equal(events.at(-1),'violation:resolve_variant_named');
+ const missing={model:ref,agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](missing);assert.equal(events.at(-1),'violation:resolve_session');
+ const a={model:ref,sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](a);
+ assert.throws(()=>hooks['model.request'](a),/OFFLINE_MODEL_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_stop');
+ assert.throws(()=>hooks['http.request'](a),/HTTP_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_http');
+ assert.ok(!events.includes('model:valera-ceo')&&!events.includes('http:valera-ceo'));
+ await cleanup();
+});
+
+test('native resolution distinguishes identity fields without admitting alternate model references',async()=>{
+ const hooks={},events=[],register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await serverPolicy({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput:cap,worker:'backend',freeCheck:isFreeModel,record:e=>events.push(e),offline:true}).setup(ctx);
+ for(const [m,code] of [
+  [null,'model_shape'],[[], 'model_shape'],
+  [{id:ref.id},'provider_missing_or_type'],
+  [{...ref,providerID:'private-other-provider'},'provider_mismatch'],
+  [{providerID:ref.providerID},'id_missing_or_type'],
+  [{...ref,id:ref.providerID+'/'+ref.id},'id_qualified'],
+  [{...ref,id:'private-other-model'},'id_mismatch'],
+  [{...ref,variant:null},'variant_null'],[{...ref,variant:''},'variant_empty'],
+  [{...ref,variant:'private-variant'},'variant_named'],
+  [{...ref,variant:0},'variant_type']
+ ]){
+  const e={model:m,sessionID:'one',agent:'valera-ceo',kind:'primary'};
+  hooks['experimental.model.resolve'](e);
+  assert.deepEqual(e.model,{providerID:'potato-denied',id:'denied'});
+  assert.equal(events.at(-1),'violation:resolve_'+code);
+ }
+ const valid={model:{...ref},sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ hooks['experimental.model.resolve'](valid);
+ assert.deepEqual(valid.model,ref);
+ assert.throws(()=>hooks['model.request'](valid),/OFFLINE_MODEL_REQUEST_DENIED/);
+ assert.equal(events.at(-1),'violation:offline_stop');
+ assert.ok(!JSON.stringify(events).includes('private-'));
+ await cleanup();
+});
+
+test('generated native policy admits only absent or exact default variant across all request hooks',async()=>{
+ // The generated module exports a stateful policy. Use a distinct module URL
+ // so Node's module cache cannot reuse the earlier test's admitted sessions.
+ const imported=await import('data:text/javascript;base64,'+Buffer.from(pluginSource(config,ref,cap,'backend')).toString('base64')+'#native-base-variant');
+ const hooks={},register=(name,fn)=>{hooks[name]=fn;return {dispose:async()=>{}};};
+ const ctx={agent:{transform:f=>register('agent',f)},model:{transform:f=>register('model',f)},tool:{transform:f=>register('tools',f)},permission:{hook:(n,f)=>register(n,f)},session:{hook:(n,f)=>register(n,f)}};
+ const cleanup=await imported.default.setup(ctx);
+ const a={model:{...ref,variant:'default'},sessionID:'one',agent:'valera-ceo',kind:'primary'};
+ const b={model:{...ref},sessionID:'two',agent:'backend',kind:'primary'};
+ for(const e of [a,b]){
+  hooks['experimental.model.resolve'](e);assert.equal(e.model.id,ref.id);assert.equal(e.model.providerID,ref.providerID);
+  for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['model.request']({...e,model:{...ref,variant}}),/DENIED/);
+  hooks['model.request'](e);
+  for(const variant of [null,'','Default','default ', 'high',0])assert.throws(()=>hooks['http.request']({...e,model:{...ref,variant}}),/DENIED/);
+  hooks['http.request'](e);assert.throws(()=>hooks['http.request'](e),/DENIED/);
+ }
+ await cleanup();
+});
