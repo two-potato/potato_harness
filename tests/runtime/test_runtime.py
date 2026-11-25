@@ -106,6 +106,33 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(calls,['opencode/potato-runtime-fixture-free'])
         self.assertEqual(halo(state)['status'],'HOLD')
 
+    def test_native_offline_guard_and_no_publication(self):
+        from unittest.mock import patch
+        from harness.runtime import _config, _worker_command
+        for isolated in (False, True):
+            root=self.root/('offline-'+str(isolated))
+            subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),'--adapter','opencode-v2-native-free-offline','--model','opencode/beam-free'],check=True)
+            cfg=json.loads((root/'config.json').read_text())
+            self.assertEqual(_worker_command(_config(cfg))[-1],'native-free-offline')
+            for change in (dict(adapter='opencode-v2-native-free'),dict(model='opencode/paid'),
+                           dict(model='opencode/potato-runtime-fixture-free'),dict(provider_budget_confirmed=True)):
+                with self.assertRaises(ValueError):_config(dict(cfg,**change))
+            state=root/'state';init(cfg,state)
+            calls=[]
+            def worker(*args):
+                calls.append(1)
+                return {'edits':[{'path':'calculation.py','content':'unexpected'}],'summary':'unexpected','usage':{'input_tokens':1,'output_tokens':1,'cost_usd':0}}
+            with patch('harness.runtime.require_offline_network',side_effect=None if isolated else ValueError('Offline network namespace required')):
+                result=run(state,worker=worker,sandbox_probe=lambda:{'available':True})
+            self.assertEqual(result['state'],'HOLD')
+            self.assertEqual(result['provider_mode'],'offline')
+            self.assertEqual(len(calls),int(isolated))
+            self.assertEqual(len(result['unresolved_effects']),int(isolated))
+            self.assertFalse((state/'result.json').exists())
+            self.assertIn('unit_cents + quantity',(state/'workspace/calculation.py').read_text())
+            self.assertEqual(halo(state)['status'],'HOLD')
+            if isolated:self.assertEqual(result['grant']['status'],'REVOKED')
+
     def test_old_initialized_state_cannot_dispatch_after_upgrade(self):
         config=json.loads((self.state/'config.json').read_text())
         config.pop('worker_command')

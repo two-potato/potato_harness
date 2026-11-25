@@ -77,3 +77,8 @@ with a synthetic native client and injected sandbox seam; operator Bubblewrap
 verification is separate. Live native-free profile is intentionally rejected
 until R1 live inference, reconciliation and independent security review pass.
 No new provider integration or changes to agent roles.
+
+R2.4a candidate: actual native CLI connection through the trusted worker is
+restricted to an offline diagnostic profile. Its expected outcome is HOLD,
+not a proposal or live admission. Independent containment, prior external
+outcome reconciliation, and live inference are still required.

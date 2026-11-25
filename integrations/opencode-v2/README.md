@@ -209,3 +209,43 @@ outcomes remain unresolved. Before any live admission, reconcile them,
 complete independent human review, enforce verified network/budget limits,
 and confirm successful native inference. Never switch models or retry to evade
 provider restrictions. No activation by environment variable or flag.
+
+## R2.4a: native CLI offline runtime diagnostic
+
+The explicit `opencode-v2-native-free-offline` profile connects the real private CLI
+and native client to the runtime, but only in a distinct loopback-only Linux
+network namespace. The Python host rejects a missing namespace before effect
+reservation; the worker and server launch independently verify it again.
+The model hook intentionally denies the first request. A fixed advisory
+`offline_boundary/ok` event is emitted only after the final audit confirms
+`offline_stop`, zero model/HTTP admissions, no assistant and successful cleanup.
+Expected runtime result is HOLD/BLOCKED, not DONE. The claimed diagnostic effect
+is retained UNKNOWN by the existing generic fail-closed outbox behavior; no
+proposal or artifact can be published, and HALO excludes this provenance.
+The profile cannot activate live inference; no automatic retries or fallback.
+
+Generate a fresh trial and initialize outside the namespace:
+
+```sh
+trial="$(mktemp -d)/trial"
+python3 tools/create_trial.py --directory "$trial" --adapter opencode-v2-native-free-offline --model opencode/deepseek-v4.1-flash-free &&
+.venv-demo/bin/python -m harness.runtime init --config "$trial/config.json" --state "$trial/state"
+```
+
+On a host with a verified cached native catalog, create the namespace with
+`sudo unshare --net` solely for network setup and drop to the operator:
+
+```sh
+sudo unshare --net -- sh -ec '
+  ip link set lo up
+  exec runuser -u "$1" -- env HOME="$2" PATH="$3" POTATO_OUTER_NETNS="$4" \
+    "$5" -m harness.runtime run --state "$6"
+' sh "$(id -un)" "$HOME" "$PATH" "$(readlink /proc/self/ns/net)" \
+  "$PWD/.venv-demo/bin/python" "$trial/state"
+.venv-demo/bin/python -m tools.trial_diagnostics --state "$trial/state"
+```
+
+Never run the candidate as host root. Expect exit 2 from run and the final
+advisory boundary marker. An earlier HOLD without the marker is not a passed
+diagnostic. Do not reuse this trial state for inference. This is an offline
+network boundary, not full native transport containment or a billing proof.

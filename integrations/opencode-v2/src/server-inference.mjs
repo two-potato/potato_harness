@@ -7,6 +7,7 @@ import {assertAudit} from './server-audit.mjs';
 import {modelRef,isNativeBaseVariant} from './server-policy.mjs';
 import {errorCategory,responseShape,auditShape} from './server-inference-diagnostics.mjs';
 import {OBJECTIVE} from './trial-fixture.mjs';
+import {requireOfflineNetwork} from './offline-network.mjs';
 
 export const PROBE_CAP=1024;
 const probeWorker='backend',probeScope=['probe.txt'],probeObjective='Propose the fixed synthetic replacement of probe.txt with potato-probe-ok followed by a newline. No real file exists.';
@@ -108,10 +109,33 @@ export async function runNativeRuntimeFixture(request,{launch,awaitPolicy,onPhas
  if(request?.model!==NATIVE_FIXTURE_MODEL||request.role!=='backend'||request.coordination?.objective!==OBJECTIVE||
     JSON.stringify(request.coordination?.scope)!=='["calculation.py"]'||'provider_budget' in request)throw Error('NATIVE_FIXTURE_TRIAL_ONLY');
  const cap=validateRequest(request,{requestModel:NATIVE_FIXTURE_MODEL,modelRef:modelRef(NATIVE_FIXTURE_MODEL)});
- const {report,proposal}=await nativeFlow({model:NATIVE_FIXTURE_MODEL,launch,awaitPolicy,onPhase,budget:bridgeBudget(75000),
+ const {report,proposal}=await nativeFlow({model:NATIVE_FIXTURE_MODEL,launch,awaitPolicy,onPhase,budget:bridgeBudget(request.bridge_timeout_ms??75000),
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:request.prompt+'\nReturn only JSON {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No tools.',
    cap,synthetic:true,checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
  if(report.status!=='PASS'||!proposal)throw Error('NATIVE_FIXTURE_HOLD');
  return proposal;
+}
+
+// Real CLI with the offline guard. Never return a proposal to the runtime.
+export async function runNativeRuntimeOffline(request,{launch,awaitPolicy,onPhase=()=>{},verifyNetwork=requireOfflineNetwork}){
+ verifyNetwork();
+ const model=request?.model,ref=modelRef(model);
+ if(model===NATIVE_FIXTURE_MODEL||request.role!=='backend'||request.coordination?.objective!==OBJECTIVE||
+    JSON.stringify(request.coordination?.scope)!=='["calculation.py"]'||'provider_budget' in request)throw Error('NATIVE_OFFLINE_TRIAL_ONLY');
+ const cap=validateRequest(request,{requestModel:model,modelRef:ref});
+ const {report}=await nativeFlow({model,launch,awaitPolicy,onPhase,offline:true,budget:bridgeBudget(request.bridge_timeout_ms??75000),
+  task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
+   prompt:'Offline diagnostic only; no specialist dispatch permitted.',cap,synthetic:false,
+   checkProposal:()=>{throw Error('OFFLINE_PROPOSAL_DENIED');}}});
+ const d=report.diagnostics,a=d?.audit;
+ if(report.status==='HOLD'&&report.offline_diagnostic===true&&report.external_inference===false&&
+    report.attempted_prompts===1&&report.confirmed_stages.length===0&&d.cleanup_failed===false&&
+    d.response?.counts?.user===1&&d.response.counts.assistant===0&&a?.ready===true&&
+    a.model_hooks===0&&a.http_hooks===0&&a.violation===true&&a.violation_reason==='offline_stop'){
+  verifyNetwork();
+  onPhase({phase:'offline_boundary',status:'ok',elapsed_ms:0});
+  throw Error('NATIVE_OFFLINE_BOUNDARY');
+ }
+ throw Error('NATIVE_OFFLINE_HOLD');
 }

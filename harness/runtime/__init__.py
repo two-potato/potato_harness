@@ -17,6 +17,7 @@ import uuid
 
 from harness.controller import Controller,Event,initialize,ROOT,_json
 from harness.budget import Budget
+from harness.runtime.offline_network import require_offline_network
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
 from harness.scheduler import Scheduler
@@ -75,7 +76,7 @@ def _config(config):
             raise ValueError('Provider budget confirmation is only valid for Console profile')
         return config
     adapter=config.setdefault('adapter','opencode-v2-console')
-    if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture'):
+    if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
         raise ValueError('Unknown provider adapter; create a new v2 trial')
     if adapter.startswith('opencode-v2'):
         if config.get('jev_provider') or config.get('completion_jev'):
@@ -84,6 +85,8 @@ def _config(config):
             raise ValueError('V2 fixture is restricted to the generated subtotal trial')
         if adapter=='opencode-v2-native-free-fixture' and (config['model']!='opencode/potato-runtime-fixture-free' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
             raise ValueError('Native free fixture is restricted to the synthetic subtotal trial')
+        if adapter=='opencode-v2-native-free-offline' and (not re.fullmatch(r'opencode/[a-z0-9][a-z0-9.-]{0,126}-free',config['model']) or config['model']=='opencode/potato-runtime-fixture-free' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
+            raise ValueError('Native offline profile requires an explicit free model and generated subtotal trial')
         if adapter=='opencode-v2-console' and (config['model']!='opencode/minimax-m3' or config.get('provider_budget_confirmed') is not True):
             raise ValueError('V2 Console requires the explicit paid model and operator-confirmed provider budget')
     if 'provider_budget_confirmed' in config and (adapter!='opencode-v2-console' or config['provider_budget_confirmed'] is not True):
@@ -95,7 +98,7 @@ def _worker_command(config):
     if 'worker_command' in config:return config['worker_command']
     bun=str(ROOT/'integrations/opencode-v2/node_modules/.bin/bun')
     adapter=config['adapter']
-    mode={'opencode-v2-fixture':'fixture','opencode-v2-console':'console','opencode-v2-native-free-fixture':'native-free-fixture'}[adapter]
+    mode={'opencode-v2-fixture':'fixture','opencode-v2-console':'console','opencode-v2-native-free-fixture':'native-free-fixture','opencode-v2-native-free-offline':'native-free-offline'}[adapter]
     return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),mode]
 
 
@@ -139,7 +142,7 @@ def init(config,state):
     record.update(task_id=task['task_id'],revision=0,budget_id=task['budget_id'],token_soft=b['tokens'],token_hard=b['tokens'],cost_usd_soft=b['cost_usd'],cost_usd_hard=b['cost_usd'],wall_time_s_soft=math.ceil(b['wall_time_s']),wall_time_s_hard=math.ceil(b['wall_time_s']),max_parallel_workers=1)
     Budget(state/'state.db').configure(task['task_id'],record)
     _write(state/'config.json',config)
-    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None,**({'adapter':config['adapter'],'provider_mode':'synthetic' if config['adapter'] in ('opencode-v2-fixture','opencode-v2-native-free-fixture') else 'external'} if 'adapter' in config else {})})
+    _write(state/'run.json',{'task_id':task['task_id'],'state':'INITIALIZED','reason':'Ready for sandbox probe','trace':[],'lease_id':None,'grant':None,**({'adapter':config['adapter'],'provider_mode':'offline' if config['adapter']=='opencode-v2-native-free-offline' else 'synthetic' if config['adapter'] in ('opencode-v2-fixture','opencode-v2-native-free-fixture') else 'external'} if 'adapter' in config else {})})
     return status(state)
 
 
@@ -278,6 +281,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         save()
     try:
         run['state']='RUNNING';save()
+        if config.get('adapter')=='opencode-v2-native-free-offline':require_offline_network()
         isolation=sandbox_probe();run['sandbox']=isolation;save()
         if isolation.get('available') is not True:raise RuntimeError('Sandbox unavailable: '+str(isolation.get('reason')))
         if config.get('adapter')=='opencode-v2-console' and not os.environ.get('OPENCODE_API_KEY'):
@@ -321,6 +325,7 @@ def _run(state,worker,sandbox_probe,sandbox_run):
         claimed=outbox.claim(effect)
         if not claimed:raise RuntimeError('Effect already claimed; reconcile external outcome')
         response=worker(request,command,remaining())
+        if config.get('adapter')=='opencode-v2-native-free-offline':raise RuntimeError('Offline diagnostic cannot return a proposal')
         provider_returned=True
         outbox.finish(effect,{'response_digest':digest_bytes(_json(response).encode())},True)
         usage=response.get('usage',{});tokens=usage.get('input_tokens');output=usage.get('output_tokens');cost=usage.get('cost_usd')
@@ -420,7 +425,7 @@ def recover(state):
 
 def halo(state,*,train=None,evaluation=None,holdout=None):
     run=status(state)
-    if run.get('provider_mode')=='synthetic':return {'status':'HOLD','reason':'Synthetic v2 trial is not actual HALO inference evidence'}
+    if run.get('provider_mode') in ('synthetic','offline'):return {'status':'HOLD','reason':'Synthetic v2 trial is not actual HALO inference evidence'}
     trace={'trace_id':run['task_id'],'status':run['task_status'],'checks':[],'bindings':{'revision':run['revision']},'optional_detail':_redact(run['reason'])}
     path=Path(state)/'halo-trace.json';_write(path,trace)
     if not any((train,evaluation,holdout)):

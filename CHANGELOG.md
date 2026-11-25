@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R2.4a: add a real native CLI offline runtime diagnostic, guard network
+  namespace before dispatch, preserve UNKNOWN effects, deny all publication
+  and expose a fixed post-cleanup boundary marker. Live profile still denied.
+
 - R2: share the native two-stage flow with an explicit synthetic-only runtime
   fixture, reuse durable effect/budget and provenance contracts, and add
   regression/host integration tests. Real native-free runtime admission remains

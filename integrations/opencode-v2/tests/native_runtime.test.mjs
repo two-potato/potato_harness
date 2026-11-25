@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture} from '../src/server-inference.mjs';
+import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture,runNativeRuntimeOffline} from '../src/server-inference.mjs';
 import {launchNativeFixture,awaitNativeFixture} from '../src/native-runtime-fixture.mjs';
 import {OBJECTIVE} from '../src/trial-fixture.mjs';
 const request={role:'backend',model:NATIVE_FIXTURE_MODEL,prompt:'synthetic scoped source',coordination:{objective:OBJECTIVE,scope:['calculation.py']},output_token_allowance:4096};
@@ -35,5 +35,36 @@ test('late audit violation or unscoped specialist result does not return a propo
   const calls=[];
   await assert.rejects(()=>runNativeRuntimeFixture(request,{...opts,launch:o=>launchNativeFixture(o,{fault,onPrompt:r=>calls.push(r)})}),/NATIVE_FIXTURE_HOLD/);
   assert.deepEqual(calls,['valera-ceo','backend']);
+ }
+});
+
+test('offline runtime requires network guard and never returns a proposal',async()=>{
+ const live={...request,model:'opencode/beam-free'};
+ const calls=[];
+ const launch=async options=>{
+  assert.equal(options.offline,true);assert.equal(options.audit,true);
+  const audit=['ready'];let role;
+  return {directory:'/offline',readAudit:()=>[...audit],close:async()=>[...audit],
+   client:{session:{create:async x=>{role=x.agent;return {id:role};},prompt:async()=>{calls.push(role);audit.push('violation:offline_stop');},interrupt:async()=>{}},
+    experimental:{session:{wait:async()=>{}}},
+    message:{list:async x=>x.cursor?{data:[]}:{cursor:{next:'tail'},data:[{type:'user'},{type:'idle',outcome:'failed'}]}}}};
+ };
+ const opts={launch,awaitPolicy:async()=>{},verifyNetwork:()=>{throw Error('OFFLINE_NETWORK_REQUIRED');}};
+ await assert.rejects(()=>runNativeRuntimeOffline(live,opts),/OFFLINE_NETWORK_REQUIRED/);
+ assert.deepEqual(calls,[]);
+ for(const model of [NATIVE_FIXTURE_MODEL,'opencode/paid'])await assert.rejects(()=>runNativeRuntimeOffline({...live,model},{...opts,verifyNetwork:()=>{}}));
+ const events=[];
+ await assert.rejects(()=>runNativeRuntimeOffline(live,{...opts,verifyNetwork:()=>{},onPhase:e=>events.push(e)}),/NATIVE_OFFLINE_BOUNDARY/);
+ assert.deepEqual(calls,['valera-ceo']);
+ assert.deepEqual(events.at(-1),{phase:'offline_boundary',status:'ok',elapsed_ms:0});
+});
+test('offline marker rejects unexpected HTTP, early denial and cleanup failure',async()=>{
+ for(const fault of ['http','early','cleanup']){
+  const events=[],audit=['ready'];
+  const launch=async()=>({directory:'/offline',readAudit:()=>[...audit],close:async()=>{if(fault==='cleanup')throw Error('private');return [...audit];},
+   client:{session:{create:async()=>({id:'one'}),prompt:async()=>{audit.push(fault==='early'?'violation:resolve_model':'violation:offline_stop');if(fault==='http')audit.push('http:valera-ceo');},interrupt:async()=>{}},experimental:{session:{wait:async()=>{}}},
+    message:{list:async x=>x.cursor?{data:[]}:{cursor:{next:'tail'},data:[{type:'user'},{type:'idle',outcome:'failed'}]}}}});
+  await assert.rejects(()=>runNativeRuntimeOffline({...request,model:'opencode/beam-free'},{launch,awaitPolicy:async()=>{},verifyNetwork:()=>{},onPhase:e=>events.push(e)}),/NATIVE_OFFLINE_HOLD/);
+  assert.ok(!events.some(e=>e.phase==='offline_boundary'));
  }
 });
