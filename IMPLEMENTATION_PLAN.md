@@ -305,3 +305,11 @@ private output directory outside the source/workspace/object directories,
 host-approved absolute test argv, collector, trusted issuers and explicit
 bounded timeout. The returned candidate is not merged. Inspect the commit
 and integration test artifact before any separately authorized publication.
+
+## R5.1e — proposed keyless diagnostic admission
+
+See [the proposed admission procedure](docs/trials/R5-KEYLESS-ADMISSION.md). Record operator evidence and
+historical UNKNOWN without inventing reconciliation. A narrow new inert
+experiment requires separately reviewed policy, independent live egress and
+provider-limit evidence, and durable single-use authorization before dispatch.
+Current admission remains HOLD; no executable gate or live adapter is added.

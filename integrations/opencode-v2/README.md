@@ -312,3 +312,9 @@ review of the exact policy revision, reconciliation of prior uncertain external
 attempts, verified provider limits/egress and a successful native inference
 are still required. Do not treat synthetic tests as evidence for those gates.
 Local operation, native routing and existing diagnostic modes are unchanged.
+
+## R5.1e — keyless admission proposal (HOLD)
+
+See [the proposed procedure](../../docs/trials/R5-KEYLESS-ADMISSION.md). The existing prior-outcome
+reconciliation and independent review requirements remain in force. No live
+runtime activation or change to the manual probe is introduced by that document.
