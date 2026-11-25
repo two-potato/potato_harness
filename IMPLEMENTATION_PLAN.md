@@ -191,3 +191,20 @@ The fixture runtime exercises the configured gate, including stopping the
 second task before its synthetic worker. Process contention tests cover
 atomicity. Actual parallel execution, workflow wall time and mandatory
 aggregate configuration for a future parallel profile remain open.
+
+## R3.4b — bounded parallel fixture dispatcher
+
+The sequential coordinator now shares one batch execution core with an
+explicit parallel fixture entry point (width 2–8). The host must configure
+matching aggregate budget membership and sufficient in-flight slots. Ready
+nodes with overlapping path resources are serialized using the existing lease
+conflict predicate. Persist all admitted task IDs before preparing workspaces;
+prepare and verify dependencies in the coordinator, then run distinct trusted
+callbacks concurrently. Wait for the admitted batch to finish; accept only
+verified outputs and stop on any HOLD. Keep unresolved batch IDs and prohibit
+replay. No new batch after failure; previously admitted callbacks may finish.
+Parallel fixture requires explicit injected sandbox seams: current Bubblewrap
+uses preexec_fn, unsafe from a multithreaded host. Real concurrent sandbox
+launch, workflow-wide wall time, interruption reconciliation, integration/merge
+and live model activation remain open. Tests use a two-worker barrier, real
+Git/SQLite and synthetic proposals/sandbox, not concurrent actual models.

@@ -14,6 +14,9 @@ from harness.state import Outbox
 
 class IntegratedWorkflowTests(unittest.TestCase):
     def setUp(self):
+        self.prepare()
+
+    def prepare(self,*,independent=False,overlap=False):
         tmp=tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root=Path(tmp.name)
@@ -34,10 +37,10 @@ class IntegratedWorkflowTests(unittest.TestCase):
         self.objects=self.root/'objects'
         self.objects.mkdir(mode=0o700)
         self.calls=[]
-        for key,role,deps in [('api','backend',[]),('ui','frontend',['api'])]:
+        for key,role,deps in [('api','backend',[]),('ui','frontend',[] if independent else ['api'])]:
             task=json.loads((ROOT/'fixtures/valid/task.json').read_text())
             commit={'hash_algorithm':'sha1','value':self.base}
-            task.update(task_id=key,owner=role,scope=[key+'.py'],depends_on=deps,
+            task.update(task_id=key,owner=role,scope=['api.py' if overlap else key+'.py'],depends_on=deps,
                 workflow_id='flow',user_turn_id='turn',repository_id=repository_identity(self.repo),
                 revision=0,row_version=0,base_commit=commit,target_commit=commit,
                 budget_id='budget-'+key,task_class='BOUNDED',risk='LOW',policy_version='bounded-trial-3.0',
@@ -52,7 +55,7 @@ class IntegratedWorkflowTests(unittest.TestCase):
                 token_hard=100000,cost_usd_soft=1,cost_usd_hard=1,wall_time_s_soft=60,wall_time_s_hard=60)
             self.budget.configure(key,record)
         self.args=dict(dag={'schema_version':'3.0.1','workflow_id':'flow','nodes':[
-                           {'id':'a','task_id':'api','needs':[]},{'id':'b','task_id':'ui','needs':['a']}]},
+                           {'id':'a','task_id':'api','needs':[]},{'id':'b','task_id':'ui','needs':[] if independent else ['a']}]},
             workflow_id='flow',user_turn_id='turn',repository_id=repository_identity(self.repo),
             approved_revisions={'api':0,'ui':0},available_owners=('backend','frontend'),
             repo=self.repo,workspace_root=self.spaces,object_store=self.objects,
@@ -135,3 +138,95 @@ class IntegratedWorkflowTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM budget_reservations').fetchone()[0],1)
             self.assertEqual(db.execute('SELECT count(*) FROM outbox').fetchone()[0],1)
+
+    def parallel_budget(self,slots=2):
+        self.budget.configure_workflow(workflow_id='flow',repository_id=self.args['repository_id'],
+                user_turn_id='turn',approved_revisions={'api':0,'ui':0},
+                token_hard=200000,cost_usd_hard=2,max_in_flight=slots)
+
+    def test_parallel_independent_tasks_actually_overlap(self):
+        import threading
+        self.prepare(independent=True)
+        self.parallel_budget()
+        barrier=threading.Barrier(2,timeout=15)
+        lock=threading.Lock()
+        snapshots=[]
+        def worker(request,command,timeout):
+            with lock:
+                self.calls.append(request['role'])
+                snapshots.append(request['projectDir'])
+            barrier.wait()
+            return {'edits':[{'path':'api.py' if request['role']=='backend' else 'ui.py',
+                              'content':'value = 2\n'}],'summary':'fixture',
+                    'usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        result=self.run_flow(max_parallel=2,worker=worker)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(result['completed'],['api','ui'])
+        self.assertEqual(set(self.calls),{'backend','frontend'})
+        self.assertEqual(len(set(snapshots)),2)
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM evidence').fetchone()[0],6)
+            self.assertEqual(db.execute("SELECT count(*) FROM leases WHERE status IN ('ACTIVE','SUSPECT')").fetchone()[0],0)
+            self.assertEqual(db.execute('SELECT active_json FROM workflow_active_batches').fetchone()[0],'[]')
+        self.assertEqual((self.repo/'api.py').read_text(),'value = 1\n')
+
+    def test_parallel_profile_preserves_dependency_barrier(self):
+        self.parallel_budget()
+        result=self.run_flow(max_parallel=2)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(self.calls,['backend','frontend'])
+
+    def test_overlapping_paths_are_serialized_not_raced(self):
+        import threading
+        self.prepare(independent=True,overlap=True)
+        self.parallel_budget()
+        lock=threading.Lock()
+        def worker(request,command,timeout):
+            self.assertTrue(lock.acquire(blocking=False))
+            try:
+                self.calls.append(request['role'])
+                with sqlite3.connect(self.db) as db:
+                    active=json.loads(db.execute('SELECT active_json FROM workflow_active_batches').fetchone()[0])
+                self.assertEqual(len(active),1)
+                return {'edits':[{'path':'api.py','content':'value = 2\n'}],
+                        'summary':'fixture','usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+            finally:
+                lock.release()
+        result=self.run_flow(max_parallel=2,worker=worker)
+        self.assertEqual(result['status'],'DONE',result)
+        self.assertEqual(self.calls,['backend','frontend'])
+
+    def test_parallel_requires_aggregate_budget_and_explicit_sandbox_seams(self):
+        with self.assertRaises(ControllerError):
+            self.run_flow(max_parallel=2)
+        self.parallel_budget(slots=1)
+        with self.assertRaises(ControllerError):
+            self.run_flow(max_parallel=2)
+        for changes in (dict(max_parallel=True),dict(max_parallel=9),
+                        dict(max_parallel=2,sandbox_probe=None),
+                        dict(max_parallel=2,sandbox_run=None)):
+            with self.assertRaises((ValueError,ControllerError)):
+                self.run_flow(**changes)
+        self.assertEqual(self.calls,[])
+        self.assertEqual(list(self.spaces.iterdir()),[])
+
+    def test_parallel_unknown_effect_holds_after_already_admitted_batch(self):
+        import threading
+        self.prepare(independent=True)
+        self.parallel_budget()
+        barrier=threading.Barrier(2,timeout=15)
+        def worker(request,command,timeout):
+            role=request['role']
+            barrier.wait()
+            if role=='backend':
+                raise RuntimeError('synthetic uncertain outcome')
+            return {'edits':[{'path':'ui.py','content':'value = 2\n'}],
+                    'summary':'fixture','usage':{'input_tokens':10,'output_tokens':10,'cost_usd':0}}
+        result=self.run_flow(max_parallel=2,worker=worker)
+        self.assertEqual(result['status'],'HOLD',result)
+        self.assertEqual(result['completed'],['ui'])
+        self.assertEqual(result['active_tasks'],['api'])
+        self.assertEqual(len(Outbox(self.db).unresolved('api')),1)
+        self.assertEqual(Outbox(self.db).unresolved('ui'),[])
+        with self.assertRaises(ControllerError):
+            self.run_flow(max_parallel=2,worker=worker)

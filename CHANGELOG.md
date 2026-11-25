@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R3.4b: bounded parallel fixture batches through the existing workflow
+  coordinator, mandatory aggregate limits, disjoint resource selection,
+  durable batch IDs and failure barrier. Explicit synthetic sandbox seams only.
+
 - R3.4a: add immutable host-configured aggregate workflow token/cost and
   in-flight reservation/effect limits in the existing SQLite budget gate;
   stop on unknown effects, test real process contention and fixture dispatch.

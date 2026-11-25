@@ -7,11 +7,12 @@ introduced. Sandbox seams are explicit; the default is the existing Bubblewrap.
 from copy import deepcopy
 import json
 from pathlib import Path
+from threading import Lock
 
 from harness.controller import Controller, ControllerError
 from harness.isolation.backend import BubblewrapBackend
 from harness.runtime import _config, _lock, _run, _write
-from harness.runtime.workflow import run_sequential_workflow
+from harness.runtime.workflow import run_sequential_workflow, run_parallel_workflow
 from harness.verifier import TrustedEvidence
 
 CHECKS=['relevant_checks','basic_review','acceptance_coverage']
@@ -19,7 +20,7 @@ CHECKS=['relevant_checks','basic_review','acceptance_coverage']
 
 def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
                          approved_revisions,available_owners,repo,workspace_root,
-                         object_store,test_argv_by_task,worker,sandbox_probe=None,sandbox_run=None):
+                         object_store,test_argv_by_task,worker,sandbox_probe=None,sandbox_run=None,max_parallel=1):
     """Bind one fresh sequential workflow to the real host pipeline.
 
     This fixture API accepts no external provider configuration. Every task is
@@ -29,6 +30,12 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
     if (not callable(worker) or type(approved_revisions) is not dict or
             type(test_argv_by_task) is not dict or set(test_argv_by_task)!=set(approved_revisions)):
         raise ControllerError('Explicit fixture worker and task test commands required')
+    if type(max_parallel) is not int or not 1<=max_parallel<=8:
+        raise ControllerError('Workflow width must be an integer from 1 to 8')
+    if max_parallel>1 and (not callable(sandbox_probe) or not callable(sandbox_run)):
+        # Current Bubblewrap launch uses preexec_fn, unsafe in threaded hosts.
+        # No parallel production sandbox binding until the launcher is replaced.
+        raise ControllerError('Parallel fixture requires explicit synthetic sandbox seams')
     database=Path(database).resolve(strict=True)
     root=Path(workspace_root).absolute()
     store=Path(object_store).absolute()
@@ -65,6 +72,7 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
     probe=backend.probe if sandbox_probe is None else sandbox_probe
     sandbox=backend.run if sandbox_run is None else sandbox_run
     attestations={}
+    evidence_lock=Lock()
 
     def execute(task,layout,segments):
         key=task['task_id']
@@ -92,12 +100,15 @@ def run_fixture_workflow(database,*,dag,workflow_id,user_turn_id,repository_id,
             if check not in CHECKS or record['task_id']!=key:
                 raise ControllerError('Unexpected evidence binding')
             ref=record['attestation_ref']
-            if ref in attestations:
-                raise ControllerError('Duplicate evidence reference')
-            attestations[ref]=TrustedEvidence(record,(state/(check+'.artifact')).read_bytes())
+            with evidence_lock:
+                if ref in attestations:
+                    raise ControllerError('Duplicate evidence reference')
+                attestations[ref]=TrustedEvidence(record,(state/(check+'.artifact')).read_bytes())
         return {r['path']:r['digest'] for r in result['publications']}
 
-    result=run_sequential_workflow(database,dag=dag,workflow_id=workflow_id,user_turn_id=user_turn_id,
+    coordinator=run_sequential_workflow if max_parallel==1 else run_parallel_workflow
+    width={} if max_parallel==1 else {'max_parallel':max_parallel}
+    result=coordinator(database,**width,dag=dag,workflow_id=workflow_id,user_turn_id=user_turn_id,
             repository_id=repository_id,approved_revisions=approved_revisions,available_owners=available_owners,
             repo=repo,workspace_root=root,object_store=store,output_paths=output_paths,
             collector=attestations.__getitem__,trusted_issuers=frozenset({'trial-host'}),execute=execute)
