@@ -40,6 +40,9 @@ jobs:
           node node_modules/bun/install.js
           test "$(node_modules/.bin/bun --version)" = 1.4.4
           test "$(node -p 'require("./node_modules/@opencode/sdk/package.json").version')" = 2.4.1
+      - name: Native ledger on pinned Bun SQLite (offline)
+        working-directory: integrations/opencode-v2
+        run: node_modules/.bin/bun tests/native_ledger_bun.mjs
       - name: Real V2 embedded SDK synthetic HTTP fixture
         working-directory: integrations/opencode-v2
         run: node_modules/.bin/bun src/smoke.mjs

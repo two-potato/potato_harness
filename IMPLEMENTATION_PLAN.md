@@ -305,3 +305,15 @@ private output directory outside the source/workspace/object directories,
 host-approved absolute test argv, collector, trusted issuers and explicit
 bounded timeout. The returned candidate is not merged. Inspect the commit
 and integration test artifact before any separately authorized publication.
+
+## R5.1e — durable native inference journal
+
+Persist historical OMO and native RATE_LIMIT outcome cohorts separately from
+new manual probe attempts. Fixed private SQLite database, single reservation,
+durable per-stage dispatch markers, validated reported usage and conservative
+UNKNOWN on interruption. Reopening does not replay or settle attempts.
+The manual live CLI is explicitly held before server startup; the journaled
+runner is an injected test candidate, not live admission. No reconciliation
+authority or billing/egress guarantee is added. Actual provider reconciliation,
+independent review, egress/budget enforcement and explicit scoped authorization
+remain activation gates. No runtime provider profile is enabled.

@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- R5.1e: persistent native inference journal and historical UNKNOWN holds;
+  per-stage reservation and reported usage tests. Manual live probe disabled
+  pending reviewed reconciliation and activation; no external inference.
+
 - R4.2–R4.4: durable workflow bindings, conservative interrupted-work recovery,
   tested private Git integration candidates and bounded synthetic execution
   for all eight specialist owners. No automatic replay or live activation.

@@ -312,3 +312,36 @@ review of the exact policy revision, reconciliation of prior uncertain external
 attempts, verified provider limits/egress and a successful native inference
 are still required. Do not treat synthetic tests as evidence for those gates.
 Local operation, native routing and existing diagnostic modes are unchanged.
+
+## R5.1e — durable native probe ledger (activation remains HOLD)
+
+The manual inference entrypoint is now fail-closed. Initialize/inspect the
+private persistent ledger from the repository root (no server or prompt):
+
+```sh
+integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/server-inference-probe.mjs --ledger-status
+```
+
+Expected HOLD and exit 2. The SQLite file is stored under the same stable
+private OpenCode data root, at
+`~/.local/state/potato-harness/opencode-free/inference-ledger.sqlite3`.
+The three historical rows describe reported outcome cohorts, not exact
+provider requests, counts or amounts. They remain UNKNOWN. Never delete
+them or rotate the private state to regain access or reset quotas.
+
+The host-only journal prototype reserves one fixed attempt slot atomically,
+records each permitted stage before its prompt, retains reported validated
+usage and never substitutes zero for unknown usage. Interrupted reservations
+and dispatches remain unresolved on reopening; no automatic retry, even
+after an apparent pre-dispatch failure. A validated result is not billing
+verification. SQLite uses full synchronous transactions. The private
+directory assumes a trusted same-UID local operator; not protection against
+database deletion or malicious host code.
+
+The future journaled probe wrapper is tested with injected transport only.
+The actual CLI will not launch a server or send a prompt until separately
+reviewed reconciliation, egress, provider budget and independent approval
+mechanisms are implemented. The old confirmation flag is not sufficient.
+There is intentionally no CLI command or automatic reconciliation that clears
+historical holds. Existing offline diagnostic and runtime fixture are unchanged.
