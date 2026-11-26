@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Check the attached advisory agent snapshot using pinned OpenCode last-match
+  permission semantics; require universal deny after all non-deny rules.
+  Preserve the strict native verifier and deny-dispatch profile.
+
 - Stage an attached OpenCode deny-dispatch profile at a private Location and
   prepare the existing two-stage runtime contract for one explicit OpenRouter
   free model. No live worker mode or provider dispatch is enabled.

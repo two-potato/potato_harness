@@ -55,6 +55,32 @@ export function prepareProfile(directory,model){
  return {status:'PREPARED',roles:ROLES.length,model,profile_directory:directory,
   dispatch_disabled:true,runtime_admission:false};
 }
+// OpenCode 2.4.1 permission.evaluate uses rulesets.flat().findLast.
+// https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/permission.ts
+// A literal universal deny dominates every preceding rule, provided no
+// later rule is non-deny. This is an advisory agent snapshot proof only,
+// not a statement about session overrides, tools or wire-level containment.
+export function effectiveAgentDeny(rules){
+ if(!Array.isArray(rules)||rules.length<1||rules.length>4096)return false;
+ let universal=false;
+ for(const r of rules){
+  if(!r||typeof r!=='object'||Array.isArray(r)||
+     Object.keys(r).sort().join(',')!=='action,effect,resource'||
+     typeof r.action!=='string'||!r.action||typeof r.resource!=='string'||!r.resource||
+     !['allow','ask','deny'].includes(r.effect))return false;
+  if(r.effect!=='deny')universal=false;
+  else if(r.action==='*'&&r.resource==='*')universal=true;
+ }
+ return universal;
+}
+export function verifyAttachedSnapshot(snapshot,profile){
+ const roster=snapshot.agents?.data;
+ if(!Array.isArray(roster)||!roster.every(a=>effectiveAgentDeny(a?.permissions)))return false;
+ // All other snapshot requirements remain exactly those of the native verifier.
+ // Normalize only a proved effective universal denial in a new object.
+ const agents={...snapshot.agents,data:roster.map(a=>({...a,permissions:[{action:'*',resource:'*',effect:'deny'}]}))};
+ return verifyServerSnapshot({...snapshot,agents},profile.config,profile.ref,maxOutput,profile.plugin);
+}
 export async function inspectPolicy({directory,model,password,clientFactory,send}){
  const report={status:'HOLD',layer:'attached-policy-snapshot',model,roles_loaded:0,
   policy_snapshot_verified:false,external_inference:false,attempted_prompts:0,runtime_admission:false};
@@ -74,7 +100,10 @@ export async function inspectPolicy({directory,model,password,clientFactory,send
    client.plugin.list({location}),client.agent.list({location}),client.model.list({location})
   ]),15000);
   if(Array.isArray(agents?.data))report.roles_loaded=ROLES.filter(r=>agents.data.some(a=>a.id===r)).length;
-  if(!verifyServerSnapshot({plugins,agents,models},profile.config,profile.ref,maxOutput,profile.plugin))
+  report.effective_deny_roles=Array.isArray(agents?.data)?ROLES.filter(role=>
+   agents.data.filter(a=>a?.id===role).length===1&&
+   effectiveAgentDeny(agents.data.find(a=>a?.id===role).permissions)).length:0;
+  if(!verifyAttachedSnapshot({plugins,agents,models},profile))
    return {...report,reason:'SERVER_POLICY_SNAPSHOT_MISMATCH'};
   return {...report,status:'PASS',policy_snapshot_verified:true,reason:'SNAPSHOT_ONLY'};
  }catch{
