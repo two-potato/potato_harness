@@ -473,3 +473,18 @@ strict native snapshot verifier and all other checks remain unchanged.
 The diagnostic reports effective_deny_roles; it does not establish session
 override safety, actual tool mediation or live admission. Existing generated
 deny-dispatch profiles are unchanged. No prompt is submitted.
+
+
+### Attached session transport candidate
+
+The transport module connects to the existing authenticated loopback
+server and scopes session creation to a host-selected Location and model.
+It rechecks the supplied profile and policy snapshot before session
+creation, tracks its own session IDs, denies replay of a prompt and
+interrupts/waits only its own unfinished sessions. Uncertain session
+creation/cleanup is a HOLD. It never shuts down the server or deletes
+provider records. The host-supplied profile verifier and audit reader are
+trusted integration seams, NOT an admission authority. Tests use injected
+clients; the module is not registered in the runtime CLI. A reviewed
+audited live profile, durable stage reservations and independently verified
+egress/limits remain necessary before the first real dispatch.
