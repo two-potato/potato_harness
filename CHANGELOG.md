@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Stage an attached OpenCode deny-dispatch profile at a private Location and
+  prepare the existing two-stage runtime contract for one explicit OpenRouter
+  free model. No live worker mode or provider dispatch is enabled.
+
 - Write runtime state and attestation artifacts atomically with explicit owner-only
   file permissions, independently of the operator's umask; retain strict evidence
   verification and test reopening under a permissive umask.

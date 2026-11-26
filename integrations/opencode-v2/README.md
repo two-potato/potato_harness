@@ -398,3 +398,63 @@ identities. Ambiguous duplicates fail closed. Explicit zero input/output/cache
 costs remain required. The automatic OpenRouter free router is excluded.
 Discovery does not choose a model, verify quota, change policies, submit a
 prompt or admit runtime. Use the existing authenticated loopback command.
+
+### Attached server policy staging (deny-dispatch diagnostic only)
+
+The ordinary operator server does not load Harness roles by default.
+Stage a new private configuration without altering ordinary config, provider
+credentials, Git files or running processes:
+
+```sh
+base="$(mktemp -d)"
+profile="$base/profile"
+model='openrouter/nvidia/nemotron-3-ultra-550b-a55b:free'
+integrations/opencode-v2/node_modules/.bin/bun \
+  integrations/opencode-v2/src/attached-policy-profile.mjs prepare "$profile" "$model"
+```
+
+The generated profile reuses the nine role prompts, one explicit model and
+the existing server plugin with its model-dispatch stop enabled. This is
+not OS-level network isolation or proof of upstream traffic containment.
+The plugin is not a general-purpose multi-workflow policy; the existing
+two-role diagnostic state machine is retained. No prompt is submitted.
+
+OpenCode v2.4.1 discovers project opencode.json relative to the requested
+Location (see upstream packages/core/src/plugin/skill/opencode.md at v2.4.1).
+The staged directory contains opencode.json. Do not stop or restart the
+server, change its environment, or modify its global configuration. Use a
+fresh private directory for each diagnostic configuration, not a real project.
+Keep ordinary provider credentials/state intact.
+
+From the repository root, using the same staged paths:
+
+```sh
+bash -c '
+read -rs -p "OpenCode password: " POTATO_OPENCODE_PASSWORD </dev/tty
+echo
+[ -n "$POTATO_OPENCODE_PASSWORD" ] || exit 1
+export POTATO_OPENCODE_PASSWORD
+integrations/opencode-v2/node_modules/.bin/bun \
+ integrations/opencode-v2/src/attached-policy-profile.mjs check "$1" "$2"
+' bash "$profile" "$model"
+```
+
+This verifies generated local bytes and requests the server version, agent,
+plugin and model snapshots at that specific Location. PASS is an advisory
+snapshot, not authenticated execution provenance or runtime admission.
+Global config/plugin merging, disabled project discovery or incompatible
+Location handling can cause HOLD. Do not change global configuration or
+submit prompts to work around a HOLD. Existing sessions are not intentionally
+changed; actual isolation from other Locations still requires host validation.
+No live adapter is enabled.
+
+
+### Attached runtime candidate contract
+
+The existing two-stage session flow can now be tested with an explicit
+OpenRouter vendor/model:free identity and a separately selected host model.
+Valera receives only coordination metadata, Backend the bounded source.
+Both dispatches require host-owned reservation and validated-stage callbacks.
+No CLI entry or real attached transport binding is enabled. Tests inject
+the client; they do not establish provider delivery, policy isolation or
+independent egress/price enforcement. The legacy native ledger remains intact.
