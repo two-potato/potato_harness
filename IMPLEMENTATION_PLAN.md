@@ -336,3 +336,10 @@ on port 4096. This does not attach a worker, change provider selection,
 or authorize inference. Ordinary Build sessions do not attest Harness
 policy. Exact model identity, zero catalog price, and independent policy,
 egress and accounting checks must precede a separate live profile.
+
+### Attached catalog discovery follow-up
+
+Generalize advisory discovery to explicit free IDs for OpenCode and OpenRouter,
+report bounded provider counts and distinguish qualified identities without
+weakening native policy. No automatic selection, fallback, prompt or admission.
+The CLI catalog and attached server may differ.

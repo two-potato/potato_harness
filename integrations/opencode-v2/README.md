@@ -386,3 +386,15 @@ billing verification, verified policy, or runtime admission. An ordinary
 Build server may have tools or plugins enabled: do not send Harness project
 prompts to it until a dedicated reviewed policy binding exists. The prior
 native free ledger and runtime HOLD remain unchanged.
+
+### Attached catalog discovery update
+
+The attached diagnostic enumerates explicit `opencode/*-free` and
+`openrouter/<vendor>/<model>:free` candidates instead of filtering for
+Nemotron. Bounded provider counts distinguish an empty/different catalog
+from failed price verification. Fully qualified raw IDs are displayed with
+`identity_shape: qualified` for investigation, not accepted as canonical
+identities. Ambiguous duplicates fail closed. Explicit zero input/output/cache
+costs remain required. The automatic OpenRouter free router is excluded.
+Discovery does not choose a model, verify quota, change policies, submit a
+prompt or admit runtime. Use the existing authenticated loopback command.

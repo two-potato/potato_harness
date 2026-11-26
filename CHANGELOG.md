@@ -2,6 +2,9 @@
 
 ## Unreleased — local-first readiness
 
+- Generalize attached-server discovery to explicit OpenCode and OpenRouter
+  free model IDs with bounded provider counts and strict catalog price checks.
+
 - Add a read-only existing OpenCode server catalog diagnostic for OpenRouter
   Nemotron free models. No worker attachment or live admission.
 
