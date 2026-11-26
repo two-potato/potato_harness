@@ -1,6 +1,38 @@
 // Host-only, one fixed attached OpenRouter trial slot. No reconciliation,
 // reset, retry, provider switching or authority to launch a live session.
 // The previous native journal is untouched.
+import fs from 'node:fs';
+import path from 'node:path';
+
+export function attachedStateRoot(home){
+ if(typeof home!=='string'||!path.isAbsolute(home)||fs.realpathSync(home)!==home||
+    !process.getuid||process.getuid()===0)throw Error('ATTACHED_UNSAFE_HOME');
+ const root=path.join(home,'.local/state/potato-harness/opencode-attached');
+ fs.mkdirSync(root,{recursive:true,mode:0o700});
+ assertPrivateDirectory(root);return root;
+}
+export function assertPrivateDirectory(dir){
+ const s=fs.lstatSync(dir);
+ if(!s.isDirectory()||s.uid!==process.getuid()||(s.mode&0o077)!==0||
+    fs.realpathSync(dir)!==dir)throw Error('ATTACHED_UNSAFE_DIRECTORY');
+}
+export function assertPrivateFile(file){
+ const s=fs.lstatSync(file);
+ if(!s.isFile()||s.nlink!==1||s.uid!==process.getuid()||(s.mode&0o077)!==0)
+  throw Error('ATTACHED_UNSAFE_FILE');
+ return s;
+}
+export function openAttachedStageLedger(Database,home){
+ const root=attachedStateRoot(home),file=path.join(root,'inference-ledger.sqlite3');
+ for(const suffix of ['','-journal','-wal','-shm']){
+  if(fs.lstatSync(file+suffix,{throwIfNoEntry:false}))assertPrivateFile(file+suffix);
+ }
+ try{fs.closeSync(fs.openSync(file,'wx',0o600));}catch(e){if(e.code!=='EEXIST')throw e;}
+ assertPrivateFile(file);
+ const db=new Database(file);
+ try{return createAttachedStageLedger(db);}catch(e){db.close();throw e;}
+}
+
 export const ATTACHED_TRIAL_MODEL='openrouter/nvidia/nemotron-3-ultra-550b-a55b:free';
 const roles=['valera-ceo','backend'];
 const slot='attached-first-runtime';

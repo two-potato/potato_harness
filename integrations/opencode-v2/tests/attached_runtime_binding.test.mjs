@@ -59,7 +59,8 @@ test('no admission or invalid bounds prevents reservation and server calls',asyn
  const f=fixture(t);
  for(const admit of [undefined,async()=>false,async()=>({approved:true})])
   await assert.rejects(()=>runBoundAttachedRuntime(request,{...f,admit}));
- await assert.rejects(()=>runBoundAttachedRuntime({...request,output_token_allowance:4096},{...f,admit:async()=>true}));
+ for(const output_token_allowance of [2,1024,2047,4096])
+  await assert.rejects(()=>runBoundAttachedRuntime({...request,output_token_allowance},{...f,admit:async()=>true}));
  assert.equal(f.ledger.status().attempt,null);assert.deepEqual(f.calls,[]);
 });
 test('uncertain backend keeps first stage and blocks replay after reopening',async t=>{

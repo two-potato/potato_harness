@@ -504,3 +504,23 @@ The current tests inject the client and admission seam. No production
 admission issuer, stable host database opener, audited live profile launcher
 or worker CLI registration is provided by this increment. The existing
 deny-dispatch profile remains unchanged and no external prompt is sent.
+
+
+### Attached host binding (no default admission)
+
+The host API now opens the fixed private attached journal at
+`~/.local/state/potato-harness/opencode-attached/inference-ledger.sqlite3`.
+It rejects unsafe paths and permissions, never alters the earlier native
+journal, and creates a unique audited Location only after the trusted
+admission callback accepts the exact request digest and a durable slot is
+reserved. The profile uses the pinned two-stage policy and audit file; it
+is not the original deny-dispatch diagnostic profile. The original
+diagnostic stays unchanged. The first attached trial uses an exact 2048
+aggregate output allowance (1024 per stage).
+
+The API does not implement or replace the trusted admission authority.
+A true callback in a test is not independent review or verified egress/
+billing. No command-line or environment switch grants admission. The
+actual CLI registration remains blocked until a reviewed host authority
+can verify those conditions. On failed connection the reserved slot and
+generated Location remain for investigation; no prompt is replayed.
