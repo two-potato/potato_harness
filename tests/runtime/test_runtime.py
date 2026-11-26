@@ -107,6 +107,33 @@ class RuntimeTests(unittest.TestCase):
             from harness.runtime.attached_trial import verify_workspace
             verify_workspace(state/'workspace')
 
+    def test_attached_live_hold_even_with_confirmation(self):
+        root=self.root/'attached-live-hold'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        with self.assertRaisesRegex(ValueError,'independent egress'):
+            run(state,confirm_attached_trial=True,worker=lambda *a:self.fail('live worker called'))
+        self.assertEqual(status(state)['unresolved_effects'],[])
+        self.assertEqual(status(state)['state'],'INITIALIZED')
+
+    def test_attached_candidate_and_transcript_fail_closed(self):
+        from harness.runtime.attached_trial import verify_proposal,verify_test_result,TEST_IDS
+        pure='def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'
+        verify_proposal(pure)
+        for source in ['import sys\nsys.exit(0)\n'+pure,pure+'\nprint("OK")\n',
+                       'def subtotal(unit_cents, quantity):\n    return unit_cents + quantity\n',
+                       'def subtotal(unit_cents, quantity):\n    return __import__("os")._exit(0)\n']:
+            with self.assertRaises(ValueError):verify_proposal(source)
+        lines=[f'{name.rsplit(".",1)[-1]} ({name}) ... ok' for name in TEST_IDS]
+        good='\n'.join(lines+['','-'*70,'Ran 3 tests in 0.001s','','OK'])+'\n'
+        result={'returncode':0,'timed_out':False,'stdout':'','stderr':good}
+        self.assertEqual(verify_test_result(result),list(TEST_IDS))
+        for bad in ['',good.replace('Ran 3','Ran 0'),good.replace(lines[0]+'\n',''),
+                    good.replace(lines[0],lines[1]),good.replace(' ... ok',' ... skipped')]:
+            with self.assertRaises(ValueError):verify_test_result(dict(result,stderr=bad))
+        with self.assertRaises(ValueError):verify_test_result(dict(result,stdout='forged'))
+
     def test_native_fixture_uncertainty_retains_outbox_and_never_replays(self):
         import sqlite3
         root=self.root/'native-trial'

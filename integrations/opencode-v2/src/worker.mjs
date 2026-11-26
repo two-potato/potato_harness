@@ -10,7 +10,7 @@ try{
  if(mode==='console'&&!key)throw Error('MISSING_CONSOLE_KEY');
  const offline=mode==='native-free-offline';
  const attached=mode==='attached-free'||mode==='attached-review-check';
- const password=attached?process.env.POTATO_OPENCODE_PASSWORD:undefined;
+ if(mode==='attached-free')throw Error('ATTACHED_LIVE_EGRESS_HOLD');
  let nativeBinary,operatorHome=attached?os.homedir():undefined,outerNamespace;
  if(offline){
   const {requireOfflineNetwork}=await import('./offline-network.mjs');
@@ -37,14 +37,7 @@ try{
  const request=JSON.parse(raw);
  const onPhase=event=>fs.writeSync(2,'POTATO_GATEWAY_PHASE '+JSON.stringify(event)+'\n');
  let result;
- if(mode==='attached-free'){
-  const {OpenCode}=await import('@opencode/client');
-  const {Database}=await import('bun:sqlite');
-  const {runAttachedHost}=await import('./attached-host.mjs');
-  const {admitReviewedScope}=await import('./attached-admission.mjs');
-  result=await runAttachedHost(request,{operatorHome,password,Database,clientFactory:OpenCode.make,onPhase,
-   admit:scope=>admitReviewedScope(scope,request,operatorHome)});
- }else if(mode==='native-free-fixture'){
+ if(mode==='native-free-fixture'){
   const {runNativeRuntimeFixture}=await import('./server-inference.mjs');
   const {launchNativeFixture,awaitNativeFixture}=await import('./native-runtime-fixture.mjs');
   result=await runNativeRuntimeFixture(request,{launch:launchNativeFixture,awaitPolicy:awaitNativeFixture,onPhase});

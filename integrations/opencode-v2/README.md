@@ -601,3 +601,18 @@ unset POTATO_OPENCODE_PASSWORD
 No new server or provider API key. Missing/expired review, wrong tree,
 non-synthetic files or used slot fail closed. A real successful trial is
 not yet established. The earlier diagnostic profile is not used for dispatch.
+
+
+### Independent HOLD (revision 6a0d6f1)
+
+The real attached CLI and standalone live worker are explicitly disabled
+pending independently verified egress constraints and run-bound admission.
+A receipt or confirmation flag alone cannot lift this HOLD. The earlier
+live invocation instructions are superseded. No previous ledger is reset.
+
+For the exact first subtotal trial only, a replacement must be a pure
+multiplication function with the original signature (checked by AST).
+Acceptance also requires the exact three named unittest successes and
+the three-test summary, not just a zero exit code. This is intentionally
+not a general-project AST rule. Controlled end-to-end acceptance and
+the durable worker handoff remain pending.

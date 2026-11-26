@@ -266,16 +266,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
     if config.get('adapter')==attached_trial.ADAPTER:
         if confirm_attached_trial is not True or workflow_binding is not None:
             raise ValueError('Attached trial requires explicit local run confirmation')
-        if not os.environ.get('POTATO_OPENCODE_PASSWORD'):
-            raise ValueError('Local OpenCode password required before dispatch')
-        attached_trial.verify_workspace(state/'workspace')
-        command=_worker_command(config)
-        try:
-            check=subprocess.run([*command[:-1],'attached-review-check'],stdin=subprocess.DEVNULL,
-                                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=20)
-            if check.returncode:raise ValueError('Attached review not verified')
-        except (OSError,subprocess.TimeoutExpired):
-            raise ValueError('Attached review check unavailable') from None
+        raise ValueError('Attached live HOLD: independent egress enforcement not established')
     elif confirm_attached_trial:
         raise ValueError('Attached confirmation only applies to the attached trial')
     guard=_Guard();controller=Controller(database,guard=guard);task=controller.get_task(run['task_id'])
@@ -391,6 +382,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
             if type(edit) is not dict or set(edit)!={'path','content'} or edit['path'] in seen or edit['path'] not in config['scope'] or type(edit['content']) is not str:raise ValueError('Invalid or unscoped edit')
             seen.add(edit['path']);content=edit['content'].encode();total+=len(content)
             if total>MAX_BYTES:raise ValueError('Edit byte limit exceeded')
+            if config.get('adapter')==attached_trial.ADAPTER:attached_trial.verify_proposal(edit['content'])
             allowed('edit',edit['path']);_safe_edit(workspace,edit['path'],content)
         after=_snapshot(workspace);changed=sorted(p for p in set(before)|set(after) if before.get(p)!=after.get(p))
         if not changed or any(p not in config['scope'] for p in changed):raise ValueError('Review: no change or change outside scope')
@@ -421,6 +413,8 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
         context.update(task_revision=task['revision'],fencing_token=lease['fencing_token']);run['grant']=grant;save()
         allowed('test',config['scope'][0])
         test=sandbox_run(workspace,config['test_argv'],timeout=remaining())
+        if config.get('adapter')==attached_trial.ADAPTER:
+            run['executed_test_ids']=attached_trial.verify_test_result(test);save()
         move('REVIEWING')
         test_bytes=_json(test).encode()
         # Tests may create caches, but must not modify any pinned input.
