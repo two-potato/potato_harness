@@ -5,6 +5,7 @@ import {combineModelUsage} from './bridge_accounting.mjs';
 import {bridgeBudget,withTimeout} from './bridge_limits.mjs';
 import {assertAudit} from './server-audit.mjs';
 import {modelRef,isNativeBaseVariant} from './server-policy.mjs';
+import {attachedModelRef} from './attached-policy-profile.mjs';
 import {errorCategory,responseShape,auditShape} from './server-inference-diagnostics.mjs';
 import {OBJECTIVE} from './trial-fixture.mjs';
 import {requireOfflineNetwork} from './offline-network.mjs';
@@ -23,7 +24,7 @@ export function probeUsage(info,cap=PROBE_CAP){
 }
 // The common flow has no transport of its own. The manual probe and runtime
 // diagnostics bind their own launchers; the future candidate has no CLI binding.
-async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{},beforePrompt=()=>{},onValidatedStage=()=>{}}){
+async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),offline=false,task,onPhase=()=>{},beforePrompt=()=>{},onValidatedStage=()=>{},resolveModelRef=modelRef}){
  const {worker,scope,objective,prompt,cap,synthetic,checkProposal,tokenAllowance,assignmentInstruction='Return only JSON with owner and reason. No tools. This is an inert test, not a real assignment.'}=task;
  let reportedTokens=0;
  let observedPhase=null,started=0;
@@ -36,7 +37,7 @@ async function nativeFlow({model,launch,awaitPolicy,budget=bridgeBudget(90000),o
  const stages=[],ids=new Set();
  try{
   begin('server');
-  const ref=modelRef(model);
+  const ref=resolveModelRef(model);
   server=await launch({model,worker,maxOutput:cap,audit:true,offline});
   phase='preflight';check='policy';
   await budget.stage(()=>awaitPolicy(server));
@@ -123,7 +124,7 @@ export const NATIVE_FIXTURE_MODEL='opencode/potato-runtime-fixture-free';
 // A trusted host request is data, never transport configuration or activation.
 // Both native runtime diagnostics share the same closed, bounded contract.
 function prepareNativeRuntime(request,mode){
- if(!['fixture','offline','candidate'].includes(mode))throw Error('NATIVE_RUNTIME_MODE');
+ if(!['fixture','offline','candidate','attached-candidate'].includes(mode))throw Error('NATIVE_RUNTIME_MODE');
  const fields=['role','model','prompt','coordination','output_token_allowance','projectDir','bridge_timeout_ms','token_allowance'];
  if(!request||typeof request!=='object'||Array.isArray(request)||
     Object.keys(request).some(key=>!fields.includes(key))||
@@ -131,10 +132,11 @@ function prepareNativeRuntime(request,mode){
     !request.coordination||Object.keys(request.coordination).sort().join(',')!=='objective,scope'||
     request.role!=='backend'||request.coordination.objective!==OBJECTIVE||
     JSON.stringify(request.coordination.scope)!=='["calculation.py"]')throw Error('NATIVE_RUNTIME_CONTRACT');
- const model=request.model,ref=modelRef(model);
+ const model=request.model,ref=mode==='attached-candidate'?attachedModelRef(model):modelRef(model);
+ if(mode==='attached-candidate'&&ref.providerID!=='openrouter')throw Error('ATTACHED_OPENROUTER_REQUIRED');
  if(mode==='fixture'?model!==NATIVE_FIXTURE_MODEL:model===NATIVE_FIXTURE_MODEL)throw Error('NATIVE_RUNTIME_MODE_MODEL');
  const cap=validateRequest(request,{requestModel:model,modelRef:ref});
- if(mode==='candidate'&&(!('bridge_timeout_ms' in request)||!('token_allowance' in request)))throw Error('NATIVE_CANDIDATE_HOST_BOUNDS_REQUIRED');
+ if(['candidate','attached-candidate'].includes(mode)&&(!('bridge_timeout_ms' in request)||!('token_allowance' in request)))throw Error('NATIVE_CANDIDATE_HOST_BOUNDS_REQUIRED');
  const budget=bridgeBudget('bridge_timeout_ms' in request?request.bridge_timeout_ms:75000);
  const tokenAllowance=request.token_allowance;
  if('token_allowance' in request&&(!Number.isSafeInteger(tokenAllowance)||tokenAllowance<2))throw Error('NATIVE_TOKEN_ALLOWANCE');
@@ -143,14 +145,16 @@ function prepareNativeRuntime(request,mode){
 // Shared proposal contract; the trusted launch binding is never supplied by
 // JSON or an agent. The candidate export below is deliberately not wired to
 // the runtime CLI. A successful injected test is not external admission.
-async function runtimeProposal(request,prepared,{launch,awaitPolicy,onPhase},mode){
+async function runtimeProposal(request,prepared,{launch,awaitPolicy,onPhase,beforePrompt,onValidatedStage},mode){
  if(typeof launch!=='function'||typeof awaitPolicy!=='function')throw Error('NATIVE_HOST_BINDING_REQUIRED');
  const {model,cap,budget,tokenAllowance}=prepared;
+ const attached=mode==='attached-candidate';
  const {report,proposal}=await nativeFlow({model,launch,awaitPolicy,onPhase,budget,
+  ...(attached?{resolveModelRef:attachedModelRef,beforePrompt,onValidatedStage}:{}),
   task:{worker:request.role,scope:request.coordination.scope,objective:request.coordination.objective,
    prompt:request.prompt+'\nReturn only JSON {"edits":[{"path":"relative/file","content":"complete new text"}],"summary":"short explanation"}. No tools.',
    cap,tokenAllowance,synthetic:mode==='fixture',
-   ...(mode==='candidate'?{assignmentInstruction:'Return only JSON with owner and reason. Coordinate only. No tools or source inspection.'}:{}),
+   ...(['candidate','attached-candidate'].includes(mode)?{assignmentInstruction:'Return only JSON with owner and reason. Coordinate only. No tools or source inspection.'}:{}),
    checkProposal:p=>{if(!p.summary.trim())throw Error('INVALID_PROPOSAL');}}});
  if(report.status!=='PASS'||!proposal)throw Error(mode==='fixture'?'NATIVE_FIXTURE_HOLD':'NATIVE_CANDIDATE_HOLD');
  return proposal;
@@ -165,6 +169,16 @@ export async function runNativeRuntimeCandidate(request,bindings){
  const prepared=prepareNativeRuntime(request,'candidate');
  if(prepared.model!==bindings?.expectedModel)throw Error('NATIVE_CANDIDATE_MODEL_MISMATCH');
  return runtimeProposal(request,prepared,bindings,'candidate');
+}
+
+// Separate attached-provider contract; only a trusted host can bind transport,
+// admission and durable dispatch callbacks. There is no CLI/runtime registration.
+export async function runAttachedRuntimeCandidate(request,bindings){
+ const prepared=prepareNativeRuntime(request,'attached-candidate');
+ if(prepared.model!==bindings?.expectedModel)throw Error('ATTACHED_CANDIDATE_MODEL_MISMATCH');
+ if(typeof bindings?.beforePrompt!=='function'||typeof bindings?.onValidatedStage!=='function')
+  throw Error('ATTACHED_DURABLE_STAGE_BINDING_REQUIRED');
+ return runtimeProposal(request,prepared,bindings,'attached-candidate');
 }
 
 // Real CLI with the offline guard. Never return a proposal to the runtime.

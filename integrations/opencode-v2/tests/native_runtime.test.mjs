@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture,runNativeRuntimeOffline,runNativeRuntimeCandidate} from '../src/server-inference.mjs';
+import {NATIVE_FIXTURE_MODEL,runNativeRuntimeFixture,runNativeRuntimeOffline,runNativeRuntimeCandidate,runAttachedRuntimeCandidate} from '../src/server-inference.mjs';
 import {launchNativeFixture,awaitNativeFixture} from '../src/native-runtime-fixture.mjs';
 import {OBJECTIVE} from '../src/trial-fixture.mjs';
 const request={role:'backend',model:NATIVE_FIXTURE_MODEL,prompt:'synthetic scoped source',coordination:{objective:OBJECTIVE,scope:['calculation.py']},output_token_allowance:4096};
@@ -133,12 +133,13 @@ test('native cumulative reported usage prevents second dispatch or proposal when
 });
 
 const candidateRequest={...request,model:'opencode/deepseek-v4.1-flash-free',token_allowance:100,bridge_timeout_ms:9000};
-function candidateTransport(fault){
+function candidateTransport(fault,expected=candidateRequest){
+ const slash=expected.model.indexOf('/'),providerID=expected.model.slice(0,slash),modelID=expected.model.slice(slash+1);
  const calls=[],launches=[],prompts=[],audit=['ready'],sessions=new Map();
  const stats={closed:0};
  const launch=async options=>{
   launches.push(options);
-  assert.equal(options.model,candidateRequest.model);
+  assert.equal(options.model,expected.model);
   assert.equal(options.worker,'backend');
   assert.equal(options.audit,true);assert.equal(options.offline,false);
   return {directory:'/synthetic-candidate',readAudit:()=>[...audit],
@@ -146,7 +147,7 @@ function candidateTransport(fault){
    client:{session:{
     create:async x=>{
      assert.deepEqual(x.location,{directory:'/synthetic-candidate'});
-     assert.deepEqual(x.model,{providerID:'opencode',id:'deepseek-v4.1-flash-free'});
+     assert.deepEqual(x.model,{providerID,id:modelID});
      assert.deepEqual(x.permissions,[{action:'*',resource:'*',effect:'deny'}]);
      const id='fake-'+sessions.size;sessions.set(id,x.agent);return {id};
     },
@@ -159,7 +160,7 @@ function candidateTransport(fault){
     const value=first?{owner:'backend',reason:'synthetic assignment'}:{edits:[{path:fault==='scope'?'outside.py':'calculation.py',content:'replacement'}],summary:'synthetic proposal'};
     const error=first&&fault==='rate'?{type:'provider.rate-limit',message:'PRIVATE_PROVIDER_TEXT'}:undefined;
     const data=error?[{type:'user'},{type:'idle',outcome:'failed',error}]:[
-     {type:'user'},{type:'assistant',agent:role,model:{providerID:'opencode',id:first&&fault==='identity'?'other-free':'deepseek-v4.1-flash-free'},
+     {type:'user'},{type:'assistant',agent:role,model:{providerID,id:first&&fault==='identity'?'other-free':modelID},
       finish:'stop',time:{completed:1},tokens:{input:10,output:5},cost:first&&fault==='paid'?1:0,content:[{type:'text',text:JSON.stringify(value)}]},
      {type:'idle',outcome:'succeeded'}];
     return {data,cursor:{next:'tail'}};
@@ -195,5 +196,36 @@ test('future candidate holds on first-stage rejection and late invalid result wi
   assert.deepEqual(f.calls,roles);assert.equal(f.stats.closed,1);
   assert.ok(!JSON.stringify(events).includes('PRIVATE_'));
   if(fault==='rate')assert.ok(events.some(e=>e.reason_code==='RATE_LIMIT'));
+ }
+});
+
+const attachedRequest={...candidateRequest,model:'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free'};
+test('attached OpenRouter candidate reuses Valera and Backend flow with host stage reservations',async()=>{
+ const f=candidateTransport(undefined,attachedRequest),stages=[];
+ const p=await runAttachedRuntimeCandidate(attachedRequest,{expectedModel:attachedRequest.model,launch:f.launch,
+  awaitPolicy:async()=>{},beforePrompt:role=>stages.push('reserve:'+role),
+  onValidatedStage:(role,usage)=>{assert.equal(usage.cost_usd,0);stages.push('validate:'+role);}});
+ assert.deepEqual(f.calls,['valera-ceo','backend']);
+ assert.deepEqual(stages,['reserve:valera-ceo','validate:valera-ceo','reserve:backend','validate:backend']);
+ assert.ok(!f.prompts[0].includes(attachedRequest.prompt));
+ assert.equal(p.usage.cost_usd,0);assert.equal(f.stats.closed,1);
+});
+test('attached candidate rejects absent stage binding, alternate model, router alias and overrides before launch',async()=>{
+ const f=candidateTransport(undefined,attachedRequest),opts={expectedModel:attachedRequest.model,launch:f.launch,
+  awaitPolicy:async()=>{},beforePrompt:()=>{},onValidatedStage:()=>{}};
+ for(const change of [{beforePrompt:undefined},{onValidatedStage:undefined},{expectedModel:'other'}])
+  await assert.rejects(()=>runAttachedRuntimeCandidate(attachedRequest,{...opts,...change}));
+ for(const patch of [{model:'openrouter/openrouter/free'},{model:'openrouter/nvidia/paid'},{model:'opencode/beam-free'},
+  {token_allowance:undefined},{bridge_timeout_ms:undefined},{apiKey:'secret'},{fallback:'openrouter/other/model:free'}])
+  await assert.rejects(()=>runAttachedRuntimeCandidate({...attachedRequest,...patch},opts));
+ assert.equal(f.launches.length,0);
+});
+test('attached candidate stops before second model call when assignment or durable reservation fails',async()=>{
+ for(const fault of ['rate','paid','identity','reservation']){
+  const f=candidateTransport(fault,attachedRequest);
+  await assert.rejects(()=>runAttachedRuntimeCandidate(attachedRequest,{expectedModel:attachedRequest.model,launch:f.launch,
+   awaitPolicy:async()=>{},beforePrompt:role=>{if(fault==='reservation'&&role==='backend')throw Error('DENIED');},
+   onValidatedStage:()=>{}}),/NATIVE_CANDIDATE_HOLD/);
+  assert.deepEqual(f.calls,['valera-ceo']);assert.equal(f.stats.closed,1);
  }
 });
