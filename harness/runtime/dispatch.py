@@ -11,17 +11,26 @@ from harness.controller import Controller, ControllerError
 from harness.leases import LeaseManager
 from harness.scheduler import SPECIALISTS
 from harness.state import Outbox
+from harness.runtime.attached_trial import ADAPTERS
 
 
 def reserve_provider_dispatch(database, *, task_id, revision, row_version, owner,
                               lease_id, session, workspace, model, context_digest,
-                              tokens, cost, adapter=None):
+                              tokens, cost, adapter=None, attached_handoff=None):
     if (type(revision) is not int or type(row_version) is not int or
             type(owner) is not str or owner not in SPECIALISTS or
             type(model) is not str or not model.strip() or
             type(context_digest) is not str or not re.fullmatch(r'sha256:[a-f0-9]{64}',context_digest) or
             (adapter is not None and (type(adapter) is not str or not adapter.strip()))):
         raise ControllerError('Invalid trusted dispatch bindings')
+    if adapter in ADAPTERS:
+        if (type(attached_handoff) is not dict or set(attached_handoff)!={'nonce_sha256','request_sha256','operator_confirmed'} or
+                attached_handoff['operator_confirmed'] is not True or cost!=0 or
+                any(type(attached_handoff[k]) is not str or not re.fullmatch('[a-f0-9]{64}',attached_handoff[k])
+                    for k in ('nonce_sha256','request_sha256'))):
+            raise ControllerError('Attached dispatch requires exact confirmed handoff')
+    elif attached_handoff is not None:
+        raise ControllerError('Attached handoff cannot authorize another adapter')
     controller=Controller(database)
     budget=Budget(database)
     outbox=Outbox(database)
@@ -47,7 +56,12 @@ def reserve_provider_dispatch(database, *, task_id, revision, row_version, owner
                 'session':session,'workspace':workspace,'attempt_id':attempt,
                 'token_allowance':tokens,'cost_allowance_usd':cost}
         if adapter is not None:action['adapter']=adapter
+        if attached_handoff is not None:
+            action['attached_handoff']=dict(attached_handoff)
         effect=outbox._reserve(db,task_id,revision,action,key)
         if not outbox._claim(db,effect):
             raise ControllerError('Dispatch claim denied')
+        if attached_handoff is not None:
+            db.execute("CREATE TABLE IF NOT EXISTS attached_worker_handoffs(effect_id TEXT PRIMARY KEY REFERENCES outbox(effect_id), nonce_sha256 TEXT UNIQUE NOT NULL, state TEXT NOT NULL CHECK(state IN ('ISSUED','CONSUMED')))")
+            db.execute("INSERT INTO attached_worker_handoffs VALUES(?,?,'ISSUED')",(effect,attached_handoff['nonce_sha256']))
         return {'effect_id':effect,'attempt_id':attempt}

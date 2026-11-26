@@ -117,11 +117,41 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(status(state)['unresolved_effects'],[])
         self.assertEqual(status(state)['state'],'INITIALIZED')
 
+    def test_attached_handoff_consumes_once_and_reconstructs_exact_source(self):
+        import sqlite3
+        from harness.runtime.attached_handoff import consume
+        root=self.root/'attached-controlled'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free-fixture'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        def controlled_worker(envelope,command,timeout):
+            self.assertEqual(command[-1],'attached-free-fixture')
+            self.assertEqual(set(envelope),{'state','nonce'})
+            envelope={**envelope,'bridge_timeout_ms':10000}
+            with self.assertRaises(ValueError):consume(dict(envelope,prompt='foreign'))
+            with self.assertRaises(ValueError):consume(dict(envelope,nonce='0'*64))
+            with sqlite3.connect(state/'state.db') as db:
+                self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('ISSUED',)])
+            request=consume(envelope)
+            self.assertIn('unit_cents + quantity',request['prompt'])
+            with self.assertRaisesRegex(ValueError,'already consumed'):
+                consume(envelope)
+            # Force HOLD after consumption; no second attempt or publication.
+            raise RuntimeError('controlled transport outcome unknown')
+        result=run(state,confirm_attached_trial=True,worker=controlled_worker,
+                   sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertEqual(len(result['unresolved_effects']),1)
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('CONSUMED',)])
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchall(),[('UNKNOWN',)])
+        with self.assertRaises(ValueError):run(state,confirm_attached_trial=True)
+
     def test_attached_candidate_and_transcript_fail_closed(self):
         from harness.runtime.attached_trial import verify_proposal,verify_test_result,TEST_IDS
         pure='def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'
         verify_proposal(pure)
-        for source in ['import sys\nsys.exit(0)\n'+pure,pure+'\nprint("OK")\n',
+        for source in ['# coding: unicode_escape\n'+pure,'import sys\nsys.exit(0)\n'+pure,pure+'\nprint("OK")\n',
                        'def subtotal(unit_cents, quantity):\n    return unit_cents + quantity\n',
                        'def subtotal(unit_cents, quantity):\n    return __import__("os")._exit(0)\n']:
             with self.assertRaises(ValueError):verify_proposal(source)

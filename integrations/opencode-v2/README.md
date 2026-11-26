@@ -616,3 +616,24 @@ Acceptance also requires the exact three named unittest successes and
 the three-test summary, not just a zero exit code. This is intentionally
 not a general-project AST rule. Controlled end-to-end acceptance and
 the durable worker handoff remain pending.
+
+
+### Controlled attached handoff and acceptance
+
+The distinct `opencode-v2-attached-free-fixture` adapter has zero external
+requests and uses a controlled server seam. The Python host binds a random
+single-use nonce and exact request digest to the claimed Outbox effect
+in its reservation transaction. The worker receives no prompt, only a state
+pointer and nonce; the trusted Python helper reconstructs the request from
+the fixed source and host context, checks current task, grant, lease, budget,
+Outbox, run lock and confirmation, then atomically consumes the nonce.
+The host UID/interpreter and private database are trusted, not protected
+against a malicious operator with the same UID. The live route remains
+disabled, so this is not live admission evidence.
+
+Both attached profiles now share the exact source and pure-function AST
+acceptance plus the named three-test transcript gate. The integration CI
+runs the controlled adapter through the actual Bun worker and Bubblewrap,
+and checks the two stage reservations, consumed handoff and final Outbox.
+The controlled SQLite stage journal is retained in trial state; no actual
+provider record is created and no historical unknown slot is reset.

@@ -1,10 +1,14 @@
 """Exact synthetic scope for the reviewed first attached model trial."""
 import ast
+import io
 import re
+import tokenize
 from pathlib import Path
 from harness.runtime.workspace import _git_bytes
 
 ADAPTER = 'opencode-v2-attached-free'
+FIXTURE_ADAPTER = 'opencode-v2-attached-free-fixture'
+ADAPTERS = (ADAPTER, FIXTURE_ADAPTER)
 MODEL = 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free'
 OBJECTIVE = 'Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'
 TEST_ARGV = ['/usr/bin/python3','-B','-m','unittest','discover','-s','tests','-v']
@@ -41,7 +45,9 @@ def verify_proposal(content):
     if type(content) is not str or len(content.encode())>4096:
         raise ValueError('Attached trial proposal outside pure-function scope')
     try:
-        actual=ast.dump(ast.parse(content),include_attributes=False)
+        raw=content.encode('utf-8')
+        if tokenize.detect_encoding(io.BytesIO(raw).readline)[0]!='utf-8':raise ValueError('Non-UTF8 encoding')
+        actual=ast.dump(ast.parse(raw),include_attributes=False)
     except (SyntaxError,ValueError,RecursionError) as exc:
         raise ValueError('Attached trial invalid Python proposal') from exc
     allowed=[ast.dump(ast.parse('def subtotal(unit_cents, quantity):\n    return '+expr+'\n'),include_attributes=False)

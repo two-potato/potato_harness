@@ -5,7 +5,7 @@ import path from 'node:path';
 let home,code=2;
 try{
  const mode=process.argv[2];
- if(!['fixture','console','native-free-fixture','native-free-offline','attached-free','attached-review-check'].includes(mode)||process.argv.length!==3)throw Error('INVALID_ADAPTER_MODE');
+ if(!['fixture','console','native-free-fixture','native-free-offline','attached-free','attached-free-fixture','attached-review-check'].includes(mode)||process.argv.length!==3)throw Error('INVALID_ADAPTER_MODE');
  const key=mode==='console'?process.env.OPENCODE_API_KEY:undefined;
  if(mode==='console'&&!key)throw Error('MISSING_CONSOLE_KEY');
  const offline=mode==='native-free-offline';
@@ -37,7 +37,10 @@ try{
  const request=JSON.parse(raw);
  const onPhase=event=>fs.writeSync(2,'POTATO_GATEWAY_PHASE '+JSON.stringify(event)+'\n');
  let result;
- if(mode==='native-free-fixture'){
+ if(mode==='attached-free-fixture'){
+  const {runAttachedControlledFixture}=await import('./attached-controlled-fixture.mjs');
+  result=await runAttachedControlledFixture(request,{onPhase,home});
+ }else if(mode==='native-free-fixture'){
   const {runNativeRuntimeFixture}=await import('./server-inference.mjs');
   const {launchNativeFixture,awaitNativeFixture}=await import('./native-runtime-fixture.mjs');
   result=await runNativeRuntimeFixture(request,{launch:launchNativeFixture,awaitPolicy:awaitNativeFixture,onPhase});
