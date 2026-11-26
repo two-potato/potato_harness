@@ -49,6 +49,6 @@ test('generated attached plugin enforces guard before recording or forwarding HT
  await assert.rejects(()=>hooks['http.request']({...e,request:req({...body,model:'paid'})}),/HTTP_REQUEST_DENIED/);
  const wire={...e,request:req()};await hooks['http.request'](wire);
  assert.equal((await wire.request.json()).provider.max_price.prompt,0);
- await assert.rejects(()=>hooks['http.request']({...e,request:req()}),/HTTP_REQUEST_DENIED/);
+ assert.throws(()=>hooks['http.request']({...e,request:req()}),/HTTP_REQUEST_DENIED/);
  await close();
 });

@@ -198,7 +198,7 @@
   "integrations/opencode-v2/tests/attached_runtime_binding.test.mjs": "46ae6edb0f0fcdd8db9426dcd9ce8d36a1d6cf2984509887db44c0ae60ec194e",
   "integrations/opencode-v2/tests/attached_runtime_transport.test.mjs": "6a1e6cbfeacc56054c6028e682c78397c671022b652f8b70dd8d4667692e9ca8",
   "integrations/opencode-v2/tests/attached_server_probe.test.mjs": "acac7e7dbad9a4b98169ebdca9fa15e5dd24a3d680bdfe5345afaafbfa64ce19",
-  "integrations/opencode-v2/tests/attached_wire_policy.test.mjs": "24280fd5aaad6fbd84f99fe63640a0497a5e99e453231550a4a7786602d4fe9a",
+  "integrations/opencode-v2/tests/attached_wire_policy.test.mjs": "8a8b4f5ed9eccd52cb71076c5db69067d04ab5cb1432387c8e9a9df27d9ef9db",
   "integrations/opencode-v2/tests/bridge_accounting.test.mjs": "99c5c4d99e148f910c7c53f64470ecaa4949574db73634e444e46540daab3c44",
   "integrations/opencode-v2/tests/bridge_limits.test.mjs": "f7f151d33743a586a1bb55544aa0543ca597e47bd6d16a0853ebe2931546390e",
   "integrations/opencode-v2/tests/console.test.mjs": "2b15064e6633367eb8189153b951bc1862405208d063baaea16ffb65c35305ac",
