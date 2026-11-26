@@ -50,7 +50,7 @@ export function prepareProfile(directory,model){
  privateDir(path.dirname(directory));
  fs.mkdirSync(directory,{mode:0o700}); // never overwrite, never modify ordinary config
  fs.mkdirSync(profile.plugin,{mode:0o700});
- fs.writeFileSync(path.join(directory,'profile.json'),JSON.stringify(profile.config,null,2)+'\n',{mode:0o600,flag:'wx'});
+ fs.writeFileSync(path.join(directory,'opencode.json'),JSON.stringify(profile.config,null,2)+'\n',{mode:0o600,flag:'wx'});
  fs.writeFileSync(path.join(profile.plugin,'server.mjs'),profile.source,{mode:0o600,flag:'wx'});
  return {status:'PREPARED',roles:ROLES.length,model,profile_directory:directory,
   dispatch_disabled:true,runtime_admission:false};
@@ -62,12 +62,13 @@ export async function inspectPolicy({directory,model,password,clientFactory,send
  try{
   const profile=buildProfile(directory,model);
   privateDir(directory);privateDir(profile.plugin);
-  if(privateRead(path.join(directory,'profile.json'))!==JSON.stringify(profile.config,null,2)+'\n'||
+  if(privateRead(path.join(directory,'opencode.json'))!==JSON.stringify(profile.config,null,2)+'\n'||
      privateRead(path.join(profile.plugin,'server.mjs'))!==profile.source)
    return {...report,reason:'LOCAL_PROFILE_MISMATCH'};
   const client=clientFactory({baseUrl:ATTACHED_ENDPOINT,fetch:attachedFetch({password,signal:controller.signal,send})});
   const health=await withTimeout(()=>client.server.info(),5000);
   if(health?.version!=='2.4.1')return {...report,reason:'SERVER_VERSION_MISMATCH'};
+  // Resolve a fresh project Location, independent of the server process cwd.
   const location={directory};
   const [plugins,agents,models]=await withTimeout(()=>Promise.all([
    client.plugin.list({location}),client.agent.list({location}),client.model.list({location})

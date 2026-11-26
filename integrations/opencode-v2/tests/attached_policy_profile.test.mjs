@@ -60,8 +60,8 @@ test('private preparation refuses overwrite and writes no credentials',t=>{
  const f=fixture(t);if(!f)return;
  assert.equal(f.result.status,'PREPARED');
  assert.throws(()=>prepareProfile(f.dir,model));
- assert.equal(fs.statSync(path.join(f.dir,'profile.json')).mode&0o777,0o600);
- assert.ok(!fs.readFileSync(path.join(f.dir,'profile.json'),'utf8').includes('apiKey'));
+ assert.equal(fs.statSync(path.join(f.dir,'opencode.json')).mode&0o777,0o600);
+ assert.ok(!fs.readFileSync(path.join(f.dir,'opencode.json'),'utf8').includes('apiKey'));
 });
 test('exact snapshot is advisory only; missing role, wrong price, extra plugin fail',async t=>{
  const f=fixture(t);if(!f)return;
@@ -78,7 +78,22 @@ test('exact snapshot is advisory only; missing role, wrong price, extra plugin f
 });
 test('modified local profile fails before server access',async t=>{
  const f=fixture(t);if(!f)return;
- fs.appendFileSync(path.join(f.dir,'profile.json'),' ');
+ fs.appendFileSync(path.join(f.dir,'opencode.json'),' ');
  assert.equal((await inspectPolicy(f.options)).reason,'LOCAL_PROFILE_MISMATCH');
  assert.equal(f.calls(),0);
+});
+
+test('project discovery stages opencode.json and scopes all snapshot queries to the private Location',async t=>{
+ const f=fixture(t);if(!f)return;
+ assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.dir,'opencode.json'),'utf8')),f.p.config);
+ assert.equal(fs.existsSync(path.join(path.dirname(f.dir),'opencode.json')),false);
+ const calls=[];
+ const clientFactory=()=>({server:{info:async()=>({version:'2.4.1'})},
+  ...Object.fromEntries([['plugin','plugins'],['agent','agents'],['model','models']].map(([key,value])=>[
+   key,{list:async arg=>{calls.push(key);assert.deepEqual(arg,{location:{directory:f.dir}});return f.snapshot[value];}}
+  ]))});
+ const report=await inspectPolicy({...f.options,clientFactory});
+ assert.equal(report.status,'PASS');
+ assert.deepEqual(calls.sort(),['agent','model','plugin']);
+ assert.equal(report.runtime_admission,false);
 });
