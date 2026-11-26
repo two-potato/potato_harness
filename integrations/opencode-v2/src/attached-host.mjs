@@ -6,6 +6,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {buildProfile} from './attached-policy-profile.mjs';
 import {pluginSource} from './server-policy.mjs';
+import {attachedWireRequest} from './attached-wire-policy.mjs';
 import {readAudit} from './server-audit.mjs';
 import {attachedStateRoot,assertPrivateDirectory,assertPrivateFile,
  openAttachedStageLedger,ATTACHED_TRIAL_MODEL} from './attached-stage-ledger.mjs';
@@ -29,7 +30,7 @@ function auditedProfile(directory){
  const p=buildProfile(directory,ATTACHED_TRIAL_MODEL);
  const auditFile=path.join(directory,'audit.log');
  const configText=JSON.stringify(p.config,null,2)+'\n';
- const source=pluginSource(p.config,p.ref,1024,'backend',auditFile,false);
+ const source=pluginSource(p.config,p.ref,1024,'backend',auditFile,false,attachedWireRequest);
  const verifyProfile=()=>{
   assertPrivateDirectory(directory);assertPrivateDirectory(p.plugin);
   if(readPrivate(path.join(directory,'opencode.json'))!==configText||
