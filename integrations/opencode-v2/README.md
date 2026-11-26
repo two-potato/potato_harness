@@ -488,3 +488,19 @@ trusted integration seams, NOT an admission authority. Tests use injected
 clients; the module is not registered in the runtime CLI. A reviewed
 audited live profile, durable stage reservations and independently verified
 egress/limits remain necessary before the first real dispatch.
+
+
+### Attached bounded runtime composition and stage journal
+
+The attached binding composes the existing Valera/Backend proposal runner
+with the attached session transport and durable SQLite stage reservations.
+The fixed first-trial model is Nemotron 3 Ultra Free. The host must supply
+an admission authority, a verified audited profile and a database; none
+can be selected by the agent request. The first trial slot is never reopened
+and both stage reservations are committed before dispatch. A failure or
+uncertain completion remains UNKNOWN and preserves validated stage usage.
+This new scope does not modify or resolve the earlier native journal.
+The current tests inject the client and admission seam. No production
+admission issuer, stable host database opener, audited live profile launcher
+or worker CLI registration is provided by this increment. The existing
+deny-dispatch profile remains unchanged and no external prompt is sent.
