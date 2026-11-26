@@ -107,6 +107,22 @@ class RuntimeTests(unittest.TestCase):
             from harness.runtime.attached_trial import verify_workspace
             verify_workspace(state/'workspace')
 
+    def _mock_attached_review_only(self, state, returncode):
+        # Patch the shared subprocess.run only for the exact trusted preflight
+        # argv. Git and every other subprocess must execute normally.
+        from unittest.mock import patch
+        from harness.runtime import _worker_command
+        command=_worker_command(json.loads((state/'config.json').read_text()))
+        expected=[*command[:-1],'attached-review-check']
+        real_run=subprocess.run
+        review_calls=[]
+        def review_only(argv,*args,**kwargs):
+            if argv==expected:
+                review_calls.append(argv)
+                return subprocess.CompletedProcess(argv,returncode)
+            return real_run(argv,*args,**kwargs)
+        return patch('harness.runtime.subprocess.run',side_effect=review_only),review_calls
+
     def test_attached_live_hold_without_explicit_trust_and_signed_review(self):
         from unittest.mock import patch
         root=self.root/'attached-live-hold'
@@ -116,10 +132,11 @@ class RuntimeTests(unittest.TestCase):
         worker=lambda *a:self.fail('live worker called')
         with self.assertRaisesRegex(ValueError,'explicit trust'):
             run(state,confirm_attached_trial=True,worker=worker)
-        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), \
-             patch('harness.runtime.subprocess.run',return_value=subprocess.CompletedProcess([],2)):
+        review_patch,review_calls=self._mock_attached_review_only(state,2)
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), review_patch:
             with self.assertRaisesRegex(ValueError,'review not verified'):
                 run(state,confirm_attached_trial=True,trust_attached_opencode=True,worker=worker)
+        self.assertEqual(len(review_calls),1)
         self.assertEqual(status(state)['unresolved_effects'],[])
         self.assertEqual(status(state)['state'],'INITIALIZED')
 
@@ -147,10 +164,11 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'already consumed'):
                 consume(envelope,expected_adapter=ADAPTER)
             raise RuntimeError('synthetic live handoff outcome unknown')
-        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), \
-             patch('harness.runtime.subprocess.run',return_value=subprocess.CompletedProcess([],0)):
+        review_patch,review_calls=self._mock_attached_review_only(state,0)
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), review_patch:
             result=run(state,confirm_attached_trial=True,trust_attached_opencode=True,
                        worker=worker,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(len(review_calls),1)
         self.assertEqual(result['state'],'HOLD',result['reason'])
         self.assertEqual(len(calls),1)
         self.assertEqual(len(result['unresolved_effects']),1)

@@ -275,7 +275,7 @@
   "tests/runtime/test_prepare_trials.py": "a610fd5d4c0fbd1895dd2215512b8c21c6bd141cd8b9a613589e5a972be385ee",
   "tests/runtime/test_publisher.py": "33bc15aa61a6df1ed2078b61301e4a1d20cd9ccc16333603bc0665908abf7f94",
   "tests/runtime/test_readiness.py": "28b728b548bcae334288b3ef536338a76e5f1be0dbd8d95eb33b56e4fe65ce88",
-  "tests/runtime/test_runtime.py": "3e05a8d42ba5d083452df6bcc4805d1161ac1d0a158ada6d2aca7905f2fcd2a4",
+  "tests/runtime/test_runtime.py": "79aaca763577aaac6411c8bace3f9717c39c04c98d05918a7d4953eb2618da70",
   "tests/runtime/test_sequential_workflow.py": "0e14250bafb7b9183765817091a33dd590c0378037109b83cc3aacc4a00d1e07",
   "tests/runtime/test_trial_diagnostics.py": "a20f8ad181cd1780bec711260ec3c2c13da1ddbde58f28efe6a5d6660ca9e497",
   "tests/runtime/test_verifier.py": "a47071dd32405a87d42c65e9366225ab9512a6f3dc2342951670abd0b2d4a548",
