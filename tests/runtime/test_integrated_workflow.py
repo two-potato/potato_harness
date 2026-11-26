@@ -207,6 +207,27 @@ class IntegratedWorkflowTests(unittest.TestCase):
                 trusted_issuers=frozenset({'trial-host'}))
         self.assertEqual(list(root.iterdir()),[])
 
+    def test_evidence_reopens_under_permissive_umask(self):
+        import os
+        import stat
+        from harness.runtime.workflow_lifecycle import fixture_evidence_collector
+        from harness.verifier import digest_bytes
+        previous=os.umask(0)
+        try:
+            result=self.run_flow()
+        finally:
+            os.umask(previous)
+        self.assertEqual(result['status'],'DONE',result)
+        collector=fixture_evidence_collector(self.db,workflow_id='flow')
+        for state in self.spaces.iterdir():
+            task=json.loads((state/'binding.json').read_text())['task_id']
+            for directory in (state,state/'export'):
+                for name in ('evidence.json','relevant_checks.artifact','basic_review.artifact','acceptance_coverage.artifact'):
+                    self.assertEqual(stat.S_IMODE((directory/name).stat().st_mode),0o600,name)
+            for check in ('relevant_checks','basic_review','acceptance_coverage'):
+                evidence=collector('host:'+task+':'+check)
+                self.assertEqual(digest_bytes(evidence.artifact),evidence.record['artifact_digest'])
+
     def test_uncertain_first_worker_stops_second(self):
         def interrupted(*args):
             self.calls.append('backend')

@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Write runtime state and attestation artifacts atomically with explicit owner-only
+  file permissions, independently of the operator's umask; retain strict evidence
+  verification and test reopening under a permissive umask.
+
 - Generalize attached-server discovery to explicit OpenCode and OpenRouter
   free model IDs with bounded provider counts and strict catalog price checks.
 

@@ -12,6 +12,7 @@ import re
 import sqlite3
 import stat
 import subprocess
+import tempfile
 import time
 import uuid
 
@@ -30,11 +31,21 @@ from harness.publisher import Publisher
 from harness.policy import authorize,_parts
 from harness.verifier import TrustedEvidence,digest_bytes,verify_bundle
 
+def _write_private_bytes(path,data):
+    """Write host-owned state atomically, independent of the caller's umask."""
+    fd,name=tempfile.mkstemp(prefix='.'+path.name+'.',dir=path.parent)
+    temporary=Path(name)
+    try:
+        with os.fdopen(fd,'wb') as stream:
+            os.fchmod(stream.fileno(),0o600)
+            stream.write(data);stream.flush();os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _write(path,value):
-    temporary=path.with_suffix('.tmp')
-    with temporary.open('w') as stream:
-        stream.write(_json(value));stream.flush();os.fsync(stream.fileno())
-    temporary.replace(path)
+    _write_private_bytes(path,_json(value).encode('utf-8'))
 
 
 def _config(config):
@@ -392,7 +403,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         for check,artifact in artifacts.items():
             record={'schema_version':'3.0.1','evidence_id':check if workflow_binding is None else task['task_id']+':'+check,'task_id':task['task_id'],'task_revision':task['revision'],'repository_id':task['repository_id'],'acceptance_ids':['configured-tests'],'commit':task['target_commit'],'kind':'test' if check=='relevant_checks' else 'basic_review' if check=='basic_review' else 'contract_check','check_id':check,'source':'persistent-trial-host','issuer_id':'trial-host','attestation_ref':'host:'+check if workflow_binding is None else 'host:'+task['task_id']+':'+check,'run_id':uuid.uuid4().hex,'result':'PASS' if check!='relevant_checks' or test.get('returncode')==0 and test.get('timed_out') is False else 'FAIL','artifact_digest':digest_bytes(artifact),'created_at':datetime.now(timezone.utc).isoformat(),'policy_version':task['policy_version']}
             records.append(record);attestations[record['attestation_ref']]=TrustedEvidence(deepcopy(record),artifact)
-            (state/(check+'.artifact')).write_bytes(artifact)
+            _write_private_bytes(state/(check+'.artifact'),artifact)
         _write(state/'evidence.json',records)
         move('VERIFYING');verify_bundle(records,task,attestations.__getitem__,trusted_issuers=frozenset({'trial-host'}))
         with controller._connection(write=True) as db:
@@ -410,7 +421,7 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         artifacts_output=output/'artifacts';artifacts_output.mkdir(mode=0o700)
         for receipt in publications:
             (artifacts_output/receipt['digest'].split(':')[1]).write_bytes(Path(receipt['object_path']).read_bytes())
-        for check in artifacts:(output/(check+'.artifact')).write_bytes(artifacts[check])
+        for check in artifacts:_write_private_bytes(output/(check+'.artifact'),artifacts[check])
         _write(output/'evidence.json',records)
         move('DONE');run.update(state='DONE')
     except Exception as error:
