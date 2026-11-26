@@ -5,11 +5,13 @@ import path from 'node:path';
 let home,code=2;
 try{
  const mode=process.argv[2];
- if(!['fixture','console','native-free-fixture','native-free-offline'].includes(mode)||process.argv.length!==3)throw Error('INVALID_ADAPTER_MODE');
+ if(!['fixture','console','native-free-fixture','native-free-offline','attached-free','attached-review-check'].includes(mode)||process.argv.length!==3)throw Error('INVALID_ADAPTER_MODE');
  const key=mode==='console'?process.env.OPENCODE_API_KEY:undefined;
  if(mode==='console'&&!key)throw Error('MISSING_CONSOLE_KEY');
  const offline=mode==='native-free-offline';
- let nativeBinary,operatorHome,outerNamespace;
+ const attached=mode==='attached-free'||mode==='attached-review-check';
+ const password=attached?process.env.POTATO_OPENCODE_PASSWORD:undefined;
+ let nativeBinary,operatorHome=attached?os.homedir():undefined,outerNamespace;
  if(offline){
   const {requireOfflineNetwork}=await import('./offline-network.mjs');
   requireOfflineNetwork();
@@ -21,12 +23,28 @@ try{
  Object.assign(process.env,{PATH:'/usr/bin:/bin',HOME:home,XDG_CONFIG_HOME:path.join(home,'config'),XDG_DATA_HOME:path.join(home,'data'),XDG_CACHE_HOME:path.join(home,'cache'),DO_NOT_TRACK:'1'});
  if(offline)process.env.POTATO_OUTER_NETNS=outerNamespace;
  process.chdir(home);
+ if(mode==='attached-review-check'){
+  const {verifyAttachedReview}=await import('./attached-admission.mjs');
+  verifyAttachedReview(operatorHome);
+  const {Database}=await import('bun:sqlite');
+  const {openAttachedStageLedger}=await import('./attached-stage-ledger.mjs');
+  const ledger=openAttachedStageLedger(Database,operatorHome);
+  try{if(ledger.status().attempt!==null)throw Error('ATTACHED_SLOT_ALREADY_USED');}finally{ledger.close();}
+  fs.writeSync(1,'PASS: attached reviewed trial preflight\n');code=0;
+ }else{
  const raw=await new Response(Bun.stdin.stream()).text();
  if(Buffer.byteLength(raw)>262144)throw Error('OVERSIZED_REQUEST');
  const request=JSON.parse(raw);
  const onPhase=event=>fs.writeSync(2,'POTATO_GATEWAY_PHASE '+JSON.stringify(event)+'\n');
  let result;
- if(mode==='native-free-fixture'){
+ if(mode==='attached-free'){
+  const {OpenCode}=await import('@opencode/client');
+  const {Database}=await import('bun:sqlite');
+  const {runAttachedHost}=await import('./attached-host.mjs');
+  const {admitReviewedScope}=await import('./attached-admission.mjs');
+  result=await runAttachedHost(request,{operatorHome,password,Database,clientFactory:OpenCode.make,onPhase,
+   admit:scope=>admitReviewedScope(scope,request,operatorHome)});
+ }else if(mode==='native-free-fixture'){
   const {runNativeRuntimeFixture}=await import('./server-inference.mjs');
   const {launchNativeFixture,awaitNativeFixture}=await import('./native-runtime-fixture.mjs');
   result=await runNativeRuntimeFixture(request,{launch:launchNativeFixture,awaitPolicy:awaitNativeFixture,onPhase});
@@ -46,6 +64,7 @@ try{
   }else result=await runConsole(request,{OpenCode,key,onPhase});
  }
  fs.writeSync(1,JSON.stringify(result)+'\n');code=0;
+ }
 }catch{fs.writeSync(2,'OpenCode v2 host request failed; raw details omitted.\n');}
 finally{if(home)try{fs.rmSync(home,{recursive:true,force:true});}catch{code=2;}}
 process.exit(code);

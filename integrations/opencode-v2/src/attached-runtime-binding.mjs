@@ -23,7 +23,7 @@ export async function runBoundAttachedRuntime(request,{transport,ledger,admit,on
   bridge_timeout_ms:request.bridge_timeout_ms,
   request_sha256:createHash('sha256').update(JSON.stringify(request)).digest('hex')});
  if(await admit(scope)!==true)throw Error('ATTACHED_ADMISSION_REQUIRED');
- ledger.reserve(scope.model,scope.token_limit,scope.output_limit);
+ ledger.reserve(scope.model,scope.token_limit,scope.output_limit,scope.request_sha256);
  let result;
  try{
   result=await runAttachedRuntimeCandidate(request,{

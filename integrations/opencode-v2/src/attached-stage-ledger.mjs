@@ -46,17 +46,17 @@ export function createAttachedStageLedger(db){
   catch(e){db.exec('ROLLBACK');throw e;}
  }
  db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;');
- tx(()=>db.exec("CREATE TABLE IF NOT EXISTS attached_attempts(id TEXT PRIMARY KEY,model TEXT NOT NULL,token_limit INTEGER NOT NULL,output_limit INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN ('RESERVED','DISPATCHING','VALIDATED','UNKNOWN')));"+
+ tx(()=>db.exec("CREATE TABLE IF NOT EXISTS attached_attempts(id TEXT PRIMARY KEY,model TEXT NOT NULL,token_limit INTEGER NOT NULL,output_limit INTEGER NOT NULL,request_sha256 TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('RESERVED','DISPATCHING','VALIDATED','UNKNOWN')));"+
  "CREATE TABLE IF NOT EXISTS attached_stages(attempt_id TEXT NOT NULL REFERENCES attached_attempts(id),role TEXT NOT NULL CHECK(role IN ('valera-ceo','backend')),state TEXT NOT NULL CHECK(state IN ('DISPATCHING','VALIDATED')),input_tokens INTEGER,output_tokens INTEGER,cost_usd REAL,PRIMARY KEY(attempt_id,role));"));
  const attempt=()=>get('SELECT * FROM attached_attempts WHERE id=?',slot);
  const stages=()=>all("SELECT role,state,input_tokens,output_tokens,cost_usd FROM attached_stages WHERE attempt_id=? ORDER BY CASE role WHEN 'valera-ceo' THEN 0 ELSE 1 END",slot);
  const positive=n=>Number.isSafeInteger(n)&&n>0;
- function reserve(model,tokenLimit,outputLimit){
+ function reserve(model,tokenLimit,outputLimit,requestDigest){
   if(model!==ATTACHED_TRIAL_MODEL||!positive(tokenLimit)||tokenLimit>100000||
-     !positive(outputLimit)||outputLimit>1024)throw Error('ATTACHED_STAGE_BOUNDS');
+     !positive(outputLimit)||outputLimit>1024||typeof requestDigest!=='string'||!/^[a-f0-9]{64}$/.test(requestDigest))throw Error('ATTACHED_STAGE_BOUNDS');
   tx(()=>{
    if(get('SELECT count(*) AS n FROM attached_attempts').n!==0)throw Error('ATTACHED_SLOT_ALREADY_USED');
-   run("INSERT INTO attached_attempts VALUES(?,?,?,?,'RESERVED')",slot,model,tokenLimit,outputLimit);
+   run("INSERT INTO attached_attempts VALUES(?,?,?,?,?,'RESERVED')",slot,model,tokenLimit,outputLimit,requestDigest);
   });
  }
  function beforePrompt(role){

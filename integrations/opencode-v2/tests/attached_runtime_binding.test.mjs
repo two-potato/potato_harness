@@ -71,7 +71,7 @@ test('uncertain backend keeps first stage and blocks replay after reopening',asy
   const s=reopened.status();
   assert.equal(s.attempt.state,'UNKNOWN');assert.equal(s.stages[0].state,'VALIDATED');
   assert.equal(s.stages[1].state,'DISPATCHING');assert.equal(s.stages[1].cost_usd,null);
-  assert.throws(()=>reopened.reserve(model,100,1024));
+  assert.throws(()=>reopened.reserve(model,100,1024,'0'.repeat(64)));
  }finally{reopened.close();}
 });
 test('first-stage error never sends specialist; restart retains unknown slot',async t=>{
@@ -81,7 +81,7 @@ test('first-stage error never sends specialist; restart retains unknown slot',as
  assert.equal(f.ledger.status().stages.length,1);
 });
 test('stage journal rejects bad sequence, unknown usage and cumulative overflow',t=>{
- const f=fixture(t),l=f.ledger;l.reserve(model,20,1024);
+ const f=fixture(t),l=f.ledger;l.reserve(model,20,1024,'0'.repeat(64));
  assert.throws(()=>l.beforePrompt('backend'));l.beforePrompt('valera-ceo');
  assert.throws(()=>l.beforePrompt('valera-ceo'));
  assert.throws(()=>l.validatedStage('valera-ceo',{...usage,cost_usd:null}));

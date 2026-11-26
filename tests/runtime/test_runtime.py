@@ -84,6 +84,29 @@ class RuntimeTests(unittest.TestCase):
             _config(dict(cfg,adapter='opencode-v2-native-free',model='opencode/beam-free'))
         with self.assertRaises(KeyError): _worker_command(dict(cfg,adapter='opencode-v2-native-free'))
 
+    def test_attached_trial_zero_budget_and_no_dispatch_without_explicit_confirmation(self):
+        from harness.runtime import _config, _worker_command
+        root=self.root/'attached-trial'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free'],check=True)
+        cfg=json.loads((root/'config.json').read_text())
+        self.assertEqual(cfg['budget']['cost_usd'],0)
+        self.assertEqual(cfg['budget']['estimate_cost_usd'],0)
+        self.assertEqual(_worker_command(_config(cfg))[-1],'attached-free')
+        for patch in (dict(model='openrouter/openrouter/free'),dict(scope=['other.py']),
+                      dict(test_argv=['/usr/bin/true']),dict(provider_budget_confirmed=True),
+                      dict(budget=dict(cfg['budget'],cost_usd=1)),dict(domain_profile='marketplace')):
+            with self.assertRaises(ValueError):_config(dict(cfg,**patch))
+        state=root/'state';init(cfg,state)
+        with self.assertRaisesRegex(ValueError,'explicit local run confirmation'):
+            run(state)
+        self.assertEqual(status(state)['state'],'INITIALIZED')
+        self.assertEqual(status(state)['unresolved_effects'],[])
+        with self.assertRaisesRegex(ValueError,'source mismatch'):
+            (state/'workspace'/'calculation.py').write_text('different')
+            from harness.runtime.attached_trial import verify_workspace
+            verify_workspace(state/'workspace')
+
     def test_native_fixture_uncertainty_retains_outbox_and_never_replays(self):
         import sqlite3
         root=self.root/'native-trial'

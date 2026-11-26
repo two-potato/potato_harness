@@ -20,6 +20,7 @@ from harness.controller import Controller,Event,initialize,ROOT,_json
 from harness.budget import Budget
 from harness.runtime.offline_network import require_offline_network
 from harness.runtime.dispatch import reserve_provider_dispatch
+from harness.runtime import attached_trial
 from harness.runtime.workspace import MAX_BYTES,_git,prepare_workspace,repository_identity
 from harness.state import Outbox
 from harness.context import DOMAIN_PROFILES,_redact,compile_context
@@ -63,7 +64,9 @@ def _config(config):
     if set(b)!={'tokens','cost_usd','estimate_cost_usd','wall_time_s'}:raise ValueError('Exact finite budget configuration required')
     if type(b['tokens']) is not int or b['tokens']<1:raise ValueError('Positive token budget required')
     for name in ('cost_usd','estimate_cost_usd','wall_time_s'):
-        if type(b[name]) not in (int,float) or not math.isfinite(b[name]) or b[name]<=0:raise ValueError('Finite positive budget required')
+        zero_cost=config.get('adapter')==attached_trial.ADAPTER and name!='wall_time_s'
+        if type(b[name]) not in (int,float) or not math.isfinite(b[name]) or (b[name]!=0 if zero_cost else b[name]<=0):
+            raise ValueError('Attached trial requires zero monetary budget; other budgets must be positive')
     if b['estimate_cost_usd']>b['cost_usd'] or b['wall_time_s']>120:raise ValueError('Estimate exceeds budget or wall time exceeds trial 120s')
     if type(config.get('completion_jev',False)) is not bool:raise ValueError('completion_jev must be boolean')
     if 'domain_profile' in config:
@@ -83,7 +86,7 @@ def _config(config):
     adapter=config.setdefault('adapter','opencode-v2-console')
     if adapter=='opencode-v2-native-free':
         raise ValueError('Native free live activation HOLD: candidate is not admitted; independent review and live evidence required')
-    if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
+    if adapter not in ('opencode-v2-fixture','opencode-v2-console','opencode-v2-native-free-fixture','opencode-v2-native-free-offline',attached_trial.ADAPTER):
         raise ValueError('Unknown provider adapter; create a new v2 trial')
     if adapter.startswith('opencode-v2'):
         if config.get('jev_provider') or config.get('completion_jev'):
@@ -94,6 +97,10 @@ def _config(config):
             raise ValueError('Native free fixture is restricted to the synthetic subtotal trial')
         if adapter=='opencode-v2-native-free-offline' and (not re.fullmatch(r'opencode/[a-z0-9][a-z0-9.-]{0,126}-free',config['model']) or config['model']=='opencode/potato-runtime-fixture-free' or config['scope']!=['calculation.py'] or config['objective']!='Fix subtotal so it multiplies integer unit price by quantity. Preserve function signature.'):
             raise ValueError('Native offline profile requires an explicit free model and generated subtotal trial')
+        if adapter==attached_trial.ADAPTER and (config['model']!=attached_trial.MODEL or
+                config['scope']!=['calculation.py'] or config['objective']!=attached_trial.OBJECTIVE or
+                config['test_argv']!=attached_trial.TEST_ARGV or 'domain_profile' in config or b['tokens']>100000):
+            raise ValueError('Attached trial requires exact synthetic task and bounded tokens')
         if adapter=='opencode-v2-console' and (config['model']!='opencode/minimax-m3' or config.get('provider_budget_confirmed') is not True):
             raise ValueError('V2 Console requires the explicit paid model and operator-confirmed provider budget')
     if 'provider_budget_confirmed' in config and (adapter!='opencode-v2-console' or config['provider_budget_confirmed'] is not True):
@@ -105,7 +112,7 @@ def _worker_command(config):
     if 'worker_command' in config:return config['worker_command']
     bun=str(ROOT/'integrations/opencode-v2/node_modules/.bin/bun')
     adapter=config['adapter']
-    mode={'opencode-v2-fixture':'fixture','opencode-v2-console':'console','opencode-v2-native-free-fixture':'native-free-fixture','opencode-v2-native-free-offline':'native-free-offline'}[adapter]
+    mode={'opencode-v2-fixture':'fixture','opencode-v2-console':'console','opencode-v2-native-free-fixture':'native-free-fixture','opencode-v2-native-free-offline':'native-free-offline',attached_trial.ADAPTER:'attached-free'}[adapter]
     return [bun,str(ROOT/'integrations/opencode-v2/src/worker.mjs'),mode]
 
 
@@ -113,6 +120,7 @@ def init(config,state):
     config=_config(config);state=Path(state).absolute()
     repo=Path(config['repo']).resolve(strict=True)
     if _git(repo,'status','--porcelain') or _git(repo,'rev-parse','HEAD')!=config['base_sha']:raise ValueError('Trusted repository must be clean at pinned base SHA')
+    if config.get('adapter')==attached_trial.ADAPTER:attached_trial.verify_source(repo,config['base_sha'])
     output=Path(config['output']).absolute()
     if output.exists() or output.is_relative_to(repo) or any(p.is_symlink() for p in (output,*output.parents)):raise ValueError('Output must be a new nonsymlink directory outside source repository')
     if state.exists():raise ValueError('State directory already exists')
@@ -231,7 +239,7 @@ def _jev_provider(config):
     return request
 
 
-def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
+def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None,confirm_attached_trial=False):
     """Injected callbacks are host test seams; CLI always uses actual sandbox."""
     backend=BubblewrapBackend()
     state=Path(state).absolute()
@@ -241,10 +249,11 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None):
     with _lock(state):
         return _run(state,worker,
                     sandbox_probe if sandbox_probe is not None else backend.probe,
-                    sandbox_run if sandbox_run is not None else backend.run)
+                    sandbox_run if sandbox_run is not None else backend.run,
+                    confirm_attached_trial=confirm_attached_trial)
 
 
-def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
+def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_attached_trial=False):
     # Private trusted-host entry point; no workflow binding is accepted by CLI.
     database=state/'state.db' if workflow_binding is None else workflow_binding['database']
     workspace_id='trial-workspace' if workflow_binding is None else workflow_binding['layout']['workspace_id']
@@ -254,6 +263,21 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
     if 'adapter' not in saved and 'worker_command' not in saved:raise ValueError('Old initialized state cannot migrate in place; create a new v2 trial')
     config=_config(saved)
     if config.get('adapter')!=run.get('adapter'):raise ValueError('Saved adapter does not match initialized run; create a new trial')
+    if config.get('adapter')==attached_trial.ADAPTER:
+        if confirm_attached_trial is not True or workflow_binding is not None:
+            raise ValueError('Attached trial requires explicit local run confirmation')
+        if not os.environ.get('POTATO_OPENCODE_PASSWORD'):
+            raise ValueError('Local OpenCode password required before dispatch')
+        attached_trial.verify_workspace(state/'workspace')
+        command=_worker_command(config)
+        try:
+            check=subprocess.run([*command[:-1],'attached-review-check'],stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=20)
+            if check.returncode:raise ValueError('Attached review not verified')
+        except (OSError,subprocess.TimeoutExpired):
+            raise ValueError('Attached review check unavailable') from None
+    elif confirm_attached_trial:
+        raise ValueError('Attached confirmation only applies to the attached trial')
     guard=_Guard();controller=Controller(database,guard=guard);task=controller.get_task(run['task_id'])
     role=task['owner']
     if workflow_binding is not None:
@@ -334,8 +358,12 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None):
         command=_worker_command(config)
         if type(command) is not list or not command or any(type(v) is not str for v in command):raise ValueError('Host worker command must be argv')
         request={'role':role,'prompt':prompt,'model':config['model'],'projectDir':str(provider_project),'coordination':{'objective':_redact(config['objective']),'scope':config['scope']},'output_token_allowance':run['context']['output_token_allowance']}
-        if config.get('adapter') in ('opencode-v2-native-free-fixture','opencode-v2-native-free-offline'):
+        if config.get('adapter') in ('opencode-v2-native-free-fixture','opencode-v2-native-free-offline',attached_trial.ADAPTER):
             request['token_allowance']=config['budget']['tokens']
+        if config.get('adapter')==attached_trial.ADAPTER:
+            if request['output_token_allowance']<2048:raise ValueError('Attached trial requires 2048 output tokens')
+            request['output_token_allowance']=2048
+            run['context']['output_token_allowance']=2048;save()
         if config.get('adapter')=='opencode-v2-console':
             request['provider_budget']={'tokens':config['budget']['tokens'],'cost_usd':config['budget']['estimate_cost_usd']}
         if workflow_deadline is not None:remaining()

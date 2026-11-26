@@ -18,11 +18,11 @@ test('stable private ledger preserves the same slot across opens under permissiv
  const dir=home(t);if(!dir)return;
  const previous=process.umask(0);let l;
  try{l=openAttachedStageLedger(DatabaseSync,dir);}finally{process.umask(previous);}
- l.reserve(model,100,1024);l.beforePrompt('valera-ceo');l.close();
+ l.reserve(model,100,1024,'0'.repeat(64));l.beforePrompt('valera-ceo');l.close();
  const root=attachedStateRoot(dir),file=path.join(root,'inference-ledger.sqlite3');
  assert.equal(fs.statSync(file).mode&0o777,0o600);
  l=openAttachedStageLedger(DatabaseSync,dir);
- try{assert.equal(l.status().attempt.state,'DISPATCHING');assert.throws(()=>l.reserve(model,100,1024));}finally{l.close();}
+ try{assert.equal(l.status().attempt.state,'DISPATCHING');assert.throws(()=>l.reserve(model,100,1024,'0'.repeat(64)));}finally{l.close();}
 });
 test('ledger opener refuses symlink and group-readable file',t=>{
  const dir=home(t);if(!dir)return;
