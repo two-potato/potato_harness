@@ -10,7 +10,8 @@ try{
  if(mode==='console'&&!key)throw Error('MISSING_CONSOLE_KEY');
  const offline=mode==='native-free-offline';
  const attached=mode==='attached-free'||mode==='attached-review-check';
- if(mode==='attached-free')throw Error('ATTACHED_LIVE_EGRESS_HOLD');
+ const password=mode==='attached-free'?process.env.POTATO_OPENCODE_PASSWORD:undefined;
+ if(mode==='attached-free'&&!password)throw Error('ATTACHED_PASSWORD_REQUIRED');
  let nativeBinary,operatorHome=attached?os.homedir():undefined,outerNamespace;
  if(offline){
   const {requireOfflineNetwork}=await import('./offline-network.mjs');
@@ -37,7 +38,19 @@ try{
  const request=JSON.parse(raw);
  const onPhase=event=>fs.writeSync(2,'POTATO_GATEWAY_PHASE '+JSON.stringify(event)+'\n');
  let result;
- if(mode==='attached-free-fixture'){
+ if(mode==='attached-free'){
+  // Verify the independently reviewed trust policy before consuming an
+  // authorization, creating a live profile or importing the provider client.
+  const {verifyAttachedReview,admitReviewedScope}=await import('./attached-admission.mjs');
+  verifyAttachedReview(operatorHome);
+  const {consumeAttachedHandoff}=await import('./attached-handoff.mjs');
+  const boundRequest=consumeAttachedHandoff(request,'attached-free');
+  const {OpenCode}=await import('@opencode/client');
+  const {Database}=await import('bun:sqlite');
+  const {runAttachedHost}=await import('./attached-host.mjs');
+  result=await runAttachedHost(boundRequest,{operatorHome,password,Database,clientFactory:OpenCode.make,onPhase,
+   admit:scope=>admitReviewedScope(scope,boundRequest,operatorHome)});
+ }else if(mode==='attached-free-fixture'){
   const {runAttachedControlledFixture}=await import('./attached-controlled-fixture.mjs');
   result=await runAttachedControlledFixture(request,{onPhase,home});
  }else if(mode==='native-free-fixture'){

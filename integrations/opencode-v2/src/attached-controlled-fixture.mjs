@@ -3,20 +3,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {Database} from 'bun:sqlite';
-import {ROOT,ROLES} from './profile.mjs';
+import {ROLES} from './profile.mjs';
+import {consumeAttachedHandoff} from './attached-handoff.mjs';
 import {buildProfile} from './attached-policy-profile.mjs';
 import {POLICY_ID} from './server-policy.mjs';
 import {runBoundAttachedRuntime} from './attached-runtime-binding.mjs';
 import {createAttachedStageLedger,ATTACHED_TRIAL_MODEL as model} from './attached-stage-ledger.mjs';
 
 export async function runAttachedControlledFixture(envelope,{onPhase,home}){
- const python=['.venv-demo/bin/python','.venv/bin/python'].map(p=>path.join(ROOT,p)).find(p=>fs.existsSync(p));
- if(!python)throw Error('ATTACHED_HOST_PYTHON_MISSING');
- const helper=Bun.spawnSync([python,'-I','-c',
-  'import sys;sys.path.insert(0,sys.argv[1]);from harness.runtime.attached_handoff import main;sys.exit(main())',ROOT],
-  {stdin:Buffer.from(JSON.stringify(envelope)),stdout:'pipe',stderr:'pipe',timeout:15000});
- if(helper.exitCode!==0||helper.stdout.byteLength>262144)throw Error('ATTACHED_HOST_HANDOFF_HOLD');
- const request=JSON.parse(helper.stdout.toString());
+ const request=consumeAttachedHandoff(envelope,'attached-free-fixture');
  const directory=path.join(home,'fixture-location'),profile=buildProfile(directory,model);
  const ledgerFile=path.join(envelope.state,'attached-controlled-ledger.sqlite3');
  fs.closeSync(fs.openSync(ledgerFile,'wx',0o600));

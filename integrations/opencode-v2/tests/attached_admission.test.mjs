@@ -18,7 +18,7 @@ test('review receipt needs the separately enrolled Ed25519 public key',()=>{
 });
 test('signed but expired, broad, long-lived or malformed receipts fail closed',()=>{
  for(const patch of [{expires_at:'2026-11-25T00:00:00Z'},{expires_at:'2026-12-26T00:00:00Z'},
-  {scope:'production'},{revision:'main'},{version:2},{manifest_sha256:'x'},{approved:true}]){
+  {scope:'production'},{scope:'attached-zero-price-subtotal-v1'},{revision:'main'},{version:2},{manifest_sha256:'x'},{approved:true}]){
   const raw=encode({...base,...patch});assert.throws(()=>verifyReviewRecord(raw,signature(raw),pem,now));
  }
 });

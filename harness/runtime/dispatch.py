@@ -11,7 +11,7 @@ from harness.controller import Controller, ControllerError
 from harness.leases import LeaseManager
 from harness.scheduler import SPECIALISTS
 from harness.state import Outbox
-from harness.runtime.attached_trial import ADAPTERS
+from harness.runtime.attached_trial import ADAPTERS,ADAPTER
 
 
 def reserve_provider_dispatch(database, *, task_id, revision, row_version, owner,
@@ -24,7 +24,10 @@ def reserve_provider_dispatch(database, *, task_id, revision, row_version, owner
             (adapter is not None and (type(adapter) is not str or not adapter.strip()))):
         raise ControllerError('Invalid trusted dispatch bindings')
     if adapter in ADAPTERS:
-        if (type(attached_handoff) is not dict or set(attached_handoff)!={'nonce_sha256','request_sha256','operator_confirmed'} or
+        from harness.runtime.attached_handoff import TRUST_PROFILE,FIXTURE_PROFILE
+        if (type(attached_handoff) is not dict or set(attached_handoff)!={'nonce_sha256','request_sha256','operator_confirmed','trust_profile','max_bridge_timeout_ms'} or
+                attached_handoff['trust_profile']!=(TRUST_PROFILE if adapter==ADAPTER else FIXTURE_PROFILE) or
+                type(attached_handoff['max_bridge_timeout_ms']) is not int or not 4000<attached_handoff['max_bridge_timeout_ms']<=80000 or
                 attached_handoff['operator_confirmed'] is not True or cost!=0 or
                 any(type(attached_handoff[k]) is not str or not re.fullmatch('[a-f0-9]{64}',attached_handoff[k])
                     for k in ('nonce_sha256','request_sha256'))):

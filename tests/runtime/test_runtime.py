@@ -107,15 +107,55 @@ class RuntimeTests(unittest.TestCase):
             from harness.runtime.attached_trial import verify_workspace
             verify_workspace(state/'workspace')
 
-    def test_attached_live_hold_even_with_confirmation(self):
+    def test_attached_live_hold_without_explicit_trust_and_signed_review(self):
+        from unittest.mock import patch
         root=self.root/'attached-live-hold'
         subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
                         '--adapter','opencode-v2-attached-free'],check=True)
         state=root/'state';init(json.loads((root/'config.json').read_text()),state)
-        with self.assertRaisesRegex(ValueError,'independent egress'):
-            run(state,confirm_attached_trial=True,worker=lambda *a:self.fail('live worker called'))
+        worker=lambda *a:self.fail('live worker called')
+        with self.assertRaisesRegex(ValueError,'explicit trust'):
+            run(state,confirm_attached_trial=True,worker=worker)
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), \
+             patch('harness.runtime.subprocess.run',return_value=subprocess.CompletedProcess([],2)):
+            with self.assertRaisesRegex(ValueError,'review not verified'):
+                run(state,confirm_attached_trial=True,trust_attached_opencode=True,worker=worker)
         self.assertEqual(status(state)['unresolved_effects'],[])
         self.assertEqual(status(state)['state'],'INITIALIZED')
+
+    def test_attached_live_handoff_is_bound_to_accepted_trust_profile(self):
+        # Test host preflight seam; no external provider or genuine review.
+        import sqlite3
+        from unittest.mock import patch
+        from harness.runtime.attached_handoff import consume,TRUST_PROFILE
+        from harness.runtime.attached_trial import ADAPTER
+        root=self.root/'attached-live-handoff'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter',ADAPTER],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        calls=[]
+        def worker(envelope,command,timeout):
+            self.assertEqual(command[-1],'attached-free')
+            envelope={**envelope,'bridge_timeout_ms':10000}
+            with self.assertRaises(ValueError):consume(envelope)
+            with sqlite3.connect(state/'state.db') as db:
+                action=json.loads(db.execute('SELECT payload_json FROM outbox').fetchone()[0])
+                self.assertEqual(action['attached_handoff']['trust_profile'],TRUST_PROFILE)
+                self.assertEqual(action['attached_handoff']['operator_confirmed'],True)
+            request=consume(envelope,expected_adapter=ADAPTER)
+            self.assertIn('unit_cents + quantity',request['prompt']);calls.append(request['model'])
+            with self.assertRaisesRegex(ValueError,'already consumed'):
+                consume(envelope,expected_adapter=ADAPTER)
+            raise RuntimeError('synthetic live handoff outcome unknown')
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), \
+             patch('harness.runtime.subprocess.run',return_value=subprocess.CompletedProcess([],0)):
+            result=run(state,confirm_attached_trial=True,trust_attached_opencode=True,
+                       worker=worker,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD',result['reason'])
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(result['unresolved_effects']),1)
+        self.assertEqual(result['network_egress_independently_verified'],False)
+        self.assertEqual(result['upstream_request_count_verified'],False)
 
     def test_attached_handoff_consumes_once_and_reconstructs_exact_source(self):
         import sqlite3
@@ -130,6 +170,9 @@ class RuntimeTests(unittest.TestCase):
             envelope={**envelope,'bridge_timeout_ms':10000}
             with self.assertRaises(ValueError):consume(dict(envelope,prompt='foreign'))
             with self.assertRaises(ValueError):consume(dict(envelope,nonce='0'*64))
+            from harness.runtime.attached_trial import ADAPTER
+            with self.assertRaises(ValueError):consume(envelope,expected_adapter=ADAPTER)
+            with self.assertRaises(ValueError):consume(dict(envelope,bridge_timeout_ms=120000))
             with sqlite3.connect(state/'state.db') as db:
                 self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('ISSUED',)])
             request=consume(envelope)

@@ -240,7 +240,7 @@ def _jev_provider(config):
     return request
 
 
-def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None,confirm_attached_trial=False):
+def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None,confirm_attached_trial=False,trust_attached_opencode=False):
     """Injected callbacks are host test seams; CLI always uses actual sandbox."""
     backend=BubblewrapBackend()
     state=Path(state).absolute()
@@ -251,10 +251,10 @@ def run(state,*,worker=None,sandbox_probe=None,sandbox_run=None,confirm_attached
         return _run(state,worker,
                     sandbox_probe if sandbox_probe is not None else backend.probe,
                     sandbox_run if sandbox_run is not None else backend.run,
-                    confirm_attached_trial=confirm_attached_trial)
+                    confirm_attached_trial=confirm_attached_trial,trust_attached_opencode=trust_attached_opencode)
 
 
-def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_attached_trial=False):
+def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_attached_trial=False,trust_attached_opencode=False):
     # Private trusted-host entry point; no workflow binding is accepted by CLI.
     database=state/'state.db' if workflow_binding is None else workflow_binding['database']
     workspace_id='trial-workspace' if workflow_binding is None else workflow_binding['layout']['workspace_id']
@@ -267,10 +267,28 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
     if config.get('adapter') in attached_trial.ADAPTERS:
         if confirm_attached_trial is not True or workflow_binding is not None:
             raise ValueError('Attached trial requires explicit local run confirmation')
-        if config['adapter']==attached_trial.ADAPTER:
-            raise ValueError('Attached live HOLD: independent egress enforcement not established')
+        from harness.runtime.attached_handoff import TRUST_PROFILE,FIXTURE_PROFILE
+        live=config['adapter']==attached_trial.ADAPTER
+        if live:
+            if trust_attached_opencode is not True:
+                raise ValueError('Attached live trial requires explicit trust in the existing OpenCode transport')
+            if not os.environ.get('POTATO_OPENCODE_PASSWORD'):
+                raise ValueError('Local OpenCode password required before dispatch')
+            command=_worker_command(config)
+            try:
+                check=subprocess.run([*command[:-1],'attached-review-check'],stdin=subprocess.DEVNULL,
+                                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=20)
+                if check.returncode:raise ValueError('Attached trusted-transport review not verified')
+            except (OSError,subprocess.TimeoutExpired):
+                raise ValueError('Attached trusted-transport review check unavailable') from None
+        elif trust_attached_opencode is not False:
+            raise ValueError('Controlled fixture does not accept live transport trust')
         attached_trial.verify_workspace(state/'workspace')
-    elif confirm_attached_trial:
+        run['transport_trust']=TRUST_PROFILE if live else FIXTURE_PROFILE
+        if live:
+            run.update(billing_verified=False,network_egress_independently_verified=False,
+                       upstream_request_count_verified=False)
+    elif confirm_attached_trial or trust_attached_opencode:
         raise ValueError('Attached confirmation only applies to the attached trial')
     guard=_Guard();controller=Controller(database,guard=guard);task=controller.get_task(run['task_id'])
     role=task['owner']
@@ -364,7 +382,8 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
         handoff=None
         if config.get('adapter') in attached_trial.ADAPTERS:
             from harness.runtime.attached_handoff import issue
-            nonce,handoff=issue(request)
+            nonce,handoff=issue(request,adapter=config['adapter'],trust_attached_opencode=trust_attached_opencode,
+                                max_bridge_timeout_ms=min(80000,math.floor(remaining()*1000)))
         dispatch=reserve_provider_dispatch(database,task_id=task['task_id'],
             revision=task['revision'],row_version=task['row_version'],owner=task['owner'],
             lease_id=lease['lease_id'],session=session,workspace=workspace_id,
@@ -452,6 +471,11 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
         if outbox.unresolved(task['task_id']):raise ValueError('Unresolved effects prevent completion')
         run.update(reason='Pinned source passed configured tests and deterministic bounded review')
         result={'target_commit':task['target_commit'],'publications':publications,'checks':[r['check_id'] for r in records],**({k:run[k] for k in ('adapter','provider_mode') if k in run})}
+        if config.get('adapter') in attached_trial.ADAPTERS:
+            result['transport_trust']=run['transport_trust']
+            if config['adapter']==attached_trial.ADAPTER:
+                result.update(billing_verified=False,network_egress_independently_verified=False,
+                              upstream_request_count_verified=False)
         _write(state/'result.json',result)
         output=Path(config['output']).absolute();output.mkdir(parents=True,exist_ok=False,mode=0o700)
         _write(output/'result.json',result)

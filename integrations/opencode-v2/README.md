@@ -637,3 +637,38 @@ runs the controlled adapter through the actual Bun worker and Bubblewrap,
 and checks the two stage reservations, consumed handoff and final Outbox.
 The controlled SQLite stage journal is retained in trial state; no actual
 provider record is created and no historical unknown slot is reset.
+
+
+### Candidate trusted OpenCode transport (superseding the earlier live HOLD route)
+
+The proposed trial-specific trust policy is in rules/SECURITY.md under
+`attached-trusted-opencode-subtotal-v2`. It is a change of trust boundary,
+not evidence that independent egress enforcement was implemented.
+The existing server owns provider transport and credentials. Harness
+uses the authenticated local SDK, the exact synthetic source, existing
+wire/model hooks, and durable host and stage reservations. Both the
+Python runtime and the live Bun worker must verify the signed receipt
+for this **new** scope; an older v1 receipt is invalid. The runtime
+requires both local confirmation flags, and the live worker consumes
+the same Outbox-bound single-use handoff as the controlled worker with
+a distinct live trust profile. A direct JSON prompt cannot satisfy it.
+
+The review receipt format, public-key enrollment, expiry and exact-tree
+checks are unchanged; set `scope` to
+`attached-trusted-opencode-subtotal-v2` in the new signed receipt. Review
+and approval must explicitly address the residual transport risk.
+The owner accepts zero for planning, not a verified charge. Runtime
+output records that network egress, upstream request count and actual
+billing were not independently verified. The previous independent
+review HOLD is not retrospectively resolved.
+
+Only after new independent approval and verified receipt, use the
+existing generated trial commands and invoke:
+```sh
+.venv-demo/bin/python -m harness.runtime run --state "$trial/state" \
+  --confirm-attached-trial --trust-attached-opencode
+```
+No new API key, network proxy, firewall modification or server restart
+is required for this proposed narrow trust profile. Without the new
+signed review, the path remains HOLD before dispatch. Production
+requirements remain unchanged.

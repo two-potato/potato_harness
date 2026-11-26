@@ -6,7 +6,7 @@ import {createHash,createPublicKey,verify} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {ROOT} from './profile.mjs';
 import {assertPrivateDirectory,ATTACHED_TRIAL_MODEL} from './attached-stage-ledger.mjs';
-export const REVIEW_SCOPE='attached-zero-price-subtotal-v1';
+export const REVIEW_SCOPE='attached-trusted-opencode-subtotal-v2';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const fail=()=>{throw Error('ATTACHED_REVIEW_NOT_VERIFIED');};
 function readPrivate(file,max){

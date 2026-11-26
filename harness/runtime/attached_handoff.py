@@ -1,8 +1,9 @@
-"""Host-owned, at-most-once handoff for the controlled attached trial.
+"""Host-owned at-most-once handoff for the exact attached subtotal trial.
 
 The operator and host UID are trusted. This is not a boundary against an
-operator who can modify the host interpreter, process or database. The live
-worker is separately disabled pending independent egress enforcement.
+operator who can modify the host interpreter, process or database. A live
+handoff additionally binds explicit trust in the shared OpenCode transport;
+its worker must verify a signed review of that specific trust policy.
 """
 import fcntl
 import hashlib
@@ -25,10 +26,20 @@ from harness.runtime import attached_trial as trial
 def _hash(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
-def issue(request):
+TRUST_PROFILE='attached-trusted-opencode-subtotal-v2'
+FIXTURE_PROFILE='attached-controlled-fixture-v1'
+
+def issue(request, *, adapter, trust_attached_opencode, max_bridge_timeout_ms):
+    if (adapter not in trial.ADAPTERS or
+            type(trust_attached_opencode) is not bool or
+            trust_attached_opencode!=(adapter==trial.ADAPTER) or
+            type(max_bridge_timeout_ms) is not int or not 4000<max_bridge_timeout_ms<=80000):
+        raise ValueError('Attached handoff requires exact trust and deadline scope')
     nonce=secrets.token_hex(32)
     return nonce, {'nonce_sha256':_hash(nonce),'request_sha256':_hash(_json(request)),
-                   'operator_confirmed':True}
+                   'operator_confirmed':True,
+                   'trust_profile':TRUST_PROFILE if adapter==trial.ADAPTER else FIXTURE_PROFILE,
+                   'max_bridge_timeout_ms':max_bridge_timeout_ms}
 
 def _private(path, directory=False, private_mode=True):
     s=path.lstat()
@@ -38,12 +49,14 @@ def _private(path, directory=False, private_mode=True):
              not stat.S_ISREG(s.st_mode) or s.st_nlink!=1)):
         raise ValueError('Unsafe attached handoff state')
 
-def consume(envelope):
+def consume(envelope, *, expected_adapter=trial.FIXTURE_ADAPTER):
     from harness.runtime import _config
+    if expected_adapter not in trial.ADAPTERS:raise ValueError('Invalid attached worker mode')
+    live=expected_adapter==trial.ADAPTER
     if (type(envelope) is not dict or set(envelope)!={'state','nonce','bridge_timeout_ms'} or
             type(envelope['state']) is not str or type(envelope['nonce']) is not str or
             not re.fullmatch('[a-f0-9]{64}',envelope['nonce']) or
-            type(envelope['bridge_timeout_ms']) is not int or not 4000<envelope['bridge_timeout_ms']<=120000):
+            type(envelope['bridge_timeout_ms']) is not int or not 4000<envelope['bridge_timeout_ms']<=80000):
         raise ValueError('Attached handoff envelope invalid')
     state=Path(envelope['state'])
     if not state.is_absolute():raise ValueError('Absolute attached state required')
@@ -57,9 +70,11 @@ def consume(envelope):
         else:raise ValueError('Attached runtime lock is not held')
     cfg=_config(json.loads((state/'config.json').read_text()))
     run=json.loads((state/'run.json').read_text())
-    if (cfg.get('adapter')!=trial.FIXTURE_ADAPTER or run.get('adapter')!=trial.FIXTURE_ADAPTER or
-            run.get('provider_mode')!='synthetic' or run.get('state')!='RUNNING'):
-        raise ValueError('Attached handoff is not a running controlled trial')
+    profile=TRUST_PROFILE if live else FIXTURE_PROFILE
+    if (cfg.get('adapter')!=expected_adapter or run.get('adapter')!=expected_adapter or
+            run.get('provider_mode')!=('external' if live else 'synthetic') or run.get('state')!='RUNNING' or
+            run.get('transport_trust')!=profile):
+        raise ValueError('Attached handoff does not match running adapter and trust profile')
     trial.verify_source(Path(cfg['repo']).resolve(strict=True),cfg['base_sha'])
     workspace=state/'workspace';trial.verify_workspace(workspace)
     project=state/'provider-project';_private(project,True)
@@ -75,14 +90,16 @@ def consume(envelope):
             raise ValueError('Attached handoff requires current claimed Outbox')
         action=json.loads(effect['payload_json'])
         if (action_digest(action)!=effect['action_digest'] or action.get('kind')!='provider-proposal' or
-                action.get('adapter')!=trial.FIXTURE_ADAPTER or action.get('model')!=trial.MODEL or
+                action.get('adapter')!=expected_adapter or action.get('model')!=trial.MODEL or
                 action.get('owner')!='backend' or action.get('cost_allowance_usd')!=0 or
                 action.get('token_allowance')!=cfg['budget']['tokens'] or action.get('attempt_id')!=run['attempt_id'] or
                 action.get('lease_id')!=run['lease_id']):
             raise ValueError('Attached handoff action mismatch')
         binding=action.get('attached_handoff')
         if (type(binding) is not dict or binding.get('operator_confirmed') is not True or
-                binding.get('nonce_sha256')!=_hash(envelope['nonce'])):
+                binding.get('nonce_sha256')!=_hash(envelope['nonce']) or binding.get('trust_profile')!=profile or
+                type(binding.get('max_bridge_timeout_ms')) is not int or
+                not envelope['bridge_timeout_ms']<=binding['max_bridge_timeout_ms']<=80000):
             raise ValueError('Attached handoff nonce mismatch')
         reservation=db.execute('SELECT * FROM budget_reservations WHERE attempt_id=?',(run['attempt_id'],)).fetchone()
         if (not reservation or reservation['budget_id']!=task['budget_id'] or
@@ -119,11 +136,11 @@ def consume(envelope):
             raise ValueError('Attached handoff already consumed or absent')
     return {**request,'bridge_timeout_ms':envelope['bridge_timeout_ms']}
 
-def main():
+def main(expected_adapter=trial.FIXTURE_ADAPTER):
     try:
         raw=sys.stdin.buffer.read(8193)
         if len(raw)>8192:raise ValueError('Oversized handoff')
-        sys.stdout.write(_json(consume(json.loads(raw)))+'\n')
+        sys.stdout.write(_json(consume(json.loads(raw),expected_adapter=expected_adapter))+'\n')
         return 0
     except Exception:
         sys.stderr.write('Attached host handoff rejected.\n')
