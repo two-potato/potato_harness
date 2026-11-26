@@ -47,7 +47,7 @@
     },
     "cost_usd_hard": {
       "type": "number",
-      "exclusiveMinimum": 0
+      "minimum": 0
     },
     "wall_time_s_soft": {
       "type": "integer",

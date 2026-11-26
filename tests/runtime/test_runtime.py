@@ -84,6 +84,166 @@ class RuntimeTests(unittest.TestCase):
             _config(dict(cfg,adapter='opencode-v2-native-free',model='opencode/beam-free'))
         with self.assertRaises(KeyError): _worker_command(dict(cfg,adapter='opencode-v2-native-free'))
 
+    def test_attached_trial_zero_budget_and_no_dispatch_without_explicit_confirmation(self):
+        from harness.runtime import _config, _worker_command
+        root=self.root/'attached-trial'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free'],check=True)
+        cfg=json.loads((root/'config.json').read_text())
+        self.assertEqual(cfg['budget']['cost_usd'],0)
+        self.assertEqual(cfg['budget']['estimate_cost_usd'],0)
+        self.assertEqual(_worker_command(_config(cfg))[-1],'attached-free')
+        for patch in (dict(model='openrouter/openrouter/free'),dict(scope=['other.py']),
+                      dict(test_argv=['/usr/bin/true']),dict(provider_budget_confirmed=True),
+                      dict(budget=dict(cfg['budget'],cost_usd=1)),dict(domain_profile='marketplace')):
+            with self.assertRaises(ValueError):_config(dict(cfg,**patch))
+        state=root/'state';init(cfg,state)
+        with self.assertRaisesRegex(ValueError,'explicit local run confirmation'):
+            run(state)
+        self.assertEqual(status(state)['state'],'INITIALIZED')
+        self.assertEqual(status(state)['unresolved_effects'],[])
+        with self.assertRaisesRegex(ValueError,'source mismatch'):
+            (state/'workspace'/'calculation.py').write_text('different')
+            from harness.runtime.attached_trial import verify_workspace
+            verify_workspace(state/'workspace')
+
+    def _mock_attached_review_only(self, state, returncode):
+        # Patch the shared subprocess.run only for the exact trusted preflight
+        # argv. Git and every other subprocess must execute normally.
+        from unittest.mock import patch
+        from harness.runtime import _worker_command
+        command=_worker_command(json.loads((state/'config.json').read_text()))
+        expected=[*command[:-1],'attached-review-check']
+        real_run=subprocess.run
+        review_calls=[]
+        def review_only(argv,*args,**kwargs):
+            if argv==expected:
+                review_calls.append(argv)
+                return subprocess.CompletedProcess(argv,returncode)
+            return real_run(argv,*args,**kwargs)
+        return patch('harness.runtime.subprocess.run',side_effect=review_only),review_calls
+
+    def test_attached_live_hold_without_explicit_trust_and_signed_review(self):
+        from unittest.mock import patch
+        root=self.root/'attached-live-hold'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        worker=lambda *a:self.fail('live worker called')
+        with self.assertRaisesRegex(ValueError,'explicit trust'):
+            run(state,confirm_attached_trial=True,worker=worker)
+        review_patch,review_calls=self._mock_attached_review_only(state,2)
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), review_patch:
+            with self.assertRaisesRegex(ValueError,'review not verified'):
+                run(state,confirm_attached_trial=True,trust_attached_opencode=True,worker=worker)
+        self.assertEqual(len(review_calls),1)
+        self.assertEqual(status(state)['unresolved_effects'],[])
+        self.assertEqual(status(state)['state'],'INITIALIZED')
+
+    def test_attached_live_handoff_is_bound_to_accepted_trust_profile(self):
+        # Test host preflight seam; no external provider or genuine review.
+        import sqlite3
+        from unittest.mock import patch
+        from harness.runtime.attached_handoff import consume,TRUST_PROFILE
+        from harness.runtime.attached_trial import ADAPTER
+        root=self.root/'attached-live-handoff'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter',ADAPTER],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        calls=[]
+        def worker(envelope,command,timeout):
+            self.assertEqual(command[-1],'attached-free')
+            envelope={**envelope,'bridge_timeout_ms':10000}
+            with self.assertRaises(ValueError):consume(envelope)
+            with sqlite3.connect(state/'state.db') as db:
+                action=json.loads(db.execute('SELECT payload_json FROM outbox').fetchone()[0])
+                self.assertEqual(action['attached_handoff']['trust_profile'],TRUST_PROFILE)
+                self.assertEqual(action['attached_handoff']['operator_confirmed'],True)
+            request=consume(envelope,expected_adapter=ADAPTER)
+            self.assertIn('unit_cents + quantity',request['prompt']);calls.append(request['model'])
+            with self.assertRaisesRegex(ValueError,'already consumed'):
+                consume(envelope,expected_adapter=ADAPTER)
+            raise RuntimeError('synthetic live handoff outcome unknown')
+        review_patch,review_calls=self._mock_attached_review_only(state,0)
+        with patch.dict('os.environ',{'POTATO_OPENCODE_PASSWORD':'fixture'}), review_patch:
+            result=run(state,confirm_attached_trial=True,trust_attached_opencode=True,
+                       worker=worker,sandbox_probe=lambda:{'available':True})
+        self.assertEqual(len(review_calls),1)
+        self.assertEqual(result['state'],'HOLD',result['reason'])
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(result['unresolved_effects']),1)
+        self.assertEqual(result['network_egress_independently_verified'],False)
+        self.assertEqual(result['upstream_request_count_verified'],False)
+
+    def test_attached_handoff_consumes_once_and_reconstructs_exact_source(self):
+        import sqlite3
+        from harness.runtime.attached_handoff import consume
+        root=self.root/'attached-controlled'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free-fixture'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        def controlled_worker(envelope,command,timeout):
+            self.assertEqual(command[-1],'attached-free-fixture')
+            self.assertEqual(set(envelope),{'state','nonce'})
+            envelope={**envelope,'bridge_timeout_ms':10000}
+            with self.assertRaises(ValueError):consume(dict(envelope,prompt='foreign'))
+            with self.assertRaises(ValueError):consume(dict(envelope,nonce='0'*64))
+            from harness.runtime.attached_trial import ADAPTER
+            with self.assertRaises(ValueError):consume(envelope,expected_adapter=ADAPTER)
+            with self.assertRaises(ValueError):consume(dict(envelope,bridge_timeout_ms=120000))
+            with sqlite3.connect(state/'state.db') as db:
+                self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('ISSUED',)])
+            request=consume(envelope)
+            self.assertIn('unit_cents + quantity',request['prompt'])
+            with self.assertRaisesRegex(ValueError,'already consumed'):
+                consume(envelope)
+            # Force HOLD after consumption; no second attempt or publication.
+            raise RuntimeError('controlled transport outcome unknown')
+        result=run(state,confirm_attached_trial=True,worker=controlled_worker,
+                   sandbox_probe=lambda:{'available':True})
+        self.assertEqual(result['state'],'HOLD')
+        self.assertEqual(len(result['unresolved_effects']),1)
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('CONSUMED',)])
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchall(),[('UNKNOWN',)])
+        with self.assertRaises(ValueError):run(state,confirm_attached_trial=True)
+
+    def test_attached_response_without_handoff_consumption_is_unknown(self):
+        import sqlite3
+        root=self.root/'attached-unconsumed'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free-fixture'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        result=run(state,confirm_attached_trial=True,sandbox_probe=lambda:{'available':True},
+                   worker=lambda *a:{'edits':[{'path':'calculation.py','content':
+                       'def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'}],
+                       'summary':'unbound result','usage':{'input_tokens':1,'output_tokens':1,'cost_usd':0}},
+                   sandbox_run=lambda *a,**kw:self.fail('unbound response must not reach tests'))
+        self.assertEqual(result['state'],'HOLD')
+        self.assertIn('without consumed handoff',result['reason'])
+        self.assertEqual(len(result['unresolved_effects']),1)
+        self.assertFalse((state/'result.json').exists())
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('ISSUED',)])
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchall(),[('UNKNOWN',)])
+
+    def test_attached_candidate_and_transcript_fail_closed(self):
+        from harness.runtime.attached_trial import verify_proposal,verify_test_result,TEST_IDS
+        pure='def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'
+        verify_proposal(pure)
+        for source in ['# coding: unicode_escape\n'+pure,'import sys\nsys.exit(0)\n'+pure,pure+'\nprint("OK")\n',
+                       'def subtotal(unit_cents, quantity):\n    return unit_cents + quantity\n',
+                       'def subtotal(unit_cents, quantity):\n    return __import__("os")._exit(0)\n']:
+            with self.assertRaises(ValueError):verify_proposal(source)
+        lines=[f'{name.rsplit(".",1)[-1]} ({name}) ... ok' for name in TEST_IDS]
+        good='\n'.join(lines+['','-'*70,'Ran 3 tests in 0.001s','','OK'])+'\n'
+        result={'returncode':0,'timed_out':False,'stdout':'','stderr':good}
+        self.assertEqual(verify_test_result(result),list(TEST_IDS))
+        for bad in ['',good.replace('Ran 3','Ran 0'),good.replace(lines[0]+'\n',''),
+                    good.replace(lines[0],lines[1]),good.replace(' ... ok',' ... skipped')]:
+            with self.assertRaises(ValueError):verify_test_result(dict(result,stderr=bad))
+        with self.assertRaises(ValueError):verify_test_result(dict(result,stdout='forged'))
+
     def test_native_fixture_uncertainty_retains_outbox_and_never_replays(self):
         import sqlite3
         root=self.root/'native-trial'

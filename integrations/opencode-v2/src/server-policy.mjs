@@ -46,7 +46,7 @@ export function nativeHttpViolation(request){
  return null;
 }
 // Self-contained: the CLI loads this from a private generated directory.
-export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false}){
+export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeCheck,record=()=>{},offline=false,wireGuard}){
  const deny=()=>[{action:'*',resource:'*',effect:'deny'}];
  // Diagnostic labels are fixed; never include an observed identifier or variant.
  const mismatch=m=>{
@@ -108,12 +108,17 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
    if(offline){record('violation:offline_stop');throw Error('OFFLINE_MODEL_REQUEST_DENIED');}
    record('model:'+e.agent);sent.add(e.sessionID);
   }));
-  registrations.push(await ctx.session.hook('http.request',e=>{
+  const httpRequest=e=>{
    if(!allowed(e)||!sent.has(e.sessionID)||http.has(e.sessionID)||offline){record('violation:'+(offline?'offline_http':http.has(e.sessionID)?'http_duplicate':'http_scope'));throw Error('HTTP_REQUEST_DENIED');}
    const failure=nativeHttpViolation(e.request);
    if(failure){record('violation:'+failure);throw Error('HTTP_REQUEST_DENIED');}
+   if(wireGuard)return Promise.resolve().then(()=>wireGuard(e.request,ref,maxOutput)).then(request=>{
+    if(http.has(e.sessionID)){record('violation:http_duplicate');throw Error('HTTP_REQUEST_DENIED');}
+    e.request=request;record('http:'+e.agent);http.add(e.sessionID);
+   },()=>{record('violation:http_payload');throw Error('HTTP_REQUEST_DENIED');});
    record('http:'+e.agent);http.add(e.sessionID);
-  }));
+  };
+  registrations.push(await ctx.session.hook('http.request',httpRequest));
   // Detect a redirect if surfaced by the native transport. This cannot undo
   // a redirect already followed below the hook; external admission stays closed.
   registrations.push(await ctx.session.hook('http.response',e=>{
@@ -128,12 +133,14 @@ export function serverPolicy({id,roles,definitions,ref,maxOutput,worker,freeChec
   return async()=>{for(const reg of registrations.reverse())await reg.dispose();};
  }};
 }
-export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false){
+export function pluginSource(config,ref,maxOutput,worker,auditFile,offline=false,wireGuard){
  if(!ROLES.includes(worker)||worker==='valera-ceo')throw Error('INVALID_WORKER');
  const data=JSON.stringify({id:POLICY_ID,roles:ROLES,definitions:config.agents,ref,maxOutput,worker,offline});
  const audit=auditFile===undefined?'':"import fs from 'node:fs';\n"+auditSequence.toString()+'\n'+auditViolation.toString()+'\n'+readAudit.toString()+'\n'+recordAudit.toString()+'\n';
+ if(wireGuard!==undefined&&typeof wireGuard!=='function')throw Error('INVALID_WIRE_GUARD');
+ const guard=wireGuard===undefined?'':'const wireGuard='+wireGuard.toString()+';\n';
  const record=auditFile===undefined?'':',record:event=>recordAudit('+JSON.stringify(auditFile)+','+JSON.stringify(worker)+',event)';
- return audit+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst nativeHttpViolation='+nativeHttpViolation.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+'});\n';
+ return audit+guard+'const isFreeModel='+isFreeModel.toString()+';\nconst isNativeBaseVariant='+isNativeBaseVariant.toString()+';\nconst nativeHttpViolation='+nativeHttpViolation.toString()+';\nconst serverPolicy='+serverPolicy.toString()+';\nexport default serverPolicy({...'+data+',freeCheck:isFreeModel'+record+(wireGuard?',wireGuard':'')+'});\n';
 }
 // The native CLI can merge duplicate wildcard denies and browser restrictions.
 // Accept only observed deny-only shapes; unknown rules fail closed.
