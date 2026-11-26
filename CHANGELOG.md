@@ -2,6 +2,10 @@
 
 ## Unreleased — local-first readiness
 
+- Stage an attached OpenCode deny-dispatch role profile and verify its
+  advisory snapshot at a private project Location without restart, modifying
+  ordinary configuration or sending prompts.
+
 - Generalize attached-server discovery to explicit OpenCode and OpenRouter
   free model IDs with bounded provider counts and strict catalog price checks.
 
