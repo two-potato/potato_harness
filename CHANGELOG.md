@@ -2,6 +2,9 @@
 
 ## Unreleased — local-first readiness
 
+- Add a read-only existing OpenCode server catalog diagnostic for OpenRouter
+  Nemotron free models. No worker attachment or live admission.
+
 - R5.1f: secret-safe read-only historical reconciliation dossier with local
   effect states, provider-ID presence and UTC timestamps; no settlement.
 

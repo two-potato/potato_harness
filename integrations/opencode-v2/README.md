@@ -364,3 +364,25 @@ unresolved effects does not prove external reconciliation. Standalone
 historical native probes may have no saved trial directory at all.
 The sanitized report hash is not an authenticated provider receipt.
 No history is cleared from the native ledger.
+
+## R5 attached-server catalog diagnostic
+
+An operator-owned OpenCode 2.4.1 server on `127.0.0.1:4096` can be inspected
+without adopting its trust or starting another process. From the repository
+root, run:
+
+```sh
+integrations/opencode-v2/node_modules/.bin/bun integrations/opencode-v2/src/attached-server-probe.mjs
+```
+
+If the server uses Basic authentication, supply the local server password
+through `POTATO_OPENCODE_PASSWORD` in the calling process (never the
+provider key or command-line argument). The probe queries only version and
+catalog via the pinned client, forbids off-origin requests and redirects,
+and lists enabled/explicit zero-priced OpenRouter Nemotron :free candidates.
+Catalog requests can involve server metadata refresh; no session or prompt
+is submitted. PASS means catalog discovery only, not provider availability,
+billing verification, verified policy, or runtime admission. An ordinary
+Build server may have tools or plugins enabled: do not send Harness project
+prompts to it until a dedicated reviewed policy binding exists. The prior
+native free ledger and runtime HOLD remain unchanged.

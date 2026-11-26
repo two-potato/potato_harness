@@ -327,3 +327,12 @@ categories. SQLite is opened read-only in a bounded transaction; run/gateway
 metadata is advisory. Stop old processes first. The report does not establish
 provider delivery or billing, authorize a retry, or clear the native ledger.
 Missing identifiers/history remain unknown. No additional live admission.
+
+## R5 alternate provider discovery — existing local OpenCode
+
+The operator reported a successful manual OpenRouter Nemotron free response.
+Add a read-only SDK catalog diagnostic against the fixed loopback server
+on port 4096. This does not attach a worker, change provider selection,
+or authorize inference. Ordinary Build sessions do not attest Harness
+policy. Exact model identity, zero catalog price, and independent policy,
+egress and accounting checks must precede a separate live profile.
