@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {attachedModelRef,buildProfile,prepareProfile,inspectPolicy} from '../src/attached-policy-profile.mjs';
+import {attachedModelRef,buildProfile,prepareProfile,inspectPolicy,effectiveAgentDeny,verifyAttachedSnapshot} from '../src/attached-policy-profile.mjs';
 import {ROLES} from '../src/profile.mjs';
 import {POLICY_ID} from '../src/server-policy.mjs';
 const model='openrouter/nvidia/nemotron-fixture:free';
@@ -96,4 +96,44 @@ test('project discovery stages opencode.json and scopes all snapshot queries to 
  assert.equal(report.status,'PASS');
  assert.deepEqual(calls.sort(),['agent','model','plugin']);
  assert.equal(report.runtime_admission,false);
+});
+
+const denyAll={action:'*',resource:'*',effect:'deny'};
+const inherited=[denyAll,{action:'edit',resource:'*',effect:'allow'},
+ {action:'webfetch',resource:'*',effect:'allow'},{action:'shell',resource:'*',effect:'ask'},
+ {action:'shell',resource:'git status*',effect:'allow'},
+ {action:'shell',resource:'docker *',effect:'ask'}];
+const browserDeny={action:'browser',resource:'*',effect:'deny'};
+test('attached snapshot proves final universal deny over inherited allow and ask',async t=>{
+ const f=fixture(t);if(!f)return;
+ for(const a of f.snapshot.agents.data)a.permissions=[...inherited,denyAll,denyAll,browserDeny];
+ const before=JSON.stringify(f.snapshot);
+ assert.equal(verifyAttachedSnapshot(f.snapshot,f.p),true);
+ assert.equal(JSON.stringify(f.snapshot),before);
+ const result=await inspectPolicy(f.options);
+ assert.equal(result.status,'PASS');assert.equal(result.effective_deny_roles,9);
+ assert.equal(result.runtime_admission,false);assert.equal(result.attempted_prompts,0);
+});
+test('effective denial rejects later allow or ask, missing universal deny and malformed rules',()=>{
+ assert.equal(effectiveAgentDeny([denyAll]),true);
+ assert.equal(effectiveAgentDeny([...inherited,denyAll,browserDeny]),true);
+ for(const bad of [null,[],[browserDeny],inherited,[denyAll,{action:'edit',resource:'*',effect:'allow'}],
+  [denyAll,{action:'shell',resource:'*',effect:'ask'},browserDeny],
+  [{action:'*',resource:'*',effect:'unknown'},denyAll],
+  [{...denyAll,extra:true}], [{...denyAll,resource:1}], [null,denyAll]])
+  assert.equal(effectiveAgentDeny(bad),false);
+});
+test('attached snapshot still rejects extra roles, plugin, wrong system/model, price or tool capability',async t=>{
+ const f=fixture(t);if(!f)return;
+ const a=f.snapshot.agents.data[0];
+ a.permissions=[...inherited,denyAll];
+ const patches=[['system','wrong'],['steps',2],['mode','wrong'],['model',{providerID:'other',id:'wrong'}]];
+ for(const [key,value] of patches){const prev=a[key];a[key]=value;
+  assert.equal((await inspectPolicy(f.options)).status,'HOLD');a[key]=prev;}
+ a.permissions.push({action:'shell',resource:'*',effect:'allow'});
+ assert.equal((await inspectPolicy(f.options)).status,'HOLD');a.permissions.pop();
+ f.snapshot.agents.data.push({...a,id:'extra'});
+ assert.equal((await inspectPolicy(f.options)).status,'HOLD');f.snapshot.agents.data.pop();
+ f.snapshot.models.data[0].capabilities.tools=true;
+ assert.equal((await inspectPolicy(f.options)).status,'HOLD');
 });

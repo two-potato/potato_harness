@@ -458,3 +458,18 @@ Both dispatches require host-owned reservation and validated-stage callbacks.
 No CLI entry or real attached transport binding is enabled. Tests inject
 the client; they do not establish provider delivery, policy isolation or
 independent egress/price enforcement. The legacy native ledger remains intact.
+
+
+### Attached snapshot: inherited permission ordering
+
+OpenCode 2.4.1 evaluates the last matching permission rule
+([source](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/permission.ts)).
+An ordinary operator configuration can contribute allow/ask rules before
+the generated universal deny. The attached diagnostic now proves effective
+agent denial only when a literal universal deny dominates all non-deny rules
+and every rule has a known shape. Any later allow/ask without a new universal
+deny, missing universal deny or malformed rule remains HOLD. The original
+strict native snapshot verifier and all other checks remain unchanged.
+The diagnostic reports effective_deny_roles; it does not establish session
+override safety, actual tool mediation or live admission. Existing generated
+deny-dispatch profiles are unchanged. No prompt is submitted.
