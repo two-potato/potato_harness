@@ -147,6 +147,25 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT state FROM outbox').fetchall(),[('UNKNOWN',)])
         with self.assertRaises(ValueError):run(state,confirm_attached_trial=True)
 
+    def test_attached_response_without_handoff_consumption_is_unknown(self):
+        import sqlite3
+        root=self.root/'attached-unconsumed'
+        subprocess.run([__import__('sys').executable,'tools/create_trial.py','--directory',str(root),
+                        '--adapter','opencode-v2-attached-free-fixture'],check=True)
+        state=root/'state';init(json.loads((root/'config.json').read_text()),state)
+        result=run(state,confirm_attached_trial=True,sandbox_probe=lambda:{'available':True},
+                   worker=lambda *a:{'edits':[{'path':'calculation.py','content':
+                       'def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'}],
+                       'summary':'unbound result','usage':{'input_tokens':1,'output_tokens':1,'cost_usd':0}},
+                   sandbox_run=lambda *a,**kw:self.fail('unbound response must not reach tests'))
+        self.assertEqual(result['state'],'HOLD')
+        self.assertIn('without consumed handoff',result['reason'])
+        self.assertEqual(len(result['unresolved_effects']),1)
+        self.assertFalse((state/'result.json').exists())
+        with sqlite3.connect(state/'state.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM attached_worker_handoffs').fetchall(),[('ISSUED',)])
+            self.assertEqual(db.execute('SELECT state FROM outbox').fetchall(),[('UNKNOWN',)])
+
     def test_attached_candidate_and_transcript_fail_closed(self):
         from harness.runtime.attached_trial import verify_proposal,verify_test_result,TEST_IDS
         pure='def subtotal(unit_cents, quantity):\n    return unit_cents * quantity\n'

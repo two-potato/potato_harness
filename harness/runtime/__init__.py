@@ -375,6 +375,12 @@ def _run(state,worker,sandbox_probe,sandbox_run,*,workflow_binding=None,confirm_
         if handoff is not None:
             request={'state':str(state),'nonce':nonce}
         response=worker(request,command,remaining())
+        if handoff is not None:
+            with controller._connection() as db:
+                consumed=db.execute("SELECT state FROM attached_worker_handoffs WHERE effect_id=? AND nonce_sha256=?",
+                                    (effect,handoff['nonce_sha256'])).fetchone()
+                if not consumed or consumed['state']!='CONSUMED':
+                    raise ValueError('Attached worker response without consumed handoff')
         if config.get('adapter')=='opencode-v2-native-free-offline':raise RuntimeError('Offline diagnostic cannot return a proposal')
         provider_returned=True
         outbox.finish(effect,{'response_digest':digest_bytes(_json(response).encode())},True)
