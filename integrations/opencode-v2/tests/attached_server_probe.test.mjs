@@ -48,3 +48,39 @@ test('transport confines credentials to exact loopback origin and disallows redi
  const anonymous=attachedFetch({send:async req=>{assert.equal(req.headers.has('Authorization'),false);return new Response('{}');}});
  await anonymous(ATTACHED_ENDPOINT+'/info',{headers:{Authorization:'secret'}});
 });
+
+test('catalog includes explicit free IDs from both known providers, not only Nemotron',async()=>{
+ const models=[model,{...model,id:'google/gemma-4-31b-it:free'},
+  {...model,providerID:'opencode',id:'deepseek-v4.1-flash-free'},
+  {...model,id:'openrouter/free'},{...model,id:'nvidia/nemotron-paid'}];
+ const r=await inspectAttachedServer(setup(models).options);
+ assert.equal(r.status,'PASS');
+ assert.deepEqual(r.candidates.map(m=>m.model),[
+  'openrouter/nvidia/nemotron-fixture:free','openrouter/google/gemma-4-31b-it:free','opencode/deepseek-v4.1-flash-free']);
+ assert.deepEqual(r.catalog_counts,{total:5,opencode:1,openrouter:4,other:0});
+ assert.equal(r.runtime_admission,false);
+});
+test('qualified IDs are advisory, never silently accepted as canonical',async()=>{
+ const r=await inspectAttachedServer(setup([{...model,id:'openrouter/nvidia/nemotron-fixture:free'}]).options);
+ assert.equal(r.status,'HOLD');
+ assert.deepEqual(r.candidates,[{model:'openrouter/nvidia/nemotron-fixture:free',enabled:true,zero_catalog_price:true,identity_shape:'qualified'}]);
+ assert.equal(r.reason,'FREE_MODEL_NOT_VERIFIED');
+});
+test('mixed raw and qualified representations of same model are ambiguous',async()=>{
+ const r=await inspectAttachedServer(setup([model,{...model,id:'openrouter/'+model.id}]).options);
+ assert.equal(r.reason,'CATALOG_AMBIGUOUS');
+});
+test('unrecognized providers expose bounded counts, no raw records',async()=>{
+ const r=await inspectAttachedServer(setup([{...model,providerID:'SECRET_PROVIDER',secret:'PRIVATE_DATA'}]).options);
+ assert.equal(r.status,'HOLD');
+ assert.deepEqual(r.catalog_counts,{total:1,opencode:0,openrouter:0,other:1});
+ assert.deepEqual(r.candidates,[]);
+ assert.ok(!JSON.stringify(r).includes('SECRET_PROVIDER'));
+ assert.ok(!JSON.stringify(r).includes('PRIVATE_DATA'));
+});
+test('free-labelled candidates with incomplete pricing remain unverified',async()=>{
+ const r=await inspectAttachedServer(setup([{...model,cost:[{input:0,output:0}]}]).options);
+ assert.equal(r.status,'HOLD');
+ assert.equal(r.candidates[0].zero_catalog_price,false);
+ assert.equal(r.reason,'FREE_MODEL_NOT_VERIFIED');
+});
